@@ -494,7 +494,7 @@ async function fetchWrcItinerary(url: string): Promise<WrcDay[] | null> {
   }
   
   function extractItineraryUrl(html: string): string | null {
-    const cachePattern = /<script type="application\/json" id="rb3-prerender-data-cache">(.*?)<\/script>/s
+    const cachePattern = /<script type="application\/json" id="rb3-prerender-data-cache">([\s\S]*?)<\/script>/
     const match = html.match(cachePattern)
     if (!match) return null
     
