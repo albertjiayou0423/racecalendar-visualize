@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { CalendarDays, Clock, LoaderCircle, Radio, TriangleAlert, Trophy, LayoutGrid, List } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
