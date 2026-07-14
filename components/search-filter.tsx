@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Search, X } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 
@@ -13,21 +13,25 @@ interface SearchFilterProps {
 export function SearchFilter({ events, onFiltered, placeholder = "搜索赛事、城市、国家..." }: SearchFilterProps) {
   const [query, setQuery] = useState("")
 
-  // 执行搜索过滤
-  const filtered = events.filter((event) => {
-    return !query || 
-      event.name.toLowerCase().includes(query.toLowerCase()) ||
-      event.locality.toLowerCase().includes(query.toLowerCase()) ||
-      event.country.toLowerCase().includes(query.toLowerCase()) ||
-      event.circuit.toLowerCase().includes(query.toLowerCase())
-  })
+  // 当搜索词变化时，更新过滤结果
+  useEffect(() => {
+    if (!query.trim()) {
+      onFiltered([])
+      return
+    }
 
-  // 每次过滤变化时更新父组件
-  if (query) {
+    const filtered = events.filter((event) => {
+      const lowerQuery = query.toLowerCase()
+      return (
+        event.name.toLowerCase().includes(lowerQuery) ||
+        event.locality.toLowerCase().includes(lowerQuery) ||
+        event.country.toLowerCase().includes(lowerQuery) ||
+        event.circuit.toLowerCase().includes(lowerQuery)
+      )
+    })
+
     onFiltered(filtered)
-  } else {
-    onFiltered([])  // 无搜索时清空过滤，显示全部
-  }
+  }, [query, events, onFiltered])
 
   const handleClear = () => {
     setQuery("")

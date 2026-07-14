@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { CalendarDays, Clock, LoaderCircle, Radio, TriangleAlert, Trophy, LayoutGrid, List } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
@@ -176,6 +176,11 @@ export function ScheduleView() {
 
   const allEvents = data?.events ?? []
 
+  const handleSearchFiltered = useCallback((results: RaceEvent[]) => {
+    setSearchFiltered(results)
+    setSearchQuery(results.length > 0 ? "active" : "")
+  }, [])
+
   const filtered = useMemo(() => {
     // 如果有搜索，使用搜索结果；否则使用全部事件
     const baseList = searchQuery ? searchFiltered : allEvents
@@ -216,10 +221,7 @@ export function ScheduleView() {
       {/* 搜索和统计 */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SearchFilter events={allEvents} onFiltered={(results) => {
-            setSearchQuery(results.length > 0 || searchQuery ? "active" : "")
-            setSearchFiltered(results)
-          }} />
+          <SearchFilter events={allEvents} onFiltered={handleSearchFiltered} />
         </div>
         <div className="hidden lg:block">
           <StatsPanel events={filtered} now={now} />
