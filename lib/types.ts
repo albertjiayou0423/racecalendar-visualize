@@ -41,6 +41,8 @@ export interface RaceEvent {
   broadcaster?: Broadcaster
   /** 官方赛事页面链接 */
   url?: string
+  /** 整个赛事的时间是否为估计值（未爬取到真实数据） */
+  tentative?: boolean
 }
 
 export interface ScheduleResponse {

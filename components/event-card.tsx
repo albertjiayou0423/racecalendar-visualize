@@ -73,7 +73,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const flag = countryCodeToFlag(event.countryCode)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions)
-  const hasTentative = event.sessions.some((s) => s.tentative)
+  const hasTentative = event.tentative === true
 
   const toggleDay = (date: string) => {
     setOpenDays((prev) => {

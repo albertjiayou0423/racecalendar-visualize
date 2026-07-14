@@ -311,6 +311,7 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
           ...events[index],
           sessions,
           url: `https://www.wrc.com/en/events/${rally.eventSlug}`,
+          tentative: false,
         }
       }
 
