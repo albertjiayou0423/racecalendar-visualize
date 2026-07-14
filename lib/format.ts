@@ -92,7 +92,7 @@ export function isPast(event: RaceEvent, now: number): boolean {
   return new Date(main.utc).getTime() < now
 }
 
-/** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
+/** 倒计时：返回天/时/分，以及是否进行中/已过 */
 export function countdown(utc: string, now: number) {
   const diff = new Date(utc).getTime() - now
   const past = diff <= 0
@@ -100,19 +100,7 @@ export function countdown(utc: string, now: number) {
   const days = Math.floor(abs / 86400000)
   const hours = Math.floor((abs % 86400000) / 3600000)
   const minutes = Math.floor((abs % 3600000) / 60000)
-  const seconds = Math.floor((abs % 60000) / 1000)
-  return { days, hours, minutes, seconds, past }
-}
-
-/** 格式化倒计时，如 "2天 14时 35分 12秒" */
-export function formatCountdown(cd: ReturnType<typeof countdown>, includeSeconds = false): string {
-  if (cd.past) return "已开始"
-  const parts: string[] = []
-  if (cd.days > 0) parts.push(`${cd.days}天`)
-  if (cd.hours > 0) parts.push(`${cd.hours}时`)
-  if (cd.minutes > 0) parts.push(`${cd.minutes}分`)
-  if (includeSeconds && cd.seconds > 0) parts.push(`${cd.seconds}秒`)
-  return parts.length > 0 ? parts.join(" ") : "即刻"
+  return { days, hours, minutes, past }
 }
 
 export const SERIES_META: Record<

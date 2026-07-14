@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LoaderCircle, Radio, TriangleAlert, Trophy, LayoutGrid, List } from "lucide-react"
+import { CalendarDays, Clock, LoaderCircle, Radio, TriangleAlert, Trophy } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
   SERIES_META,
   countdown,
-  formatCountdown,
-  formatDate,
   formatDateTime,
   formatTime,
   isPast,
@@ -17,16 +15,12 @@ import {
 } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
-import { StatsPanel } from "@/components/stats-panel"
-import { DateGroupedView } from "@/components/date-grouped-view"
-import { SearchFilter } from "@/components/search-filter"
 import { cn } from "@/lib/utils"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json() as Promise<ScheduleResponse>)
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
-type ViewMode = "list" | "grouped" | "stats"
 
 const SERIES_TABS: { key: SeriesFilter; label: string }[] = [
   { key: "ALL", label: "全部" },
@@ -41,12 +35,11 @@ const TIME_TABS: { key: TimeFilter; label: string }[] = [
   { key: "past", label: "已结束" },
 ]
 
-/** 实时更新的当前时间戳，最近赛事的倒计时内每秒刷新，否则每 30 秒刷新 */
+/** 每 30 秒刷新的当前时间戳 */
 function useNow() {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    // 快速刷新以支持秒数显示
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(Date.now()), 30000)
     return () => clearInterval(id)
   }, [])
   return now
@@ -110,10 +103,9 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
               <span className="text-2xl text-primary">进行中 / 已结束</span>
             ) : (
               <>
-                {c.days > 0 && <TimeBlock value={c.days} unit="天" />}
-                {c.days > 0 || c.hours > 0 ? <TimeBlock value={c.hours} unit="时" /> : null}
-                {c.days > 0 || c.hours > 0 || c.minutes > 0 ? <TimeBlock value={c.minutes} unit="分" /> : null}
-                <TimeBlock value={c.seconds} unit="秒" />
+                <TimeBlock value={c.days} unit="天" />
+                <TimeBlock value={c.hours} unit="时" />
+                <TimeBlock value={c.minutes} unit="分" />
               </>
             )}
           </div>
@@ -170,15 +162,11 @@ export function ScheduleView() {
   })
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
-  const [viewMode, setViewMode] = useState<ViewMode>("list")
-  const [searchFiltered, setSearchFiltered] = useState<RaceEvent[]>([])
 
   const allEvents = data?.events ?? []
 
   const filtered = useMemo(() => {
-    // 先应用搜索过滤，如果有搜索结果则使用，否则使用全部事件
-    const baseList = searchFiltered.length > 0 ? searchFiltered : allEvents
-    let list = baseList.filter((e) => (series === "ALL" ? true : e.series === series))
+    let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
     if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
     else if (time === "past") list = list.filter((e) => isPast(e, now))
     return [...list].sort((a, b) => {
@@ -186,7 +174,7 @@ export function ScheduleView() {
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, searchFiltered, series, time, now])
+  }, [allEvents, series, time, now])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
@@ -211,16 +199,6 @@ export function ScheduleView() {
         </div>
         {data ? <SourceBar data={data} /> : null}
       </header>
-
-      {/* 搜索和统计 */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <SearchFilter events={allEvents} onFiltered={setSearchFiltered} />
-        </div>
-        <div className="hidden lg:block">
-          <StatsPanel events={filtered} now={now} />
-        </div>
-      </div>
 
       {/* 筛选 */}
       <div className="flex flex-col gap-3">
@@ -262,34 +240,6 @@ export function ScheduleView() {
             </button>
           ))}
         </div>
-
-        {/* 视图模式切换 */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">视图：</span>
-          <div className="flex gap-1">
-            {[
-              { mode: "list", icon: <List className="size-3.5" aria-hidden />, label: "列表" },
-              { mode: "grouped", icon: <CalendarDays className="size-3.5" aria-hidden />, label: "日期分组" },
-              { mode: "stats", icon: <Trophy className="size-3.5" aria-hidden />, label: "统计" },
-            ].map((item) => (
-              <button
-                key={item.mode}
-                type="button"
-                onClick={() => setViewMode(item.mode as ViewMode)}
-                className={cn(
-                  "flex items-center gap-1 rounded-md px-2 py-1 transition-colors",
-                  viewMode === item.mode
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary",
-                )}
-                title={item.label}
-                aria-label={item.label}
-              >
-                {item.icon}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* 加载 / 错误 */}
@@ -309,84 +259,21 @@ export function ScheduleView() {
       {/* 下一场高亮 */}
       {!isLoading && nextUp && time !== "past" ? <NextUp event={nextUp} now={now} /> : null}
 
-      {/* 内容区域：根据视图模式切换 */}
+      {/* 列表 */}
       {!isLoading && !error ? (
-        <>
-          {/* 列表视图 */}
-          {viewMode === "list" && (
-            <section className="flex flex-col gap-3" aria-label="赛程列表">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CalendarDays className="size-4" aria-hidden />
-                共 {filtered.length} 场赛事
-              </div>
-              {filtered.length === 0 ? (
-                <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-                  当前筛选条件下暂无赛事。
-                </p>
-              ) : (
-                filtered.map((e) => <EventCard key={e.id} event={e} now={now} />)
-              )}
-            </section>
+        <section className="flex flex-col gap-3" aria-label="赛程列表">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CalendarDays className="size-4" aria-hidden />
+            共 {filtered.length} 场赛事
+          </div>
+          {filtered.length === 0 ? (
+            <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+              当前筛选条件下暂无赛事。
+            </p>
+          ) : (
+            filtered.map((e) => <EventCard key={e.id} event={e} now={now} />)
           )}
-
-          {/* 日期分组视图 */}
-          {viewMode === "grouped" && (
-            <section aria-label="按日期分组的赛程">
-              {filtered.length === 0 ? (
-                <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-                  当前筛选条件下暂无赛事。
-                </p>
-              ) : (
-                <DateGroupedView events={filtered} />
-              )}
-            </section>
-          )}
-
-          {/* 统计视图 */}
-          {viewMode === "stats" && (
-            <section aria-label="赛事统计">
-              {filtered.length === 0 ? (
-                <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-                  当前筛选条件下暂无赛事。
-                </p>
-              ) : (
-                <>
-                  <StatsPanel events={filtered} now={now} />
-                  <div className="mt-6 rounded-lg border border-border bg-card p-6">
-                    <h3 className="mb-4 text-lg font-semibold">赛事一览</h3>
-                    <div className="grid gap-2">
-                      {filtered.map((e) => {
-                        const main = mainSession(e)
-                        if (!main) return null
-                        const meta = SERIES_META[e.series]
-                        return (
-                          <div key={e.id} className="flex items-center justify-between rounded-lg bg-secondary/30 p-3 text-sm">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="rounded px-1.5 py-0.5 text-xs font-bold"
-                                  style={{ backgroundColor: meta.color, color: meta.textColor }}
-                                >
-                                  {meta.label}
-                                </span>
-                                <span className="truncate font-medium">{e.name}</span>
-                              </div>
-                              <p className="mt-1 text-xs text-muted-foreground">{e.locality}</p>
-                            </div>
-                            <div className="shrink-0 text-right font-mono text-xs">
-                              <div className="text-muted-foreground">{formatDate(main.utc, BEIJING_TZ)}</div>
-                              <div className="font-semibold">{formatTime(main.utc, BEIJING_TZ)}</div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </section>
-          )}
-        </>
+        </section>
       ) : null}
 
       <footer className="mt-4 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
