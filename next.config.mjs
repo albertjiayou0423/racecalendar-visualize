@@ -6,10 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
-  outputFileTracingIncludes: {
-    "/api/schedule": ["./node_modules/@sparticuz/chromium/**/*"],
-  },
 }
 
 export default nextConfig
