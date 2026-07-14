@@ -384,91 +384,122 @@ function wrcStageToSession(
 async function fetchWrcItinerary(url: string): Promise<WrcDay[] | null> {
   const apiKey = process.env.SCRAPER_API_KEY
   
-  async function fetchWithApi(): Promise<string | null> {
-    if (!apiKey) return null
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Ch-Ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"",
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": "\"Windows\"",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
+    "Referer": "https://www.wrc.com/en/",
+  }
+  
+  async function fetchHtml(targetUrl: string): Promise<string | null> {
+    if (apiKey) {
+      try {
+        const encodedUrl = encodeURIComponent(targetUrl)
+        const res = await fetch(`https://api.apilayer.com/scraper?url=${encodedUrl}`, {
+          headers: {
+            "apikey": apiKey,
+            "X-User-Agent": headers["User-Agent"],
+            "X-Referer": headers["Referer"],
+            "X-Accept-Language": headers["Accept-Language"],
+          },
+          next: { revalidate: 86400 },
+        })
+        if (!res.ok) {
+          console.error(`Scraper API failed: ${res.status} ${res.statusText} for ${targetUrl}`)
+        } else {
+          const data = await res.json()
+          if (typeof data === "string") return data
+          if (data && typeof data === "object") {
+            if (data["data-selector"]) return data["data-selector"].join("\n")
+            if (data.data) return data.data
+            if (typeof data.html === "string") return data.html
+          }
+        }
+      } catch (e) {
+        console.error(`Scraper API error: ${e}`)
+      }
+    }
+    
     try {
-      const encodedUrl = encodeURIComponent(url)
-      const res = await fetch(`https://api.apilayer.com/scraper?url=${encodedUrl}`, {
-        headers: {
-          "apikey": apiKey,
-          "X-User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "X-Referer": "https://www.wrc.com/en/",
-          "X-Accept-Language": "en-US,en;q=0.9",
-        },
+      const res = await fetch(targetUrl, {
+        headers,
         next: { revalidate: 86400 },
       })
       if (!res.ok) {
-        console.error(`Scraper API failed: ${res.status} ${res.statusText} for ${url}`)
+        console.error(`WRC fetch failed: ${res.status} ${res.statusText} for ${targetUrl}`)
         return null
       }
-      const data = await res.json()
-      if (typeof data === "string") return data
-      if (data && typeof data === "object") {
-        if (data["data-selector"]) return data["data-selector"].join("\n")
-        if (data.data) return data.data
-        if (typeof data.html === "string") return data.html
-      }
-      return null
+      return res.text()
     } catch (e) {
-      console.error(`Scraper API error: ${e}`)
+      console.error(`WRC fetch error: ${e}`)
       return null
     }
   }
   
-  async function fetchDirect(): Promise<string | null> {
+  function extractItineraryUrl(html: string): string | null {
+    const cachePattern = /<script type="application\/json" id="rb3-prerender-data-cache">(.*?)<\/script>/s
+    const match = html.match(cachePattern)
+    if (!match) return null
+    
     try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate, br",
-          "Connection": "keep-alive",
-          "Upgrade-Insecure-Requests": "1",
-          "Sec-Ch-Ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"",
-          "Sec-Ch-Ua-Mobile": "?0",
-          "Sec-Ch-Ua-Platform": "\"Windows\"",
-          "Sec-Fetch-Dest": "document",
-          "Sec-Fetch-Mode": "navigate",
-          "Sec-Fetch-Site": "none",
-          "Sec-Fetch-User": "?1",
-          "Cache-Control": "max-age=0",
-          "Referer": "https://www.wrc.com/en/",
-        },
-        next: { revalidate: 86400 },
-      })
-      
-      if (!res.ok) {
-        console.error(`WRC fetch failed: ${res.status} ${res.statusText} for ${url}`)
-        return null
+      const cacheData = JSON.parse(match[1])
+      for (const key of Object.keys(cacheData)) {
+        if (key.includes('pageTabs')) {
+          const value = cacheData[key]
+          if (value?.data?.data?.tabs) {
+            const itineraryTab = value.data.data.tabs.find((t: any) => t.label === 'Itinerary')
+            if (itineraryTab?.url) {
+              return `https://www.wrc.com${itineraryTab.url}`
+            }
+          }
+        }
       }
-      
-      return res.text()
-    } catch (e) {
-      console.error(`WRC direct fetch error: ${e}`)
-      return null
+    } catch {
+      // ignore JSON parse errors
     }
+    
+    return null
   }
   
   try {
-    let html = await fetchWithApi()
-    
-    if (!html) {
-      html = await fetchDirect()
-    }
-    
-    if (!html) {
+    const mainPageHtml = await fetchHtml(url)
+    if (!mainPageHtml) {
       return null
     }
     
-    if (html.includes("Access Denied") || html.includes("Cloudflare")) {
+    if (mainPageHtml.includes("Access Denied") || mainPageHtml.includes("Cloudflare")) {
       console.error(`WRC Cloudflare blocked: ${url}`)
       return null
     }
     
-    const days = parseWrcItinerary(html)
+    const itineraryUrl = extractItineraryUrl(mainPageHtml)
+    
+    if (!itineraryUrl) {
+      console.error(`Could not find itinerary URL for: ${url}`)
+      return null
+    }
+    
+    console.log(`Found itinerary URL: ${itineraryUrl}`)
+    
+    const itineraryHtml = await fetchHtml(itineraryUrl)
+    if (!itineraryHtml) {
+      return null
+    }
+    
+    const days = parseWrcItinerary(itineraryHtml)
     if (!days) {
-      console.error(`WRC parse failed: ${url}, html preview: ${html.substring(0, 500)}`)
+      console.error(`WRC parse failed: ${itineraryUrl}`)
     }
     return days
   } catch (err) {
@@ -489,20 +520,20 @@ interface WrcRally {
 }
 
 const WRC_RALLIES: WrcRally[] = [
-  { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", url: "https://www.wrc.com/en/events/wrc-rallye-monte-carlo-2026/itinerary-rallye-monte-carlo-2026" },
-  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", url: "https://www.wrc.com/en/events/wrc-rally-sweden-2026/itinerary-rally-sweden-2026" },
-  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", url: "https://www.wrc.com/en/events/wrc-safari-rally-kenya-2026/itinerary-safari-rally-kenya-2026" },
-  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", url: "https://www.wrc.com/en/events/wrc-croatia-rally-2026/itinerary-croatia-rally-2026" },
-  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", url: "https://www.wrc.com/en/events/wrc-rally-islas-canarias-2026/itinerary-rally-islas-canarias-2026" },
-  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", url: "https://www.wrc.com/en/events/wrc-rally-de-portugal-2026/itinerary-rally-de-portugal-2026" },
-  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", url: "https://www.wrc.com/en/events/wrc-rally-japan-2026/itinerary-rally-japan-2026" },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", url: "https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026/itinerary-acropolis-rally-greece-2026" },
-  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", url: "https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026/itinerary-wrc-rally-estonia-2026" },
-  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", url: "https://www.wrc.com/en/events/wrc-rally-finland-2026/itinerary-rally-finland-2026" },
-  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", url: "https://www.wrc.com/en/events/wrc-rally-paraguay-2026/itinerary-rally-paraguay-2026" },
-  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", url: "https://www.wrc.com/en/events/wrc-rally-chile-2026/itinerary-rally-chile-2026" },
-  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", url: "https://www.wrc.com/en/events/wrc-rally-italia-sardegna-2026/itinerary-rally-italia-sardegna-2026" },
-  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", url: "https://www.wrc.com/en/events/wrc-rally-saudi-arabia-2026/itinerary-rally-saudi-arabia-2026" },
+  { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", url: "https://www.wrc.com/en/events/wrc-rallye-monte-carlo-2026" },
+  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", url: "https://www.wrc.com/en/events/wrc-rally-sweden-2026" },
+  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", url: "https://www.wrc.com/en/events/wrc-safari-rally-kenya-2026" },
+  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", url: "https://www.wrc.com/en/events/wrc-croatia-rally-2026" },
+  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", url: "https://www.wrc.com/en/events/wrc-rally-islas-canarias-2026" },
+  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", url: "https://www.wrc.com/en/events/wrc-rally-de-portugal-2026" },
+  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", url: "https://www.wrc.com/en/events/wrc-rally-japan-2026" },
+  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", url: "https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026" },
+  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", url: "https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026" },
+  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", url: "https://www.wrc.com/en/events/wrc-secto-rally-finland-2026" },
+  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", url: "https://www.wrc.com/en/events/wrc-rally-del-paraguay-2026" },
+  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", url: "https://www.wrc.com/en/events/wrc-rally-chile-bio-bio-2026" },
+  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", url: "https://www.wrc.com/en/events/wrc-rally-italia-sardegna-2026" },
+  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", url: "https://www.wrc.com/en/events/wrc-rally-saudi-arabia-2026" },
 ]
 
 export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
