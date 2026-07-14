@@ -171,13 +171,14 @@ export function ScheduleView() {
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
+  const [searchQuery, setSearchQuery] = useState("")
   const [searchFiltered, setSearchFiltered] = useState<RaceEvent[]>([])
 
   const allEvents = data?.events ?? []
 
   const filtered = useMemo(() => {
-    // 先应用搜索过滤，如果有搜索结果则使用，否则使用全部事件
-    const baseList = searchFiltered.length > 0 ? searchFiltered : allEvents
+    // 如果有搜索，使用搜索结果；否则使用全部事件
+    const baseList = searchQuery ? searchFiltered : allEvents
     let list = baseList.filter((e) => (series === "ALL" ? true : e.series === series))
     if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
     else if (time === "past") list = list.filter((e) => isPast(e, now))
@@ -186,7 +187,7 @@ export function ScheduleView() {
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, searchFiltered, series, time, now])
+  }, [allEvents, searchQuery, searchFiltered, series, time, now])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
@@ -215,7 +216,10 @@ export function ScheduleView() {
       {/* 搜索和统计 */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SearchFilter events={allEvents} onFiltered={setSearchFiltered} />
+          <SearchFilter events={allEvents} onFiltered={(results) => {
+            setSearchQuery(results.length > 0 || searchQuery ? "active" : "")
+            setSearchFiltered(results)
+          }} />
         </div>
         <div className="hidden lg:block">
           <StatsPanel events={filtered} now={now} />
