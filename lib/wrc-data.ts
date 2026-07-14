@@ -164,5 +164,6 @@ export function buildWrcEvents(): RaceEvent[] {
       note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
     },
     url: "https://www.wrc.com/",
+    tentative: true,
   }))
 }
