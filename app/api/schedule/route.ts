@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server"
-import { fetchF1, fetchFe } from "@/lib/fetchers"
+import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
 import { buildWrcEvents } from "@/lib/wrc-data"
 import type { ScheduleResponse } from "@/lib/types"
 
 export const revalidate = 3600
+export const maxDuration = 300
 
 export async function GET() {
-  const [f1, fe] = await Promise.all([fetchF1(), fetchFe()])
-  const wrcEvents = buildWrcEvents()
+  const [f1, fe, wrc] = await Promise.all([fetchF1(), fetchFe(), fetchWrc()])
+  
+  const wrcEvents = wrc.ok && wrc.events.length > 0 
+    ? wrc.events 
+    : buildWrcEvents()
 
   const body: ScheduleResponse = {
     events: [...f1.events, ...wrcEvents, ...fe.events],
@@ -20,9 +24,11 @@ export async function GET() {
       },
       {
         series: "WRC",
-        label: "FIA / WRC 官方赛历",
-        ok: true,
-        note: "官方公布赛历（赛段具体时间以官方 itinerary 为准）",
+        label: "WRC 官方 itinerary（爬取）",
+        ok: wrc.ok,
+        note: wrc.ok 
+          ? wrc.note || "成功从官方 itinerary 爬取真实赛段时间"
+          : "爬取失败，使用估计时间（以官方 itinerary 为准）",
       },
       {
         series: "FE",

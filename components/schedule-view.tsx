@@ -35,11 +35,11 @@ const TIME_TABS: { key: TimeFilter; label: string }[] = [
   { key: "past", label: "已结束" },
 ]
 
-/** 每 30 秒刷新的当前时间戳 */
+/** 每秒刷新的当前时间戳 */
 function useNow() {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
   return now
@@ -106,6 +106,7 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
                 <TimeBlock value={c.days} unit="天" />
                 <TimeBlock value={c.hours} unit="时" />
                 <TimeBlock value={c.minutes} unit="分" />
+                <TimeBlock value={c.seconds} unit="秒" />
               </>
             )}
           </div>

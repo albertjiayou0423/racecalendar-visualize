@@ -1,5 +1,7 @@
 import type { RaceEvent, RaceSession } from "./types"
-import { F1_CIRCUIT_TZ, COUNTRY_MAP, COUNTRY_CODE_MAP } from "./tz"
+import { F1_CIRCUIT_TZ, COUNTRY_MAP, COUNTRY_CODE_MAP, zonedWallTimeToUtc } from "./tz"
+import { buildWrcEvents } from "./wrc-data"
+export { fetchWrc } from "./wrc-puppeteer"
 
 const F1_BROADCASTER = {
   name: "五星体育",
