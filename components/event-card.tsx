@@ -73,6 +73,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const flag = countryCodeToFlag(event.countryCode)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions)
+  const hasTentative = event.sessions.some((s) => s.tentative)
 
   const toggleDay = (date: string) => {
     setOpenDays((prev) => {
@@ -132,17 +133,24 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
       {/* 转播条 + 展开按钮 */}
       <div className="flex items-center justify-between gap-3 border-t border-border bg-secondary/30 px-4 py-2.5">
-        {event.broadcaster ? (
-          <div className="flex min-w-0 items-center gap-2 text-xs">
-            <Radio className="size-3.5 shrink-0 text-primary" aria-hidden />
-            <span className="font-medium">{event.broadcaster.name}</span>
-            {event.broadcaster.note ? (
-              <span className="truncate text-muted-foreground">{event.broadcaster.note}</span>
-            ) : null}
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">转播信息待确认</span>
-        )}
+        <div className="flex min-w-0 items-center gap-2 text-xs">
+          {event.broadcaster ? (
+            <>
+              <Radio className="size-3.5 shrink-0 text-primary" aria-hidden />
+              <span className="font-medium">{event.broadcaster.name}</span>
+              {event.broadcaster.note ? (
+                <span className="truncate text-muted-foreground">{event.broadcaster.note}</span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-muted-foreground">转播信息待确认</span>
+          )}
+          {event.series === "WRC" && (
+            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", hasTentative ? "bg-muted text-muted-foreground" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400")}>
+              {hasTentative ? "估计" : "官方"}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -214,7 +222,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           <p className="px-4 py-2 text-[11px] text-muted-foreground">
             首个场次：{first ? formatDateTime(first.utc, BEIJING_TZ) : "—"}（北京时间）
             <span className="ml-2">·</span>
-            <span className="ml-2">WRC 赛段时间为估计值，以官方 itinerary 为准</span>
+            {hasTentative ? (
+              <span className="ml-2">WRC 赛段时间为估计值，以官方 itinerary 为准</span>
+            ) : (
+              <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 itinerary</span>
+            )}
           </p>
         </div>
       ) : null}
