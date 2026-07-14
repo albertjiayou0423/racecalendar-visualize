@@ -296,21 +296,67 @@ function parseWrcItinerary(html: string): WrcDay[] | null {
   
   const currentYear = new Date().getFullYear()
   
-  let timeIndex = 0
-  const processedDates = new Set<string>()
+  const uniqueDayMatches: { dayName: string; day: number; month: number; monthName: string }[] = []
+  const seenDates = new Set<string>()
   
-  for (const dayMatch of dayMatches) {
-    const dayName = dayMatch[1]
-    const day = parseInt(dayMatch[2], 10)
-    const monthName = dayMatch[3]
+  for (const match of dayMatches) {
+    const dayName = match[1]
+    const day = parseInt(match[2], 10)
+    const monthName = match[3]
     const month = months[monthName]
     
     if (!month || day < 1 || day > 31) continue
     
     const dateKey = `${dayName}-${day}-${monthName}`
-    if (processedDates.has(dateKey)) continue
-    processedDates.add(dateKey)
+    if (seenDates.has(dateKey)) continue
+    seenDates.add(dateKey)
     
+    uniqueDayMatches.push({ dayName, day, month, monthName })
+  }
+  
+  if (uniqueDayMatches.length === 0) {
+    return null
+  }
+  
+  const correctedDays: { dayName: string; day: number; month: number; monthName: string }[] = []
+  
+  const firstDayMatch = uniqueDayMatches[0]
+  const firstDayName = firstDayMatch.dayName
+  const firstDay = firstDayMatch.day
+  const firstMonthName = firstDayMatch.monthName
+  const firstMonth = firstDayMatch.month
+  
+  const dayOrder = ['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']
+  const firstIndex = dayOrder.indexOf(firstDayName)
+  
+  for (let i = 0; i < uniqueDayMatches.length; i++) {
+    const expectedIndex = (firstIndex + i) % 7
+    const expectedDayName = dayOrder[expectedIndex]
+    
+    let correctedDay = firstDay + i
+    let correctedMonth = firstMonth
+    let correctedYear = currentYear
+    
+    if (correctedDay > 31) {
+      correctedDay = correctedDay - 31
+      correctedMonth++
+      if (correctedMonth > 12) {
+        correctedMonth = 1
+        correctedYear++
+      }
+    }
+    
+    correctedDays.push({
+      dayName: expectedDayName,
+      day: correctedDay,
+      month: correctedMonth,
+      monthName: Object.keys(months).find(k => months[k] === correctedMonth) || firstMonthName,
+    })
+  }
+  
+  let timeIndex = 0
+  
+  for (const { dayName, day, month, monthName } of correctedDays) {
     const dateStr = `${dayName}, ${day} ${monthName} ${currentYear}`
     const stages: WrcStage[] = []
     
