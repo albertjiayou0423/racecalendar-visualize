@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { CalendarDays, Clock, LoaderCircle, Radio, TriangleAlert, Trophy, LayoutGrid, List } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
@@ -171,19 +171,13 @@ export function ScheduleView() {
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
-  const [searchQuery, setSearchQuery] = useState("")
   const [searchFiltered, setSearchFiltered] = useState<RaceEvent[]>([])
 
   const allEvents = data?.events ?? []
 
-  const handleSearchFiltered = useCallback((results: RaceEvent[]) => {
-    setSearchFiltered(results)
-    setSearchQuery(results.length > 0 ? "active" : "")
-  }, [])
-
   const filtered = useMemo(() => {
-    // 如果有搜索，使用搜索结果；否则使用全部事件
-    const baseList = searchQuery ? searchFiltered : allEvents
+    // 先应用搜索过滤，如果有搜索结果则使用，否则使用全部事件
+    const baseList = searchFiltered.length > 0 ? searchFiltered : allEvents
     let list = baseList.filter((e) => (series === "ALL" ? true : e.series === series))
     if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
     else if (time === "past") list = list.filter((e) => isPast(e, now))
@@ -192,7 +186,7 @@ export function ScheduleView() {
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, searchQuery, searchFiltered, series, time, now])
+  }, [allEvents, searchFiltered, series, time, now])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
@@ -221,7 +215,7 @@ export function ScheduleView() {
       {/* 搜索和统计 */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SearchFilter events={allEvents} onFiltered={handleSearchFiltered} />
+          <SearchFilter events={allEvents} onFiltered={setSearchFiltered} />
         </div>
         <div className="hidden lg:block">
           <StatsPanel events={filtered} now={now} />
