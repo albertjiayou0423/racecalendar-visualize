@@ -261,3 +261,201 @@ function cleanFeName(name: string): string {
   // 去掉赞助前缀，保留城市 E-Prix
   return name.replace(/^\d{4}\s+/, "").replace(/Google Cloud |ABB |Hankook |SABIC /g, "")
 }
+
+/** ============ WRC（从官方 itinerary 页面爬取真实时间） ============ */
+
+interface WrcStage {
+  name: string
+  time: string
+  isPowerStage?: boolean
+}
+
+interface WrcDay {
+  date: string
+  stages: WrcStage[]
+}
+
+function parseWrcItinerary(html: string): WrcDay[] | null {
+  const result: WrcDay[] = []
+  const lines = html.split("\n")
+  
+  const dayPattern = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{1,2}) (\w+) (\d{4})$/i
+  const stagePattern = /^(\d{2}:\d{2}):\s*(.+)$/
+  
+  let currentDay: WrcDay | null = null
+  
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    
+    const dayMatch = trimmed.match(dayPattern)
+    if (dayMatch) {
+      if (currentDay && currentDay.stages.length > 0) {
+        result.push(currentDay)
+      }
+      currentDay = { date: trimmed, stages: [] }
+      continue
+    }
+    
+    const stageMatch = trimmed.match(stagePattern)
+    if (stageMatch && currentDay) {
+      const time = stageMatch[1]
+      let name = stageMatch[2].trim()
+      
+      let isPowerStage = false
+      if (name.includes("Powerstage") || name.includes("Power Stage")) {
+        isPowerStage = true
+      }
+      
+      const ssMatch = name.match(/(SS\d+|SSS\d+)/)
+      if (ssMatch) {
+        name = ssMatch[1] + (isPowerStage ? " (Power Stage)" : "")
+      } else if (name.includes("Shakedown")) {
+        name = "排位测试赛段 (Shakedown)"
+      }
+      
+      currentDay.stages.push({ name, time, isPowerStage })
+    }
+  }
+  
+  if (currentDay && currentDay.stages.length > 0) {
+    result.push(currentDay)
+  }
+  
+  return result.length > 0 ? result : null
+}
+
+function dateStrToYmd(dateStr: string): [number, number, number] | null {
+  const months: Record<string, number> = {
+    Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+    Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+  }
+  const match = dateStr.match(/\w+,\s*(\d{1,2})\s+(\w+)\s+(\d{4})/)
+  if (!match) return null
+  const d = parseInt(match[1], 10)
+  const m = months[match[2]]
+  const y = parseInt(match[3], 10)
+  return m ? [y, m, d] : null
+}
+
+function wrcStageToSession(
+  stage: WrcStage,
+  date: [number, number, number],
+  tz: string,
+): RaceSession | null {
+  const [y, m, d] = date
+  const [h, min] = stage.time.split(":").map(Number)
+  if (isNaN(h) || isNaN(min)) return null
+  
+  return {
+    name: stage.name,
+    utc: zonedWallTimeToUtc(y, m, d, h, min, tz).toISOString(),
+    isMain: stage.isPowerStage,
+  }
+}
+
+async function fetchWrcItinerary(url: string): Promise<WrcDay[] | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+      },
+      next: { revalidate: 86400 },
+    })
+    
+    if (!res.ok) return null
+    
+    const html = await res.text()
+    return parseWrcItinerary(html)
+  } catch {
+    return null
+  }
+}
+
+interface WrcRally {
+  round: number
+  name: string
+  hq: string
+  city: string
+  country: string
+  code: string
+  tz: string
+  url: string
+}
+
+const WRC_RALLIES: WrcRally[] = [
+  { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", url: "https://www.wrc.com/en/events/wrc-rallye-monte-carlo-2026/itinerary-rallye-monte-carlo-2026" },
+  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", url: "https://www.wrc.com/en/events/wrc-rally-sweden-2026/itinerary-rally-sweden-2026" },
+  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", url: "https://www.wrc.com/en/events/wrc-safari-rally-kenya-2026/itinerary-safari-rally-kenya-2026" },
+  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", url: "https://www.wrc.com/en/events/wrc-croatia-rally-2026/itinerary-croatia-rally-2026" },
+  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", url: "https://www.wrc.com/en/events/wrc-rally-islas-canarias-2026/itinerary-rally-islas-canarias-2026" },
+  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", url: "https://www.wrc.com/en/events/wrc-rally-de-portugal-2026/itinerary-rally-de-portugal-2026" },
+  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", url: "https://www.wrc.com/en/events/wrc-rally-japan-2026/itinerary-rally-japan-2026" },
+  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", url: "https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026/itinerary-acropolis-rally-greece-2026" },
+  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", url: "https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026/itinerary-wrc-rally-estonia-2026" },
+  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", url: "https://www.wrc.com/en/events/wrc-rally-finland-2026/itinerary-rally-finland-2026" },
+  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", url: "https://www.wrc.com/en/events/wrc-rally-paraguay-2026/itinerary-rally-paraguay-2026" },
+  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", url: "https://www.wrc.com/en/events/wrc-rally-chile-2026/itinerary-rally-chile-2026" },
+  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", url: "https://www.wrc.com/en/events/wrc-rally-italia-sardegna-2026/itinerary-rally-italia-sardegna-2026" },
+  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", url: "https://www.wrc.com/en/events/wrc-rally-saudi-arabia-2026/itinerary-rally-saudi-arabia-2026" },
+]
+
+export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
+  const events: RaceEvent[] = []
+  let successCount = 0
+  const errors: string[] = []
+
+  for (const rally of WRC_RALLIES) {
+    const days = await fetchWrcItinerary(rally.url)
+    
+    if (days && days.length > 0) {
+      const sessions: RaceSession[] = []
+      
+      for (const day of days) {
+        const date = dateStrToYmd(day.date)
+        if (!date) continue
+        
+        for (const stage of day.stages) {
+          const session = wrcStageToSession(stage, date, rally.tz)
+          if (session) sessions.push(session)
+        }
+      }
+      
+      sessions.sort((a, b) => a.utc.localeCompare(b.utc))
+      
+      events.push({
+        id: `wrc-2026-${rally.round}`,
+        series: "WRC" as const,
+        round: rally.round,
+        name: rally.name,
+        circuit: `${rally.hq} · 赛事总部`,
+        locality: rally.city,
+        country: rally.country,
+        countryCode: rally.code,
+        tz: rally.tz,
+        sessions,
+        broadcaster: {
+          name: "腾讯视频",
+          note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
+        },
+        url: rally.url,
+      })
+      
+      successCount++
+    } else {
+      errors.push(rally.name)
+    }
+  }
+
+  const ok = successCount > 0
+  const note = errors.length > 0 
+    ? `${successCount} 场赛事获取成功，${errors.length} 场失败（${errors.join(", ")}）`
+    : "所有赛事时间获取成功"
+
+  return { events, ok, note }
+}
