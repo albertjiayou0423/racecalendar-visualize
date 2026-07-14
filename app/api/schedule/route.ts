@@ -4,6 +4,7 @@ import { buildWrcEvents } from "@/lib/wrc-data"
 import type { ScheduleResponse } from "@/lib/types"
 
 export const revalidate = 3600
+export const maxDuration = 300
 
 export async function GET() {
   const [f1, fe, wrc] = await Promise.all([fetchF1(), fetchFe(), fetchWrc()])
