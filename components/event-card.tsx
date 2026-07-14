@@ -222,11 +222,17 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           <p className="px-4 py-2 text-[11px] text-muted-foreground">
             首个场次：{first ? formatDateTime(first.utc, BEIJING_TZ) : "—"}（北京时间）
             <span className="ml-2">·</span>
-            {hasTentative ? (
-              <span className="ml-2">WRC 赛段时间为估计值，以官方 itinerary 为准</span>
-            ) : (
-              <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 itinerary</span>
-            )}
+            {event.series === "WRC" ? (
+              hasTentative ? (
+                <span className="ml-2">赛段时间为估计值，以官方 itinerary 为准</span>
+              ) : (
+                <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 itinerary</span>
+              )
+            ) : event.series === "F1" ? (
+              <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：F1 官方公开数据</span>
+            ) : event.series === "FE" ? (
+              <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：Formula E 官方 API</span>
+            ) : null}
           </p>
         </div>
       ) : null}
