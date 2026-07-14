@@ -1,5 +1,6 @@
 import type { RaceEvent, RaceSession } from "./types"
-import { F1_CIRCUIT_TZ, COUNTRY_MAP, COUNTRY_CODE_MAP } from "./tz"
+import { F1_CIRCUIT_TZ, COUNTRY_MAP, COUNTRY_CODE_MAP, zonedWallTimeToUtc } from "./tz"
+import { buildWrcEvents } from "./wrc-data"
 
 const F1_BROADCASTER = {
   name: "五星体育",
@@ -277,49 +278,73 @@ interface WrcDay {
 
 function parseWrcItinerary(html: string): WrcDay[] | null {
   const result: WrcDay[] = []
-  const lines = html.split("\n")
   
-  const dayPattern = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{1,2}) (\w+) (\d{4})$/i
-  const stagePattern = /^(\d{2}:\d{2}):\s*(.+)$/
+  const dayPattern = /(Friday|Saturday|Sunday), (\d{1,2}) (July|June|May|April|March|February|January|August|September|October|November|December)/gi
+  const timePattern = /(\d{2}:\d{2}):\s*(Shakedown|SS\d+|SSS\d+)/gi
   
-  let currentDay: WrcDay | null = null
+  const dayMatches = [...html.matchAll(dayPattern)]
+  const timeMatches = [...html.matchAll(timePattern)]
   
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
+  if (dayMatches.length === 0 || timeMatches.length === 0) {
+    return null
+  }
+  
+  const months: Record<string, number> = {
+    January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
+    July: 7, August: 8, September: 9, October: 10, November: 11, December: 12,
+  }
+  
+  const currentYear = new Date().getFullYear()
+  
+  let timeIndex = 0
+  const processedDates = new Set<string>()
+  
+  for (const dayMatch of dayMatches) {
+    const dayName = dayMatch[1]
+    const day = parseInt(dayMatch[2], 10)
+    const monthName = dayMatch[3]
+    const month = months[monthName]
     
-    const dayMatch = trimmed.match(dayPattern)
-    if (dayMatch) {
-      if (currentDay && currentDay.stages.length > 0) {
-        result.push(currentDay)
-      }
-      currentDay = { date: trimmed, stages: [] }
-      continue
-    }
+    if (!month || day < 1 || day > 31) continue
     
-    const stageMatch = trimmed.match(stagePattern)
-    if (stageMatch && currentDay) {
-      const time = stageMatch[1]
-      let name = stageMatch[2].trim()
+    const dateKey = `${dayName}-${day}-${monthName}`
+    if (processedDates.has(dateKey)) continue
+    processedDates.add(dateKey)
+    
+    const dateStr = `${dayName}, ${day} ${monthName} ${currentYear}`
+    const stages: WrcStage[] = []
+    
+    while (timeIndex < timeMatches.length) {
+      const timeMatch = timeMatches[timeIndex]
+      const time = timeMatch[1]
+      let name = timeMatch[2].trim()
       
       let isPowerStage = false
-      if (name.includes("Powerstage") || name.includes("Power Stage")) {
+      if (name.includes("Power") || html.substring(timeMatch.index, timeMatch.index + 100).includes("Power")) {
         isPowerStage = true
       }
       
-      const ssMatch = name.match(/(SS\d+|SSS\d+)/)
-      if (ssMatch) {
-        name = ssMatch[1] + (isPowerStage ? " (Power Stage)" : "")
+      if (name.startsWith("SS")) {
+        name = name + (isPowerStage ? " (Power Stage)" : "")
       } else if (name.includes("Shakedown")) {
         name = "排位测试赛段 (Shakedown)"
       }
       
-      currentDay.stages.push({ name, time, isPowerStage })
+      stages.push({ name, time, isPowerStage })
+      timeIndex++
+      
+      const nextTimeMatch = timeMatches[timeIndex]
+      if (nextTimeMatch) {
+        const nextTime = nextTimeMatch[1]
+        if (nextTime < time) {
+          break
+        }
+      }
     }
-  }
-  
-  if (currentDay && currentDay.stages.length > 0) {
-    result.push(currentDay)
+    
+    if (stages.length > 0) {
+      result.push({ date: dateStr, stages })
+    }
   }
   
   return result.length > 0 ? result : null
@@ -327,8 +352,10 @@ function parseWrcItinerary(html: string): WrcDay[] | null {
 
 function dateStrToYmd(dateStr: string): [number, number, number] | null {
   const months: Record<string, number> = {
-    Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
-    Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+    Jan: 1, February: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+    Jul: 7, August: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+    January: 1, Feb: 2, March: 3, April: 4, June: 6,
+    July: 7, September: 9, October: 10, November: 11, December: 12,
   }
   const match = dateStr.match(/\w+,\s*(\d{1,2})\s+(\w+)\s+(\d{4})/)
   if (!match) return null
@@ -364,15 +391,37 @@ async function fetchWrcItinerary(url: string): Promise<WrcDay[] | null> {
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
+        "Sec-Ch-Ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"",
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": "\"Windows\"",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Referer": "https://www.wrc.com/en/events/",
       },
       next: { revalidate: 86400 },
     })
     
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.error(`WRC fetch failed: ${res.status} ${res.statusText} for ${url}`)
+      return null
+    }
     
     const html = await res.text()
-    return parseWrcItinerary(html)
-  } catch {
+    
+    if (html.includes("Access Denied") || html.includes("Cloudflare")) {
+      console.error(`WRC Cloudflare blocked: ${url}`)
+      return null
+    }
+    
+    const days = parseWrcItinerary(html)
+    if (!days) {
+      console.error(`WRC parse failed: ${url}, html preview: ${html.substring(0, 500)}`)
+    }
+    return days
+  } catch (err) {
+    console.error(`WRC fetch error: ${url}`, err)
     return null
   }
 }
@@ -406,7 +455,8 @@ const WRC_RALLIES: WrcRally[] = [
 ]
 
 export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
-  const events: RaceEvent[] = []
+  const fallbackEvents = buildWrcEvents()
+  const events: RaceEvent[] = [...fallbackEvents]
   let successCount = 0
   const errors: string[] = []
 
@@ -428,23 +478,14 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
       
       sessions.sort((a, b) => a.utc.localeCompare(b.utc))
       
-      events.push({
-        id: `wrc-2026-${rally.round}`,
-        series: "WRC" as const,
-        round: rally.round,
-        name: rally.name,
-        circuit: `${rally.hq} · 赛事总部`,
-        locality: rally.city,
-        country: rally.country,
-        countryCode: rally.code,
-        tz: rally.tz,
-        sessions,
-        broadcaster: {
-          name: "腾讯视频",
-          note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
-        },
-        url: rally.url,
-      })
+      const index = events.findIndex((e) => e.round === rally.round)
+      if (index !== -1) {
+        events[index] = {
+          ...events[index],
+          sessions,
+          url: rally.url,
+        }
+      }
       
       successCount++
     } else {
@@ -454,8 +495,8 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
 
   const ok = successCount > 0
   const note = errors.length > 0 
-    ? `${successCount} 场赛事获取成功，${errors.length} 场失败（${errors.join(", ")}）`
-    : "所有赛事时间获取成功"
+    ? `${successCount} 场赛事获取成功（真实时间），${errors.length} 场使用估计数据（${errors.join(", ")}）`
+    : "所有赛事时间获取成功（真实时间）"
 
   return { events, ok, note }
 }
