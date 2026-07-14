@@ -175,6 +175,10 @@ export function ScheduleView() {
 
   const allEvents = data?.events ?? []
 
+  const handleSearchFiltered = useCallback((results: RaceEvent[]) => {
+    setSearchFiltered(results)
+  }, [])
+
   const filtered = useMemo(() => {
     // 先应用搜索过滤，如果有搜索结果则使用，否则使用全部事件
     const baseList = searchFiltered.length > 0 ? searchFiltered : allEvents

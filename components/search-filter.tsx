@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Search, X } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -16,30 +16,33 @@ export function SearchFilter({ events, onFiltered, placeholder = "搜索赛事�
   const [country, setCountry] = useState<string>("")
 
   // 获取所有国家列表
-  const countries = Array.from(
-    new Set(events.map((e) => e.country).filter(Boolean)),
-  ).sort()
+  const countries = useMemo(
+    () => Array.from(
+      new Set(events.map((e) => e.country).filter(Boolean)),
+    ).sort(),
+    [events]
+  )
 
   // 执行搜索过滤
-  const filtered = events.filter((event) => {
-    const matchQuery = !query || 
-      event.name.toLowerCase().includes(query.toLowerCase()) ||
-      event.locality.toLowerCase().includes(query.toLowerCase()) ||
-      event.country.toLowerCase().includes(query.toLowerCase()) ||
-      event.circuit.toLowerCase().includes(query.toLowerCase())
+  const filtered = useMemo(() => {
+    return events.filter((event) => {
+      const matchQuery = !query || 
+        event.name.toLowerCase().includes(query.toLowerCase()) ||
+        event.locality.toLowerCase().includes(query.toLowerCase()) ||
+        event.country.toLowerCase().includes(query.toLowerCase()) ||
+        event.circuit.toLowerCase().includes(query.toLowerCase())
 
-    const matchCountry = !country || event.country === country
+      const matchCountry = !country || event.country === country
 
-    return matchQuery && matchCountry
-  })
+      return matchQuery && matchCountry
+    })
+  }, [events, query, country])
 
-  // 每次过滤变化时更新父组件
-  const hasFilters = query || country
-  if (hasFilters) {
-    onFiltered(filtered)
-  } else {
-    onFiltered(events)
-  }
+  // 每次过滤变化时更新父组件（使用 useEffect 避免无限循环）
+  useEffect(() => {
+    const hasFilters = query || country
+    onFiltered(hasFilters ? filtered : events)
+  }, [filtered, query, country, events, onFiltered])
 
   const handleClear = () => {
     setQuery("")
@@ -92,7 +95,7 @@ export function SearchFilter({ events, onFiltered, placeholder = "搜索赛事�
       )}
 
       {/* 搜索结果数 */}
-      {hasFilters && (
+      {(query || country) && (
         <div className="text-xs text-muted-foreground">
           找到 {filtered.length} 个赛事
           {query && <span>，关键词："{query}"</span>}
