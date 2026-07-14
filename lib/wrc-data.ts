@@ -20,6 +20,8 @@ interface WrcRallyDef {
   start: [number, number, number]
   /** [年, 月, 日] 末日（周日，含决胜赛段 Power Stage） */
   finish: [number, number, number]
+  /** 每天的赛段数 [首日Shakedown, 第一比赛日, 第二比赛日, 末日(不含Power Stage)] */
+  stages?: [number, number, number, number]
 }
 
 const RALLIES: WrcRallyDef[] = [
@@ -53,34 +55,89 @@ function addDays(start: [number, number, number], n: number): [number, number, n
 }
 
 function buildSessions(def: WrcRallyDef): RaceSession[] {
-  const total = dayDiff(def.start, def.finish) // 通常为 3（周四 -> 周日）
+  const total = dayDiff(def.start, def.finish)
   const sessions: RaceSession[] = []
+  const stageCounts = def.stages ?? [1, 8, 8, 4]
+  let ssNum = 1
 
-  // 首日：排位测试赛段 Shakedown
+  // 首日（周四）：排位测试赛段 Shakedown
   {
     const [y, m, d] = def.start
     sessions.push({
       name: "排位测试赛段 (Shakedown)",
-      utc: zonedWallTimeToUtc(y, m, d, 8, 1, def.tz).toISOString(),
+      utc: zonedWallTimeToUtc(y, m, d, 8, 0, def.tz).toISOString(),
       tentative: true,
     })
   }
 
-  // 中间比赛日
-  for (let i = 1; i < total; i++) {
-    const [y, m, d] = addDays(def.start, i)
-    sessions.push({
-      name: `第 ${i} 比赛日（首个赛段）`,
-      utc: zonedWallTimeToUtc(y, m, d, 8, 30, def.tz).toISOString(),
-      tentative: true,
-    })
+  // 第一比赛日（周五）
+  if (total >= 1) {
+    const [y, m, d] = addDays(def.start, 1)
+    let startHour = 8
+    let startMin = 30
+    for (let i = 0; i < stageCounts[1]; i++) {
+      sessions.push({
+        name: `SS${ssNum}`,
+        utc: zonedWallTimeToUtc(y, m, d, startHour, startMin, def.tz).toISOString(),
+        tentative: true,
+      })
+      ssNum++
+      startMin += 25
+      if (startMin >= 60) {
+        startMin -= 60
+        startHour++
+      }
+      if (i === 3) {
+        startHour = 13
+        startMin = 0
+      }
+    }
   }
 
-  // 末日：决胜赛段 Power Stage（主赛事）
+  // 第二比赛日（周六）
+  if (total >= 2) {
+    const [y, m, d] = addDays(def.start, 2)
+    let startHour = 8
+    let startMin = 30
+    for (let i = 0; i < stageCounts[2]; i++) {
+      sessions.push({
+        name: `SS${ssNum}`,
+        utc: zonedWallTimeToUtc(y, m, d, startHour, startMin, def.tz).toISOString(),
+        tentative: true,
+      })
+      ssNum++
+      startMin += 25
+      if (startMin >= 60) {
+        startMin -= 60
+        startHour++
+      }
+      if (i === 3) {
+        startHour = 13
+        startMin = 0
+      }
+    }
+  }
+
+  // 末日（周日）：特殊赛段 + Power Stage
   {
     const [y, m, d] = def.finish
+    let startHour = 8
+    let startMin = 30
+    for (let i = 0; i < stageCounts[3]; i++) {
+      sessions.push({
+        name: `SS${ssNum}`,
+        utc: zonedWallTimeToUtc(y, m, d, startHour, startMin, def.tz).toISOString(),
+        tentative: true,
+      })
+      ssNum++
+      startMin += 25
+      if (startMin >= 60) {
+        startMin -= 60
+        startHour++
+      }
+    }
     sessions.push({
-      name: "决胜赛段 (Power Stage)",
+      name: `SS${ssNum} (Power Stage)`,
       utc: zonedWallTimeToUtc(y, m, d, 12, 0, def.tz).toISOString(),
       isMain: true,
       tentative: true,

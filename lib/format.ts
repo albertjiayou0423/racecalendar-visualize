@@ -92,7 +92,7 @@ export function isPast(event: RaceEvent, now: number): boolean {
   return new Date(main.utc).getTime() < now
 }
 
-/** 倒计时：返回天/时/分，以及是否进行中/已过 */
+/** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
 export function countdown(utc: string, now: number) {
   const diff = new Date(utc).getTime() - now
   const past = diff <= 0
@@ -100,7 +100,8 @@ export function countdown(utc: string, now: number) {
   const days = Math.floor(abs / 86400000)
   const hours = Math.floor((abs % 86400000) / 3600000)
   const minutes = Math.floor((abs % 3600000) / 60000)
-  return { days, hours, minutes, past }
+  const seconds = Math.floor((abs % 60000) / 1000)
+  return { days, hours, minutes, seconds, past }
 }
 
 export const SERIES_META: Record<

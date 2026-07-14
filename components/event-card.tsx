@@ -35,7 +35,7 @@ function CountdownPill({ utc, now }: { utc: string; now: number }) {
       )}
     >
       {c.days > 0 ? `${c.days}天 ` : ""}
-      {c.hours}时 {c.minutes}分后
+      {c.hours}时 {c.minutes}分{c.days === 0 ? ` ${c.seconds}秒` : ""}后
     </span>
   )
 }
