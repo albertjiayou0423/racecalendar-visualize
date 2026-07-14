@@ -382,34 +382,84 @@ function wrcStageToSession(
 }
 
 async function fetchWrcItinerary(url: string): Promise<WrcDay[] | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Ch-Ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"",
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": "\"Windows\"",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Cache-Control": "max-age=0",
-        "Referer": "https://www.wrc.com/en/",
-      },
-      next: { revalidate: 86400 },
-    })
-    
-    if (!res.ok) {
-      console.error(`WRC fetch failed: ${res.status} ${res.statusText} for ${url}`)
+  const apiKey = process.env.SCRAPER_API_KEY
+  
+  async function fetchWithApi(): Promise<string | null> {
+    if (!apiKey) return null
+    try {
+      const encodedUrl = encodeURIComponent(url)
+      const res = await fetch(`https://api.apilayer.com/scraper?url=${encodedUrl}`, {
+        headers: {
+          "apikey": apiKey,
+          "X-User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "X-Referer": "https://www.wrc.com/en/",
+          "X-Accept-Language": "en-US,en;q=0.9",
+        },
+        next: { revalidate: 86400 },
+      })
+      if (!res.ok) {
+        console.error(`Scraper API failed: ${res.status} ${res.statusText} for ${url}`)
+        return null
+      }
+      const data = await res.json()
+      if (typeof data === "string") return data
+      if (data && typeof data === "object") {
+        if (data["data-selector"]) return data["data-selector"].join("\n")
+        if (data.data) return data.data
+        if (typeof data.html === "string") return data.html
+      }
+      return null
+    } catch (e) {
+      console.error(`Scraper API error: ${e}`)
       return null
     }
+  }
+  
+  async function fetchDirect(): Promise<string | null> {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate, br",
+          "Connection": "keep-alive",
+          "Upgrade-Insecure-Requests": "1",
+          "Sec-Ch-Ua": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"",
+          "Sec-Ch-Ua-Mobile": "?0",
+          "Sec-Ch-Ua-Platform": "\"Windows\"",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+          "Sec-Fetch-User": "?1",
+          "Cache-Control": "max-age=0",
+          "Referer": "https://www.wrc.com/en/",
+        },
+        next: { revalidate: 86400 },
+      })
+      
+      if (!res.ok) {
+        console.error(`WRC fetch failed: ${res.status} ${res.statusText} for ${url}`)
+        return null
+      }
+      
+      return res.text()
+    } catch (e) {
+      console.error(`WRC direct fetch error: ${e}`)
+      return null
+    }
+  }
+  
+  try {
+    let html = await fetchWithApi()
     
-    const html = await res.text()
+    if (!html) {
+      html = await fetchDirect()
+    }
+    
+    if (!html) {
+      return null
+    }
     
     if (html.includes("Access Denied") || html.includes("Cloudflare")) {
       console.error(`WRC Cloudflare blocked: ${url}`)
