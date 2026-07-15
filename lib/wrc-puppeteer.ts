@@ -2,7 +2,30 @@ import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents } from "./wrc-data"
 
-// ============ PhantomJsCloud API ============
+// ============ 直接 fetch (主要方案) ============
+
+async function fetchDirect(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+      },
+      next: { revalidate: 86400 },
+    })
+    if (!res.ok) return null
+    return res.text()
+  } catch (e) {
+    console.error(`Direct fetch error for ${url}:`, e)
+    return null
+  }
+}
+
+// ============ PhantomJsCloud API (fallback) ============
 
 const PHANTOMJS_API_KEY = "a-demo-key-with-low-quota-per-ip-address"
 
@@ -38,27 +61,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
     }
     return data
   } catch (e) {
-    console.error(`PhantomJsCloud error: ${e}`)
-    return null
-  }
-}
-
-// ============ 直接 fetch (不需要渲染的页面) ============
-
-async function fetchDirect(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      next: { revalidate: 86400 },
-    })
-    if (!res.ok) return null
-    return res.text()
-  } catch (e) {
-    console.error(`Direct fetch error: ${e}`)
+    console.error(`PhantomJsCloud error for ${url}:`, e)
     return null
   }
 }
@@ -95,13 +98,33 @@ function extractItineraryUrlFromCache(cacheData: Record<string, any>): string | 
   return null
 }
 
+// ============ 日期解析 ============
+
+const MONTH_MAP: Record<string, number> = {
+  January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
+  July: 7, August: 8, September: 9, October: 10, November: 11, December: 12,
+}
+
+function parseDateText(dateText: string, fallbackDate: string): [number, number, number] {
+  const match = dateText.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+  if (match) {
+    const day = parseInt(match[2], 10)
+    const month = MONTH_MAP[match[3]]
+    const [startY] = fallbackDate.split("-").map(Number)
+    if (month) return [startY, month, day]
+  }
+  const [y, m, d] = fallbackDate.split("-").map(Number)
+  return [y, m, d]
+}
+
 // ============ 从行程页面解析 FAQ 数据 ============
 
 interface ItineraryDay {
+  date: [number, number, number]
   stages: { time: string; name: string; isPowerStage: boolean }[]
 }
 
-function parseItineraryFromCache(cacheData: Record<string, any>): ItineraryDay[] | null {
+function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: string): ItineraryDay[] | null {
   for (const key of Object.keys(cacheData)) {
     const value = cacheData[key]
     if (!value?.data?.data) continue
@@ -112,7 +135,6 @@ function parseItineraryFromCache(cacheData: Record<string, any>): ItineraryDay[]
     for (const item of items) {
       if (item.type !== "faq") continue
 
-      // Itinerary FAQ title usually contains "UTC" or "Version"
       const title = item.title || ""
       if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
 
@@ -127,7 +149,9 @@ function parseItineraryFromCache(cacheData: Record<string, any>): ItineraryDay[]
 
         if (!Array.isArray(question) || !Array.isArray(answer)) continue
 
-        // Extract stage data from the answer list
+        const dateText = question.find((q: any) => q.variant === "text")?.text || ""
+        const date = parseDateText(dateText, fallbackDate)
+
         const stages: { time: string; name: string; isPowerStage: boolean }[] = []
 
         for (const ans of answer) {
@@ -139,7 +163,6 @@ function parseItineraryFromCache(cacheData: Record<string, any>): ItineraryDay[]
               if (el.variant !== "text") continue
               const text = el.text || ""
 
-              // Parse: "08:01: Shakedown Kastre (4.08 km)" or "13:03: SS1 Raanitsa 1 (21.45 km)"
               const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
               if (!stageMatch) continue
 
@@ -153,7 +176,7 @@ function parseItineraryFromCache(cacheData: Record<string, any>): ItineraryDay[]
         }
 
         if (stages.length > 0) {
-          days.push({ stages })
+          days.push({ date, stages })
         }
       }
 
@@ -169,11 +192,12 @@ function parseItineraryFromCache(cacheData: Record<string, any>): ItineraryDay[]
 
 async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
   const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
-  console.log(`WRC: fetching homepage ${homeUrl}`)
+  console.log(`WRC: fetching ${homeUrl}`)
 
-  // Step 1: Fetch homepage to get the correct itinerary URL
+  // Step 1: Fetch homepage to get itinerary URL
   let homeHtml = await fetchDirect(homeUrl)
   if (!homeHtml || !homeHtml.includes("rb3-prerender-data-cache")) {
+    console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${homeUrl}`)
     homeHtml = await fetchRenderedHtml(homeUrl)
   }
   if (!homeHtml) {
@@ -190,7 +214,6 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
   // Step 2: Extract itinerary URL from pageTabs
   let itineraryUrl = extractItineraryUrlFromCache(homeCache)
   if (!itineraryUrl) {
-    // Fallback: try direct URL pattern
     itineraryUrl = `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`
     console.log(`WRC: pageTabs not found, trying fallback itinerary URL: ${itineraryUrl}`)
   } else {
@@ -200,6 +223,7 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
   // Step 3: Fetch itinerary page
   let itineraryHtml = await fetchDirect(itineraryUrl)
   if (!itineraryHtml || !itineraryHtml.includes("rb3-prerender-data-cache")) {
+    console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${itineraryUrl}`)
     itineraryHtml = await fetchRenderedHtml(itineraryUrl)
   }
   if (!itineraryHtml) {
@@ -214,25 +238,17 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     return null
   }
 
-  const days = parseItineraryFromCache(itineraryCache)
+  const days = parseItineraryFromCache(itineraryCache, startDate)
   if (!days || days.length === 0) {
     console.error(`WRC: no itinerary data parsed for ${eventSlug}`)
     return null
   }
 
-  // Step 5: Convert to RaceSession using startDate for correct dates
-  // The FAQ date text can have errors (e.g., "Sunday, 18 July" when it should be 19 July),
-  // so we use startDate + dayIndex for reliable date calculation
-  const [startY, startM, startD] = startDate.split("-").map(Number)
+  // Step 5: Convert to RaceSession
   const sessions: RaceSession[] = []
 
-  for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
-    const day = days[dayIdx]
-    const date = new Date(Date.UTC(startY, startM - 1, startD + dayIdx))
-    const y = date.getUTCFullYear()
-    const m = date.getUTCMonth() + 1
-    const d = date.getUTCDate()
-
+  for (const day of days) {
+    const [y, m, d] = day.date
     for (const stage of day.stages) {
       const [h, min] = stage.time.split(":").map(Number)
       if (isNaN(h) || isNaN(min)) continue
@@ -288,7 +304,6 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   let successCount = 0
   const errors: string[] = []
 
-  // 只爬取当前时间前后 60 天内的赛事，避免超时
   const now = Date.now()
   const sixtyDays = 60 * 24 * 60 * 60 * 1000
   const ralliesToScrape = WRC_RALLIES.filter(r => {
@@ -296,7 +311,6 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
     return Math.abs(rallyTime - now) < sixtyDays
   })
 
-  // 如果没有临近赛事，至少尝试爬取最近的 2 场
   const rallies = ralliesToScrape.length > 0 ? ralliesToScrape : WRC_RALLIES.slice(0, 2)
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
