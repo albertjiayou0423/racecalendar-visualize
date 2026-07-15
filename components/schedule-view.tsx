@@ -17,6 +17,8 @@ import {
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
+import { LastRaceResults } from "@/components/last-race-results"
+import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
 import { cn } from "@/lib/utils"
 
@@ -328,8 +330,18 @@ export function ScheduleView() {
         </div>
       ) : null}
 
+      {/* 上一站回顾 + 下一站预览 */}
+      {!isLoading && !error && view === "list" && series !== "FE" && series !== "WRC" ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <LastRaceResults />
+          {nextUp && time !== "past" ? <NextRacePreview event={nextUp} /> : null}
+        </div>
+      ) : null}
+
       {/* 下一场高亮 */}
-      {!isLoading && nextUp && time !== "past" && view === "list" ? <NextUp event={nextUp} now={now} /> : null}
+      {!isLoading && nextUp && time !== "past" && view === "list" && (series === "FE" || series === "WRC") ? (
+        <NextUp event={nextUp} now={now} />
+      ) : null}
 
       {/* 月视图 */}
       {!isLoading && !error && view === "month" ? (
