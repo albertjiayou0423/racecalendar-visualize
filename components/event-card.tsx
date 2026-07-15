@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert } from "lucide-react"
+import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -150,6 +150,17 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               {hasTentative ? "估计" : "官方"}
             </span>
           )}
+          {event.url ? (
+            <a
+              href={event.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <ExternalLink className="size-3" aria-hidden />
+              官网
+            </a>
+          ) : null}
         </div>
         <button
           type="button"

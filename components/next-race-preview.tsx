@@ -5,6 +5,7 @@ import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { firstSession, formatDateTime, formatTime, SERIES_META } from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
+import { PredictionVote } from "@/components/prediction-vote"
 
 interface NextRacePreviewProps {
   event: RaceEvent
@@ -66,6 +67,9 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
           </div>
         </div>
       ) : null}
+
+      {/* 预测投票 */}
+      <PredictionVote event={event} />
 
       <div className="mt-4">
         <div className="text-xs font-medium text-muted-foreground mb-2">赛程安排</div>

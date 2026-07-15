@@ -148,22 +148,33 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
 }
 
 export function buildWrcEvents(): RaceEvent[] {
-  return RALLIES.map((def) => ({
-    id: `wrc-2026-${def.round}`,
-    series: "WRC" as const,
-    round: def.round,
-    name: def.name,
-    circuit: `${def.hq} · 赛事总部`,
-    locality: def.city,
-    country: def.country,
-    countryCode: def.code,
-    tz: def.tz,
-    sessions: buildSessions(def),
-    broadcaster: {
-      name: "腾讯视频",
-      note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
-    },
-    url: "https://www.wrc.com/",
-    tentative: true,
-  }))
+  return RALLIES.map((def) => {
+    // 地区映射
+    const regionMap: Record<string, "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"> = {
+      "法国": "europe", "瑞典": "europe", "克罗地亚": "europe", "西班牙": "europe",
+      "葡萄牙": "europe", "希腊": "europe", "爱沙尼亚": "europe", "芬兰": "europe",
+      "意大利": "europe", "肯尼亚": "africa", "日本": "asia", "巴拉圭": "americas",
+      "智利": "americas", "沙特阿拉伯": "middle-east",
+    }
+    return {
+      id: `wrc-2026-${def.round}`,
+      series: "WRC" as const,
+      round: def.round,
+      name: def.name,
+      circuit: `${def.hq} · 赛事总部`,
+      locality: def.city,
+      country: def.country,
+      countryCode: def.code,
+      tz: def.tz,
+      sessions: buildSessions(def),
+      broadcaster: {
+        name: "腾讯视频",
+        note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
+      },
+      url: "https://www.wrc.com/",
+      tentative: true,
+      circuitType: "rally",
+      region: regionMap[def.country] ?? "europe",
+    }
+  })
 }

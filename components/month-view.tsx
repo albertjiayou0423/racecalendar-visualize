@@ -1,11 +1,12 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, X, CalendarDays } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, firstSession } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, firstSession, formatTime } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
+import { EventCard } from "./event-card"
 
 const WEEKDAY_HEADERS = ["一", "二", "三", "四", "五", "六", "日"]
 
@@ -55,6 +56,8 @@ export function MonthView({ events, now }: MonthViewProps) {
     y: firstEventMonth.getUTCFullYear(),
     m: firstEventMonth.getUTCMonth() + 1,
   }))
+
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   // 把赛事按北京日期分桶（同一场赛事在每个覆盖日期都出现一次）
   // 每个分桶条目带上当天该赛事的首个场次 UTC，用于显示当日开始时间
@@ -184,13 +187,16 @@ export function MonthView({ events, now }: MonthViewProps) {
             return f && new Date(f.utc).getTime() < now
           })
           return (
-            <div
+            <button
               key={cell.key}
+              type="button"
+              onClick={() => setSelectedDay(cell.key)}
               className={cn(
-                "min-h-20 rounded-lg border bg-card p-1.5 transition-colors",
+                "min-h-20 w-full rounded-lg border bg-card p-1.5 text-left transition-colors",
                 cell.isToday
                   ? "border-primary"
                   : "border-border hover:border-primary/40",
+                selectedDay === cell.key && "ring-2 ring-primary",
               )}
             >
               <div
@@ -245,7 +251,7 @@ export function MonthView({ events, now }: MonthViewProps) {
                   </div>
                 ) : null}
               </div>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -264,6 +270,41 @@ export function MonthView({ events, now }: MonthViewProps) {
         ))}
         <span className="text-muted-foreground/70">续 = 该赛事跨日场次</span>
       </div>
+
+      {/* 选中日期展开面板 */}
+      {selectedDay ? (
+        <div className="rounded-xl border border-primary/30 bg-card p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <CalendarDays className="size-4 text-muted-foreground" />
+              <span className="font-medium">{selectedDay}</span>
+              <span className="text-muted-foreground">
+                {(() => {
+                  const [y, m, d] = selectedDay.split("-").map(Number)
+                  const date = new Date(Date.UTC(y, m - 1, d))
+                  return date.toLocaleDateString("zh-CN", { weekday: "long" })
+                })()}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedDay(null)}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="关闭"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="mt-4 flex flex-col gap-3">
+            {(byDay.get(selectedDay) ?? []).map(({ event }) => (
+              <EventCard key={event.id} event={event} now={now} />
+            ))}
+            {byDay.get(selectedDay)?.length === 0 ? (
+              <p className="text-sm text-muted-foreground">当天暂无赛事</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -43,6 +43,10 @@ export interface RaceEvent {
   url?: string
   /** 整个赛事的时间是否为估计值（未爬取到真实数据） */
   tentative?: boolean
+  /** 赛道特性 */
+  circuitType?: "street" | "permanent" | "hybrid" | "rally"
+  /** 地区 */
+  region?: "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 }
 
 export interface ScheduleResponse {

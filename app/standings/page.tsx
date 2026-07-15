@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert } from "lucide-react"
+import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag } from "lucide-react"
 import Link from "next/link"
+import { FeDriverStandings } from "@/components/fe-driver-standings"
 
-type StandingTab = "drivers" | "constructors"
+type StandingTab = "drivers" | "constructors" | "fe"
 
 interface DriverStanding {
   position: string
@@ -39,7 +40,9 @@ export default function StandingsPage() {
   const [round, setRound] = useState("")
 
   useEffect(() => {
-    fetchStandings()
+    if (tab !== "fe") {
+      fetchStandings()
+    }
   }, [tab])
 
   const fetchStandings = async () => {
@@ -85,7 +88,7 @@ export default function StandingsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">积分榜</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            F1 {season} 赛季{round ? ` · 第 ${round} 轮后` : ""}
+            {tab === "fe" ? "Formula E" : `F1 ${season} 赛季${round ? ` · 第 ${round} 轮后` : ""}`}
           </p>
         </div>
       </header>
@@ -101,7 +104,7 @@ export default function StandingsPage() {
           )}
         >
           <Users className="size-4" />
-          车手积分榜
+          F1 车手
         </button>
         <button
           onClick={() => setTab("constructors")}
@@ -113,11 +116,25 @@ export default function StandingsPage() {
           )}
         >
           <Car className="size-4" />
-          车队积分榜
+          F1 车队
+        </button>
+        <button
+          onClick={() => setTab("fe")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            tab === "fe"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Flag className="size-4" />
+          FE
         </button>
       </div>
 
-      {loading ? (
+      {tab === "fe" ? (
+        <FeDriverStandings />
+      ) : loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <LoaderCircle className="size-5 animate-spin" />
           加载积分榜数据…
@@ -134,7 +151,9 @@ export default function StandingsPage() {
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
-        数据来源：Jolpica F1 API（Ergast 兼容）
+        {tab === "fe"
+          ? "数据来源：Formula E 官方 API（pulselive）"
+          : "数据来源：Jolpica F1 API（Ergast 兼容）"}
       </footer>
     </div>
   )

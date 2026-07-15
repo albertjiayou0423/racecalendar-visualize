@@ -71,6 +71,44 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
 
       sessions.sort((a, b) => a.utc.localeCompare(b.utc))
 
+      // 赛道类型（基于 circuitId 判断）
+      const streetCircuits = ["monaco", "singapore", "las_vegas", "baku", "jeddah", "miami", "melbourne", "monza"]
+      const isStreet = streetCircuits.some(c => r.Circuit.circuitId.toLowerCase().includes(c))
+
+      // 地区（基于国家）
+      const regionMap: Record<string, "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"> = {
+        "Australia": "oceania",
+        "Japan": "asia",
+        "China": "asia",
+        "Singapore": "asia",
+        "Bahrain": "middle-east",
+        "Saudi Arabia": "middle-east",
+        "Qatar": "middle-east",
+        "Abu Dhabi": "middle-east",
+        "UAE": "middle-east",
+        "USA": "americas",
+        "United States": "americas",
+        "Canada": "americas",
+        "Mexico": "americas",
+        "Brazil": "americas",
+        "Argentina": "americas",
+        "UK": "europe",
+        "Great Britain": "europe",
+        "Germany": "europe",
+        "France": "europe",
+        "Spain": "europe",
+        "Italy": "europe",
+        "Austria": "europe",
+        "Belgium": "europe",
+        "Hungary": "europe",
+        "Netherlands": "europe",
+        "Monaco": "europe",
+        "Azerbaijan": "asia",
+        "Morocco": "africa",
+        "South Africa": "africa",
+      }
+      const region = regionMap[r.Circuit.Location.country] ?? "europe"
+
       return {
         id: `f1-${r.season}-${r.round}`,
         series: "F1" as const,
@@ -84,6 +122,8 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
         sessions,
         broadcaster: F1_BROADCASTER,
         url: r.url,
+        circuitType: isStreet ? "street" : "permanent",
+        region,
       }
     })
 
@@ -246,6 +286,8 @@ export async function fetchFe(): Promise<{ events: RaceEvent[]; ok: boolean; not
               note: "FE 中国大陆转播以官方 App / 平台节目单为准",
             },
             url: "https://www.fiaformulae.com/",
+            circuitType: "street",
+            region: getRegionFromCountry(r.country),
           }
         } catch {
           return null
@@ -262,4 +304,17 @@ export async function fetchFe(): Promise<{ events: RaceEvent[]; ok: boolean; not
 function cleanFeName(name: string): string {
   // 去掉赞助前缀，保留城市 E-Prix
   return name.replace(/^\d{4}\s+/, "").replace(/Google Cloud |ABB |Hankook |SABIC /g, "")
+}
+
+function getRegionFromCountry(countryCode: string): "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania" {
+  const regionMap: Record<string, "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"> = {
+    "GB": "europe", "DE": "europe", "FR": "europe", "IT": "europe", "ES": "europe",
+    "MC": "europe", "BE": "europe", "NL": "europe", "AT": "europe", "HU": "europe",
+    "CN": "asia", "JP": "asia", "KR": "asia", "SG": "asia", "MY": "asia",
+    "TH": "asia", "ID": "asia", "SA": "middle-east", "AE": "middle-east", "BH": "middle-east",
+    "QA": "middle-east", "US": "americas", "CA": "americas", "MX": "americas",
+    "BR": "americas", "AR": "americas", "AU": "oceania", "NZ": "oceania",
+    "ZA": "africa", "MA": "africa", "KE": "africa",
+  }
+  return regionMap[countryCode] ?? "europe"
 }

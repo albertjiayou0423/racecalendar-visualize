@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Search, TriangleAlert, Sparkles, Trophy } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -24,11 +24,42 @@ import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json() as Promise<ScheduleResponse>)
+const CACHE_KEY = "schedule-cache"
+
+const fetcher = async (url: string): Promise<ScheduleResponse> => {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json() as ScheduleResponse
+    // 成功获取数据，保存到 localStorage
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+    } catch {
+      // localStorage 不可用时忽略
+    }
+    return data
+  } catch (err) {
+    // 网络请求失败，尝试从缓存读取
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const data = JSON.parse(cached) as ScheduleResponse
+        // 标记为离线模式
+        ;(data as { offline?: boolean }).offline = true
+        return data
+      }
+    } catch {
+      // 缓存读取失败
+    }
+    throw err
+  }
+}
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
 type ViewMode = "list" | "month"
+type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
+type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
 const SERIES_TABS: { key: SeriesFilter; label: string }[] = [
   { key: "ALL", label: "全部" },
@@ -180,8 +211,12 @@ export function ScheduleView() {
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [view, setView] = useState<ViewMode>("list")
   const [search, setSearch] = useState("")
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
+  const [region, setRegion] = useState<RegionFilter>("all")
 
   const allEvents = data?.events ?? []
+  const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
 
   const filtered = useMemo(() => {
     let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
@@ -194,6 +229,14 @@ export function ScheduleView() {
         e.circuit.toLowerCase().includes(query)
       )
     }
+    // 赛道类型筛选
+    if (circuitType !== "all") {
+      list = list.filter((e) => e.circuitType === circuitType)
+    }
+    // 地区筛选
+    if (region !== "all") {
+      list = list.filter((e) => e.region === region)
+    }
     if (view === "list") {
       if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
       else if (time === "past") list = list.filter((e) => isPast(e, now))
@@ -203,7 +246,7 @@ export function ScheduleView() {
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, series, time, view, now, search])
+  }, [allEvents, series, time, view, now, search, circuitType, region])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
@@ -227,10 +270,17 @@ export function ScheduleView() {
           <BeijingClock now={now} />
         </div>
         {data ? <SourceBar data={data} /> : null}
+        {isOffline ? (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+            <WifiOff className="size-4" aria-hidden />
+            <span className="font-medium">离线模式</span>
+            <span className="text-muted-foreground">· 显示上次缓存的数据，部分信息可能已过期</span>
+          </div>
+        ) : null}
       </header>
 
       {/* 筛选 */}
-      <div className="flex flex-col gap-3">
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
@@ -319,13 +369,102 @@ export function ScheduleView() {
             ))}
           </div>
         ) : null}
+
+        {/* 高级筛选 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              showAdvancedFilters || circuitType !== "all" || region !== "all"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Filter className="size-3.5" />
+            高级筛选
+            {(circuitType !== "all" || region !== "all") ? (
+              <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
+              </span>
+            ) : null}
+          </button>
+          {showAdvancedFilters ? (
+            <>
+              <div className="flex items-center gap-1.5">
+                <Building2 className="size-3 text-muted-foreground" />
+                <select
+                  value={circuitType}
+                  onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
+                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="all">全部赛道</option>
+                  <option value="street">街道赛道</option>
+                  <option value="permanent">专用赛道</option>
+                  <option value="hybrid">混合赛道</option>
+                  <option value="rally">拉力赛</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Globe className="size-3 text-muted-foreground" />
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value as RegionFilter)}
+                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="all">全部地区</option>
+                  <option value="europe">欧洲</option>
+                  <option value="asia">亚洲</option>
+                  <option value="americas">美洲</option>
+                  <option value="middle-east">中东</option>
+                  <option value="africa">非洲</option>
+                  <option value="oceania">大洋洲</option>
+                </select>
+              </div>
+              {circuitType !== "all" || region !== "all" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCircuitType("all")
+                    setRegion("all")
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  清除筛选
+                </button>
+              ) : null}
+            </>
+          ) : null}
+        </div>
       </div>
 
       {/* 加载 / 错误 */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-          <LoaderCircle className="size-5 animate-spin" aria-hidden />
-          正在获取赛程数据…
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="size-4 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          </div>
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-border bg-card p-4 sm:p-5"
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-20 animate-pulse rounded bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 w-3/4 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-muted/70" />
+                </div>
+                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <div className="h-6 w-20 animate-pulse rounded bg-muted/50" />
+                <div className="h-6 w-16 animate-pulse rounded bg-muted/50" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
       {error ? (
@@ -361,9 +500,23 @@ export function ScheduleView() {
             共 {filtered.length} 场赛事
           </div>
           {filtered.length === 0 ? (
-            <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-              当前筛选条件下暂无赛事。
-            </p>
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center">
+              <Inbox className="size-10 text-muted-foreground/50" />
+              <div>
+                <p className="font-medium text-foreground">未找到匹配的赛事</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {search ? `没有找到包含「${search}」的赛事` : "当前筛选条件下暂无赛事"}
+                </p>
+              </div>
+              {search ? (
+                <button
+                  onClick={() => setSearch("")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+                >
+                  清除搜索
+                </button>
+              ) : null}
+            </div>
           ) : (
             filtered.map((e) => <EventCard key={e.id} event={e} now={now} />)
           )}
