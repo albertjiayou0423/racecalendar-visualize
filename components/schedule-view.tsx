@@ -203,7 +203,10 @@ export function ScheduleView() {
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <BeijingClock now={now} />
+          <div className="flex items-center gap-3">
+            <BeijingClock now={now} />
+            <FeedbackButton />
+          </div>
         </div>
         {data ? <SourceBar data={data} /> : null}
       </header>
