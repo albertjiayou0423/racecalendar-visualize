@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, mainSession } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, firstSession } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 
@@ -40,11 +40,11 @@ export function MonthView({ events, now }: MonthViewProps) {
   const firstEventMonth = useMemo(() => {
     const upcoming = events
       .filter((e) => {
-        const main = mainSession(e)
-        return main && new Date(main.utc).getTime() >= now
+        const first = firstSession(e)
+        return first && new Date(first.utc).getTime() >= now
       })
-      .sort((a, b) => (mainSession(a)?.utc ?? "").localeCompare(mainSession(b)?.utc ?? ""))
-    const target = mainSession(upcoming[0] ?? events[0])?.utc
+      .sort((a, b) => (firstSession(a)?.utc ?? "").localeCompare(firstSession(b)?.utc ?? ""))
+    const target = firstSession(upcoming[0] ?? events[0])?.utc
     if (!target) return new Date()
     const key = dayKeyInBeijing(target)
     const [y, m] = key.split("-").map(Number)
@@ -180,8 +180,8 @@ export function MonthView({ events, now }: MonthViewProps) {
           }
           const dayItems = byDay.get(cell.key) ?? []
           const past = dayItems.every(({ event }) => {
-            const m = mainSession(event)
-            return m && new Date(m.utc).getTime() < now
+            const f = firstSession(event)
+            return f && new Date(f.utc).getTime() < now
           })
           return (
             <div

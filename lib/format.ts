@@ -85,11 +85,11 @@ export function firstSession(event: RaceEvent) {
   return event.sessions[0]
 }
 
-/** 事件是否已结束（主赛事时间早于当前） */
+/** 事件是否已结束（首个场次时间早于当前） */
 export function isPast(event: RaceEvent, now: number): boolean {
-  const main = mainSession(event)
-  if (!main) return true
-  return new Date(main.utc).getTime() < now
+  const first = firstSession(event)
+  if (!first) return true
+  return new Date(first.utc).getTime() < now
 }
 
 /** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
