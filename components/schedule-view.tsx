@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Search, TriangleAlert, Sparkles } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Search, TriangleAlert, Sparkles, Trophy } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -20,6 +20,7 @@ import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
+import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -260,38 +261,41 @@ export function ScheduleView() {
               </button>
             ))}
           </div>
-          {/* 视图切换 */}
-          <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              aria-label="列表视图"
-              aria-pressed={view === "list"}
-              className={cn(
-                "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
-                view === "list"
-                  ? "bg-secondary text-secondary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <List className="size-3.5" />
-              列表
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("month")}
-              aria-label="月视图"
-              aria-pressed={view === "month"}
-              className={cn(
-                "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
-                view === "month"
-                  ? "bg-secondary text-secondary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <LayoutGrid className="size-3.5" />
-              月历
-            </button>
+          {/* 视图切换 + 通知 */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                aria-label="列表视图"
+                aria-pressed={view === "list"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  view === "list"
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <List className="size-3.5" />
+                列表
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("month")}
+                aria-label="月视图"
+                aria-pressed={view === "month"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  view === "month"
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <LayoutGrid className="size-3.5" />
+                月历
+              </button>
+            </div>
+            {data ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
         {view === "list" ? (
@@ -370,7 +374,14 @@ export function ScheduleView() {
         <FeedbackButton />
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex flex-wrap justify-center gap-2">
+        <Link
+          href="/standings"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <Trophy className="size-3.5" />
+          F1 积分榜
+        </Link>
         <Link
           href="/about"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
