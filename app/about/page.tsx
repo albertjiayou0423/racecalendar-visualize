@@ -11,11 +11,18 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
-    version: "v1.0.3",
+    version: "v1.0.4",
     date: "2026-07-15",
     items: [
       { type: "feat", text: "浏览器原生通知提醒，赛前 1 小时 / 15 分钟 / 5 分钟自动提醒" },
       { type: "feat", text: "F1 积分榜页面（车手 + 车队）" },
+      { type: "perf", text: "数据 ISR 静态化缓存，每小时自动重新生成" },
+    ],
+  },
+  {
+    version: "v1.0.3",
+    date: "2026-07-15",
+    items: [
       { type: "feat", text: "F1 上一站回顾组件，默认显示剧透保护" },
       { type: "feat", text: "下一站预览组件，展示倒计时与赛程安排" },
       { type: "feat", text: "集成 ocblacktop API 作为 WRC 爬虫第四层 fallback" },
@@ -27,7 +34,6 @@ const changelog: ChangelogEntry[] = [
       { type: "fix", text: "修复所有赛事都显示时间来源为 WRC 官方的 bug" },
       { type: "fix", text: "修复倒计时和卡片时间显示结束时间而非开赛时间" },
       { type: "fix", text: "修复 HTML 正则解析误匹配 script/style 内容的脏数据" },
-      { type: "perf", text: "数据 ISR 静态化缓存，每小时自动重新生成" },
       { type: "perf", text: "构建时间从 1 分钟优化至约 5 秒（运行时爬虫 + 并行化）" },
       { type: "refactor", text: "WRC 爬虫四级 fallback 架构：官网 fetch → PhantomJsCloud → HTML 正则 → ocblacktop" },
     ],
@@ -91,7 +97,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.3</span>
+          <span className="text-3xl font-bold">v1.0.4</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -124,7 +130,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.3" && (
+                {entry.version === "v1.0.4" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

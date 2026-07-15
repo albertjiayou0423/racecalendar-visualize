@@ -387,7 +387,7 @@ export function ScheduleView() {
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Sparkles className="size-3.5" />
-          v1.0.3 · 更新日志
+          v1.0.4 · 更新日志
         </Link>
       </div>
 
