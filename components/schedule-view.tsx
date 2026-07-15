@@ -15,6 +15,7 @@ import {
 } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
+import { FeedbackButton } from "@/components/feedback-button"
 import { MonthView } from "@/components/month-view"
 import { cn } from "@/lib/utils"
 
