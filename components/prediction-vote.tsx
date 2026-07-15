@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Trophy, CheckCircle2, Users } from "lucide-react"
+import { Trophy, CheckCircle2, Users, AlertCircle, Loader2 } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -76,6 +76,8 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isVoting, setIsVoting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const drivers = DRIVERS[event.series] ?? []
   const meta = SERIES_META[event.series]
@@ -106,7 +108,12 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     const driverCode = e.target.value
     if (!driverCode) return
 
+    setErrorMsg(null)
+    setSuccessMsg(null)
     setIsVoting(true)
+    // 先乐观更新，让用户有即时反馈
+    setSelectedDriver(driverCode)
+
     try {
       const res = await fetch("/api/predictions", {
         method: "POST",
@@ -115,11 +122,18 @@ export function PredictionVote({ event }: PredictionVoteProps) {
       })
 
       if (res.ok) {
-        setSelectedDriver(driverCode)
+        setSuccessMsg("预测已保存！")
         await fetchPredictions()
+        setTimeout(() => setSuccessMsg(null), 2000)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "投票失败")
       }
     } catch (err) {
       console.error("Failed to vote:", err)
+      setErrorMsg(err instanceof Error ? err.message : "投票失败，请重试")
+      // 失败时回滚
+      setSelectedDriver("")
     } finally {
       setIsVoting(false)
     }
@@ -150,7 +164,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
       ) : (
         <>
           <div className="mt-3">
-            {selectedDriver ? (
+            {selectedDriver && !errorMsg ? (
               <div className="flex items-center gap-2 flex-wrap">
                 <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
                 <span className="text-sm text-muted-foreground">你预测：</span>
@@ -158,15 +172,15 @@ export function PredictionVote({ event }: PredictionVoteProps) {
               </div>
             ) : null}
 
-            <div className={selectedDriver ? "mt-2" : ""}>
+            <div className={selectedDriver && !errorMsg ? "mt-2" : ""}>
               <select
-                value={selectedDriver}
+                value={isVoting ? "" : selectedDriver}
                 onChange={handleChange}
                 disabled={isVoting}
-                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors hover:border-primary focus:border-primary disabled:opacity-50"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors hover:border-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="" disabled>
-                  {selectedDriver ? "更改预测..." : "选择你预测的冠军..."}
+                  {isVoting ? "提交中..." : selectedDriver ? "更改预测..." : "选择你预测的冠军..."}
                 </option>
                 {drivers.map((driver) => {
                   const driverResults = results.find((r) => r.driverCode === driver.code)
@@ -182,6 +196,27 @@ export function PredictionVote({ event }: PredictionVoteProps) {
                 })}
               </select>
             </div>
+
+            {isVoting && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                正在提交预测...
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-emerald-500">
+                <CheckCircle2 className="size-3.5" />
+                {successMsg}
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-destructive">
+                <AlertCircle className="size-3.5" />
+                {errorMsg}
+              </div>
+            )}
           </div>
 
           {results.length > 0 && (
