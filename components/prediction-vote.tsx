@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { createPortal } from "react-dom"
-import { Trophy, CheckCircle2, Users, ChevronDown } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Trophy, CheckCircle2, Users } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -72,13 +71,11 @@ const DRIVERS: Record<string, Driver[]> = {
 }
 
 export function PredictionVote({ event }: PredictionVoteProps) {
-  const [selectedDriver, setSelectedDriver] = useState<string | null>(null)
+  const [selectedDriver, setSelectedDriver] = useState<string>("")
   const [results, setResults] = useState<PredictionResult[]>([])
   const [total, setTotal] = useState(0)
-  const [showDropdown, setShowDropdown] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  
-  const triggerRef = useRef<HTMLDivElement>(null)
+  const [isVoting, setIsVoting] = useState(false)
 
   const drivers = DRIVERS[event.series] ?? []
   const meta = SERIES_META[event.series]
@@ -90,7 +87,9 @@ export function PredictionVote({ event }: PredictionVoteProps) {
         const data = await res.json()
         setResults(data.results ?? [])
         setTotal(data.total ?? 0)
-        setSelectedDriver(data.myVote)
+        if (data.myVote) {
+          setSelectedDriver(data.myVote)
+        }
       }
     } catch (err) {
       console.error("Failed to fetch predictions:", err)
@@ -103,21 +102,11 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     fetchPredictions()
   }, [fetchPredictions])
 
-  // 点击外部关闭 - 使用 click 而不是 mousedown
-  useEffect(() => {
-    if (!showDropdown) return
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const driverCode = e.target.value
+    if (!driverCode) return
 
-    const handleClickOutside = (e: MouseEvent) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    
-    document.addEventListener("click", handleClickOutside)
-    return () => document.removeEventListener("click", handleClickOutside)
-  }, [showDropdown])
-
-  const handleVote = async (driverCode: string) => {
+    setIsVoting(true)
     try {
       const res = await fetch("/api/predictions", {
         method: "POST",
@@ -127,11 +116,12 @@ export function PredictionVote({ event }: PredictionVoteProps) {
 
       if (res.ok) {
         setSelectedDriver(driverCode)
-        setShowDropdown(false)
         await fetchPredictions()
       }
     } catch (err) {
       console.error("Failed to vote:", err)
+    } finally {
+      setIsVoting(false)
     }
   }
 
@@ -140,7 +130,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
 
   return (
-    <div ref={triggerRef} className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+    <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Trophy className="size-4 text-primary" />
         <span>预测 {meta.label} 冠军</span>
@@ -159,49 +149,40 @@ export function PredictionVote({ event }: PredictionVoteProps) {
         </div>
       ) : (
         <>
-          <div className="mt-3 relative">
+          <div className="mt-3">
             {selectedDriver ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-4 text-emerald-500" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
                 <span className="text-sm text-muted-foreground">你预测：</span>
                 <span className="font-semibold text-foreground">{selectedDriverInfo?.name}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowDropdown((v) => !v)
-                  }}
-                  className="ml-2 text-xs text-primary hover:underline"
-                >
-                  更改
-                </button>
               </div>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowDropdown((v) => !v)
-                }}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm text-muted-foreground hover:border-primary"
-              >
-                选择你预测的冠军...
-                <ChevronDown className="ml-auto inline size-4" />
-              </button>
-            )}
-          </div>
+            ) : null}
 
-          {showDropdown && typeof window !== "undefined" && triggerRef.current && (
-            createPortal(
-              <DropdownContent
-                triggerRef={triggerRef}
-                drivers={drivers}
-                results={results}
-                total={total}
-                selectedDriver={selectedDriver}
-                onVote={handleVote}
-              />,
-              document.body
-            )
-          )}
+            <div className={selectedDriver ? "mt-2" : ""}>
+              <select
+                value={selectedDriver}
+                onChange={handleChange}
+                disabled={isVoting}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors hover:border-primary focus:border-primary disabled:opacity-50"
+              >
+                <option value="" disabled>
+                  {selectedDriver ? "更改预测..." : "选择你预测的冠军..."}
+                </option>
+                {drivers.map((driver) => {
+                  const driverResults = results.find((r) => r.driverCode === driver.code)
+                  const percentage = total > 0 && driverResults
+                    ? Math.round((driverResults.count / total) * 100)
+                    : 0
+                  return (
+                    <option key={driver.code} value={driver.code}>
+                      {driver.name}
+                      {driverResults ? ` (${driverResults.count}票 ${percentage}%)` : ""}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          </div>
 
           {results.length > 0 && (
             <div className="mt-4 space-y-2">
@@ -238,100 +219,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
           )}
         </>
       )}
-    </div>
-  )
-}
-
-interface DropdownContentProps {
-  triggerRef: React.RefObject<HTMLDivElement>
-  drivers: Driver[]
-  results: PredictionResult[]
-  total: number
-  selectedDriver: string | null
-  onVote: (driverCode: string) => void
-}
-
-function DropdownContent({
-  triggerRef,
-  drivers,
-  results,
-  total,
-  selectedDriver,
-  onVote,
-}: DropdownContentProps) {
-  const [pos, setPos] = useState({ left: 0, top: 0, width: 0 })
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({
-        left: rect.left,
-        top: rect.bottom + 8,
-        width: rect.width,
-      })
-    }
-  }, [triggerRef])
-
-  const handleClick = (e: React.MouseEvent, driverCode: string) => {
-    e.stopPropagation()
-    e.preventDefault()
-    onVote(driverCode)
-  }
-
-  return (
-    <div
-      ref={dropdownRef}
-      className="rounded-lg border border-border bg-card shadow-xl"
-      style={{
-        position: "fixed",
-        left: pos.left,
-        top: pos.top,
-        width: pos.width,
-        zIndex: 9999,
-        maxHeight: "400px",
-        overflowY: "auto",
-      }}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {drivers.map((driver) => {
-        const driverResults = results.find((r) => r.driverCode === driver.code)
-        const percentage = total > 0 && driverResults
-          ? Math.round((driverResults.count / total) * 100)
-          : 0
-
-        return (
-          <button
-            key={driver.code}
-            type="button"
-            onClick={(e) => handleClick(e, driver.code)}
-            className={cn(
-              "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary",
-              selectedDriver === driver.code && "bg-primary/10"
-            )}
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-xs font-bold text-muted-foreground w-12 shrink-0">
-                  {driver.code}
-                </span>
-                <span className="font-medium text-foreground truncate">{driver.name}</span>
-                {selectedDriver === driver.code && (
-                  <CheckCircle2 className="size-3 text-primary shrink-0" />
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">{driver.team}</div>
-            </div>
-            {driverResults && (
-              <div className="text-right shrink-0">
-                <div className="text-xs font-medium">{driverResults.count} 票</div>
-                <div className="text-[10px] text-muted-foreground">{percentage}%</div>
-              </div>
-            )}
-          </button>
-        )
-      })}
     </div>
   )
 }
