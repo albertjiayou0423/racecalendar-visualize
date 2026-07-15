@@ -52,7 +52,7 @@ export async function GET() {
       },
       {
         series: "WRC",
-        label: "WRC 官方 itinerary（爬取）",
+        label: "WRC 官方 itinerary（爬取 / ocblacktop fallback）",
         ok: wrc.ok,
         note: wrc.ok 
           ? wrc.note || "成功从官方 itinerary 爬取真实赛段时间"

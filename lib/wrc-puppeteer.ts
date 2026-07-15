@@ -123,13 +123,21 @@ interface ItineraryDay {
   stages: { time: string; name: string; isPowerStage: boolean }[]
 }
 
+function stripScriptsAndStyles(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+}
+
 function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDay[] | null {
+  // 先移除 script/style，避免 JSON / CSS 中的 `xx:xx` 被误识别为赛段时间
+  const cleanHtml = stripScriptsAndStyles(html)
   const daySections: ItineraryDay[] = []
   
   const dayPattern = /<div[^>]*class="[^"]*(?:day|date)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi
   let dayMatch
   
-  while ((dayMatch = dayPattern.exec(html)) !== null) {
+  while ((dayMatch = dayPattern.exec(cleanHtml)) !== null) {
     const dayContent = dayMatch[1]
     
     const dateTextMatch = dayContent.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
@@ -173,10 +181,10 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
     const allStages: { time: string; name: string; isPowerStage: boolean }[] = []
     let match
     
-    while ((match = allStagePattern.exec(html)) !== null) {
+    while ((match = allStagePattern.exec(cleanHtml)) !== null) {
       const time = match[1].padStart(5, "0")
       const name = match[2].trim()
-      if (!name || name.length < 3) continue
+      if (!name || name.length < 3 || name.length > 120) continue
       if (name.includes("UTC") || name.includes("Version") || name.includes("Stage") || name.includes("km")) {
         const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
         allStages.push({ time, name, isPowerStage })
@@ -260,6 +268,201 @@ function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: s
 
   console.error("No itinerary FAQ found in prerender cache")
   return null
+}
+
+// ============ ocblacktop API (第四层 fallback) ============
+
+const OCBLACKTOP_API_KEY = process.env.OCBLACKTOP_API_KEY
+const OCBLACKTOP_BASE = "https://api.ocblacktop.com"
+
+async function fetchOcblacktop<T = any>(path: string): Promise<T | null> {
+  if (!OCBLACKTOP_API_KEY) return null
+  try {
+    const res = await fetch(`${OCBLACKTOP_BASE}${path}`, {
+      headers: {
+        "X-API-Key": OCBLACKTOP_API_KEY,
+        "Accept": "application/json",
+      },
+      // Vercel Hobby 默认 10s；ocblacktop 响应通常很快
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) {
+      console.error(`ocblacktop ${path} failed: ${res.status}`)
+      return null
+    }
+    return (await res.json()) as T
+  } catch (e) {
+    console.error(`ocblacktop ${path} error:`, e)
+    return null
+  }
+}
+
+function pickString(obj: any, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = obj?.[key]
+    if (typeof v === "string" && v) return v
+  }
+  return undefined
+}
+
+function pickDateField(obj: any, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = obj?.[key]
+    if (typeof v === "string" && v) return v
+    if (v instanceof Date) return v.toISOString()
+  }
+  return undefined
+}
+
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+function rallyNameMatches(a: string, b: string): boolean {
+  const na = normalizeName(a)
+  const nb = normalizeName(b)
+  if (na === nb) return true
+  // 互相包含：如 "WRC Rallye Monte-Carlo" vs "Rallye Monte-Carlo"
+  if (na.includes(nb) || nb.includes(na)) return true
+  // 取词袋交集，至少 2 个词相同
+  const sa = new Set(na.split(" "))
+  const sb = new Set(nb.split(" "))
+  const common = [...sa].filter((w) => sb.has(w) && w.length > 2)
+  return common.length >= 2
+}
+
+interface OcblacktopRallySummary {
+  id?: string
+  name?: string
+  dateStart?: string
+  dateEnd?: string
+  startDate?: string
+  endDate?: string
+  timeZone?: string
+  timezone?: string
+  location?: { name?: string; country?: { name?: string; twoCode?: string; threeCode?: string } }
+}
+
+interface OcblacktopStage {
+  name?: string
+  title?: string
+  scheduledStart?: string
+  scheduledStartTime?: string
+  scheduledStartTimeUtc?: string
+  startTime?: string
+  date?: string
+  time?: string
+  isPowerStage?: boolean
+  powerStage?: boolean
+  distanceKm?: number
+}
+
+async function fetchOcblacktopRallies(): Promise<OcblacktopRallySummary[] | null> {
+  const res = await fetchOcblacktop<{ data?: OcblacktopRallySummary[] }>("/v1/wrc/rallies?limit=50")
+  if (!res?.data || !Array.isArray(res.data)) return null
+  return res.data
+}
+
+async function fetchOcblacktopRallyDetail(rallyId: string): Promise<any | null> {
+  return fetchOcblacktop(`/v1/wrc/rallies/${rallyId}`)
+}
+
+function parseStageTime(stage: OcblacktopStage, rallyTz: string): { utc: string; isMain: boolean } | null {
+  const name = pickString(stage, "name", "title") ?? "赛段"
+  const isMain = !!(stage?.isPowerStage ?? stage?.powerStage ?? name.toLowerCase().includes("power stage"))
+
+  // 优先使用明确的 UTC 时间
+  const utcStr = pickDateField(stage, "scheduledStartTimeUtc", "scheduledStart", "scheduledStartTime", "startTime")
+  if (utcStr) {
+    const d = new Date(utcStr)
+    if (!isNaN(d.getTime())) return { utc: d.toISOString(), isMain }
+  }
+
+  // 尝试组合 date + time，按 rally 时区解释
+  const dateStr = pickDateField(stage, "date")
+  const timeStr = pickString(stage, "time")
+  if (dateStr && timeStr) {
+    const base = new Date(dateStr)
+    if (!isNaN(base.getTime())) {
+      const m = timeStr.match(/(\d{1,2}):(\d{2})/)
+      if (m) {
+        const [y, mo, d] = [base.getFullYear(), base.getMonth() + 1, base.getDate()]
+        const utc = zonedWallTimeToUtc(y, mo, d, Number(m[1]), Number(m[2]), rallyTz)
+        return { utc: utc.toISOString(), isMain }
+      }
+    }
+  }
+
+  return null
+}
+
+function convertOcblacktopStages(detail: any, rallyTz: string): RaceSession[] | null {
+  if (!detail || typeof detail !== "object") return null
+
+  // 详情可能直接是对象，也可能包在 data 里
+  const payload = detail.data ?? detail
+
+  // 尝试多个可能的 stage 容器字段
+  const stageContainers = [
+    payload?.stages,
+    payload?.schedule,
+    payload?.events,
+    payload?.itinerary,
+    payload?.stageSchedule,
+  ].filter(Boolean)
+
+  let rawStages: any[] = []
+  for (const container of stageContainers) {
+    const arr = Array.isArray(container) ? container : container?.items ?? container?.stages ?? container?.events
+    if (Array.isArray(arr) && arr.length > 0) {
+      rawStages = arr
+      break
+    }
+  }
+
+  if (rawStages.length === 0) return null
+
+  const sessions: RaceSession[] = []
+  for (const stage of rawStages) {
+    const parsed = parseStageTime(stage, rallyTz)
+    if (!parsed) continue
+    const name = pickString(stage, "name", "title") ?? "赛段"
+    sessions.push({
+      name,
+      utc: parsed.utc,
+      isMain: parsed.isMain,
+    })
+  }
+
+  sessions.sort((a, b) => a.utc.localeCompare(b.utc))
+  return sessions.length > 0 ? sessions : null
+}
+
+async function tryOcblacktopFallback(
+  rally: WrcRally,
+  ocblacktopRallies: OcblacktopRallySummary[] | null,
+): Promise<RaceSession[] | null> {
+  if (!ocblacktopRallies || ocblacktopRallies.length === 0) return null
+
+  const match = ocblacktopRallies.find((r) => {
+    const candidate = pickString(r, "name")
+    return candidate && rallyNameMatches(candidate, rally.name)
+  })
+
+  if (!match?.id) {
+    console.log(`ocblacktop: no name match for ${rally.name}`)
+    return null
+  }
+
+  const detail = await fetchOcblacktopRallyDetail(match.id)
+  if (!detail) return null
+
+  const tz = pickString(match, "timeZone", "timezone") ?? rally.tz
+  const sessions = convertOcblacktopStages(detail, tz)
+  if (sessions && sessions.length > 0) {
+    console.log(`ocblacktop success: ${rally.name} (${sessions.length} sessions)`)
+  }
+  return sessions
 }
 
 // ============ 主爬取函数 ============
@@ -380,6 +583,7 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   const fallbackEvents = buildWrcEvents()
   const events: RaceEvent[] = [...fallbackEvents]
   let successCount = 0
+  let ocblacktopCount = 0
   const errors: string[] = []
 
   const now = Date.now()
@@ -393,25 +597,49 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
 
+  // 预取 ocblacktop rally 列表，作为第四层 fallback 的名称索引
+  const ocblacktopRallies = OCBLACKTOP_API_KEY ? await fetchOcblacktopRallies() : null
+  if (OCBLACKTOP_API_KEY) {
+    console.log(`ocblacktop: ${ocblacktopRallies ? ocblacktopRallies.length : 0} rallies indexed`)
+  }
+
   const results = await Promise.allSettled(
-    rallies.map(rally => scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate).then(sessions => ({ rally, sessions })))
+    rallies.map(async (rally) => {
+      // 第一层：直接 fetch WRC 官网
+      let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
+      let source = "wrc-official"
+
+      // 第四层 fallback：ocblacktop API
+      if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
+        sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
+        if (sessions && sessions.length > 0) source = "ocblacktop"
+      }
+
+      return { rally, sessions, source }
+    })
   )
 
   for (const result of results) {
     if (result.status === "fulfilled") {
-      const { rally, sessions } = result.value
+      const { rally, sessions, source } = result.value
       if (sessions && sessions.length > 0) {
         const index = events.findIndex((e) => e.round === rally.round)
         if (index !== -1) {
           events[index] = {
             ...events[index],
             sessions,
-            url: `https://www.wrc.com/en/events/${rally.eventSlug}`,
-            tentative: false,
+            url: source === "ocblacktop"
+              ? `https://ocblacktop.com`
+              : `https://www.wrc.com/en/events/${rally.eventSlug}`,
+            tentative: source === "ocblacktop",
           }
         }
-        successCount++
-        console.log(`WRC success: ${rally.name} (${sessions.length} sessions)`)
+        if (source === "ocblacktop") {
+          ocblacktopCount++
+        } else {
+          successCount++
+        }
+        console.log(`WRC success (${source}): ${rally.name} (${sessions.length} sessions)`)
       } else {
         errors.push(rally.name)
         console.log(`WRC failed: ${rally.name} (using fallback)`)
@@ -421,10 +649,12 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
     }
   }
 
-  const ok = successCount > 0
-  const note = errors.length > 0
-    ? `${successCount} 场爬取成功，${errors.length} 场使用估计数据（${errors.join(", ")}）`
-    : "所有爬取的赛事均获取成功"
+  const ok = successCount > 0 || ocblacktopCount > 0
+  const parts: string[] = []
+  if (successCount > 0) parts.push(`${successCount} 场官网爬取成功`)
+  if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop fallback`)
+  if (errors.length > 0) parts.push(`${errors.length} 场使用估计数据（${errors.join(", ")}）`)
+  const note = parts.length > 0 ? parts.join("，") : "所有爬取的赛事均获取成功"
 
   return { events, ok, note }
 }
