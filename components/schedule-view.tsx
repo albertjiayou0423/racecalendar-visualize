@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Radio, TriangleAlert, Trophy } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Radio, Search, TriangleAlert, Trophy } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
