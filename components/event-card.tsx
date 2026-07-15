@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, MapPin, Radio, Trophy, TriangleAlert } from "lucide-react"
+import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -112,22 +112,22 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           </p>
         </div>
 
-        {/* 主赛事北京时间 + 倒计时 */}
+        {/* 开赛时间 + 倒计时 */}
         <div className="flex items-center justify-between gap-3 sm:w-56 sm:shrink-0 sm:flex-col sm:items-end">
-          {main ? (
+          {first ? (
             <div className="text-right">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Trophy className="size-3.5" aria-hidden />
-                <span>主赛事 · 北京时间</span>
+                <Clock className="size-3.5" aria-hidden />
+                <span>开赛 · 北京时间</span>
               </div>
               <div className="font-mono text-sm font-semibold tabular-nums">
-                {formatDateTime(main.utc, BEIJING_TZ)}
+                {formatDateTime(first.utc, BEIJING_TZ)}
               </div>
             </div>
           ) : (
             <span className="text-sm text-muted-foreground">赛程待定</span>
           )}
-          {main ? <CountdownPill utc={main.utc} now={now} /> : null}
+          {first ? <CountdownPill utc={first.utc} now={now} /> : null}
         </div>
       </div>
 

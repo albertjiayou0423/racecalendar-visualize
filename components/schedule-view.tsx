@@ -63,9 +63,10 @@ function BeijingClock({ now }: { now: number }) {
 
 function NextUp({ event, now }: { event: RaceEvent; now: number }) {
   const meta = SERIES_META[event.series]
+  const first = firstSession(event)
   const main = mainSession(event)
-  if (!main) return null
-  const c = countdown(main.utc, now)
+  if (!first) return null
+  const c = countdown(first.utc, now)
   const flag = countryCodeToFlag(event.countryCode)
 
   return (
@@ -100,7 +101,7 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
 
       <div className="mt-5 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
         <div>
-          <div className="text-xs text-muted-foreground">距主赛事发车</div>
+          <div className="text-xs text-muted-foreground">距开赛</div>
           <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
             {c.past ? (
               <span className="text-2xl text-primary">进行中 / 已结束</span>
@@ -116,11 +117,17 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
         </div>
         <div className="flex flex-col gap-1.5 text-sm sm:items-end">
           <div className="flex items-center gap-1.5">
-            <Trophy className="size-4 text-primary" aria-hidden />
-            <span className="font-medium">主赛事</span>
-            <span className="font-mono tabular-nums">{formatDateTime(main.utc, BEIJING_TZ)}</span>
+            <Clock className="size-4 text-primary" aria-hidden />
+            <span className="font-medium">开赛时间</span>
+            <span className="font-mono tabular-nums">{formatDateTime(first.utc, BEIJING_TZ)}</span>
             <span className="text-muted-foreground">北京</span>
           </div>
+          {main && main !== first && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Trophy className="size-3.5" aria-hidden />
+              <span className="text-xs">主赛事：{formatDateTime(main.utc, BEIJING_TZ)}</span>
+            </div>
+          )}
           {event.broadcaster ? (
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Radio className="size-4 text-primary" aria-hidden />
