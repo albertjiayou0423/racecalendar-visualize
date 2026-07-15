@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Radio, Search, TriangleAlert, Trophy } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Search, TriangleAlert } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -331,16 +331,16 @@ export function ScheduleView() {
       ) : null}
 
       {/* 上一站回顾 + 下一站预览 */}
-      {!isLoading && !error && view === "list" && series !== "FE" && series !== "WRC" ? (
+      {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
         <div className="grid gap-4 md:grid-cols-2">
           <LastRaceResults />
-          {nextUp && time !== "past" ? <NextRacePreview event={nextUp} /> : null}
+          <NextRacePreview event={nextUp} />
         </div>
       ) : null}
 
       {/* 下一场高亮 */}
-      {!isLoading && nextUp && time !== "past" && view === "list" && (series === "FE" || series === "WRC") ? (
-        <NextUp event={nextUp} now={now} />
+      {!isLoading && !error && view === "list" && nextUp && time !== "past" && series !== "F1" ? (
+        <NextRacePreview event={nextUp} />
       ) : null}
 
       {/* 月视图 */}
