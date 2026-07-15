@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { sql, initDb } from "@/lib/db"
+import { getSql, initDb, isDbAvailable } from "@/lib/db"
 import { randomUUID } from "crypto"
 
-// 初始化数据库（在生产环境中应在部署时运行，这里简化处理）
-let initialized = false
 async function ensureDb() {
-  if (!initialized) {
-    await initDb()
-    initialized = true
-  }
+  if (!isDbAvailable()) return
+  await initDb()
 }
 
 function getVoterId(): string {
@@ -21,7 +17,7 @@ function getVoterId(): string {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
       path: "/",
     })
   }
@@ -30,6 +26,11 @@ function getVoterId(): string {
 
 export async function GET(request: NextRequest) {
   await ensureDb()
+  
+  const sql = getSql()
+  if (!sql) {
+    return NextResponse.json({ results: [], myVote: null, total: 0 }, { status: 200 })
+  }
 
   const searchParams = request.nextUrl.searchParams
   const eventId = searchParams.get("eventId")
@@ -47,7 +48,6 @@ export async function GET(request: NextRequest) {
       ORDER BY count DESC
     `
 
-    // 获取当前用户的投票
     const voterId = getVoterId()
     const myVote = await sql`
       SELECT driver_code
@@ -57,12 +57,12 @@ export async function GET(request: NextRequest) {
     `
 
     return NextResponse.json({
-      results: results.map((r) => ({
+      results: results.map((r: { driver_code: string; count: number }) => ({
         driverCode: r.driver_code,
         count: Number(r.count),
       })),
       myVote: myVote[0]?.driver_code ?? null,
-      total: results.reduce((sum, r) => sum + Number(r.count), 0),
+      total: results.reduce((sum: number, r: { count: number }) => sum + Number(r.count), 0),
     })
   } catch (err) {
     console.error("Failed to get predictions:", err)
@@ -72,6 +72,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await ensureDb()
+  
+  const sql = getSql()
+  if (!sql) {
+    return NextResponse.json({ error: "Database not available" }, { status: 503 })
+  }
 
   try {
     const body = await request.json()
@@ -86,7 +91,6 @@ export async function POST(request: NextRequest) {
 
     const voterId = getVoterId()
 
-    // 使用 UPSERT：如果已投票则更新，否则插入
     await sql`
       INSERT INTO predictions (event_id, driver_code, voter_id)
       VALUES (${eventId}, ${driverCode}, ${voterId})
