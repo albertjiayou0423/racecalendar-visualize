@@ -78,8 +78,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
 
   const drivers = DRIVERS[event.series] ?? []
   const meta = SERIES_META[event.series]
@@ -104,19 +103,19 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     fetchPredictions()
   }, [fetchPredictions])
 
+  // 点击外部关闭 - 使用 click 而不是 mousedown
   useEffect(() => {
+    if (!showDropdown) return
+
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (triggerRef.current && !triggerRef.current.contains(target)) {
-        if (dropdownRef.current && !dropdownRef.current.contains(target)) {
-          setShowDropdown(false)
-        }
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
       }
     }
     
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+    document.addEventListener("click", handleClickOutside)
+    return () => document.removeEventListener("click", handleClickOutside)
+  }, [showDropdown])
 
   const handleVote = async (driverCode: string) => {
     try {
@@ -140,15 +139,8 @@ export function PredictionVote({ event }: PredictionVoteProps) {
 
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
 
-  const dropdownPosition = {
-    position: "fixed" as const,
-    zIndex: 1000,
-    maxHeight: "60vh",
-    overflow: "auto",
-  }
-
   return (
-    <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+    <div ref={triggerRef} className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Trophy className="size-4 text-primary" />
         <span>预测 {meta.label} 冠军</span>
@@ -167,15 +159,17 @@ export function PredictionVote({ event }: PredictionVoteProps) {
         </div>
       ) : (
         <>
-          <div className="mt-3">
+          <div className="mt-3 relative">
             {selectedDriver ? (
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-500" />
                 <span className="text-sm text-muted-foreground">你预测：</span>
                 <span className="font-semibold text-foreground">{selectedDriverInfo?.name}</span>
                 <button
-                  ref={triggerRef}
-                  onClick={() => setShowDropdown((v) => !v)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowDropdown((v) => !v)
+                  }}
                   className="ml-2 text-xs text-primary hover:underline"
                 >
                   更改
@@ -183,8 +177,10 @@ export function PredictionVote({ event }: PredictionVoteProps) {
               </div>
             ) : (
               <button
-                ref={triggerRef}
-                onClick={() => setShowDropdown((v) => !v)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowDropdown((v) => !v)
+                }}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm text-muted-foreground hover:border-primary"
               >
                 选择你预测的冠军...
@@ -193,11 +189,10 @@ export function PredictionVote({ event }: PredictionVoteProps) {
             )}
           </div>
 
-          {showDropdown && triggerRef.current && typeof window !== "undefined" && (
+          {showDropdown && typeof window !== "undefined" && triggerRef.current && (
             createPortal(
-              <DropdownPortal
+              <DropdownContent
                 triggerRef={triggerRef}
-                dropdownRef={dropdownRef}
                 drivers={drivers}
                 results={results}
                 total={total}
@@ -247,9 +242,8 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   )
 }
 
-interface DropdownPortalProps {
-  triggerRef: React.RefObject<HTMLButtonElement>
-  dropdownRef: React.RefObject<HTMLDivElement | null>
+interface DropdownContentProps {
+  triggerRef: React.RefObject<HTMLDivElement>
   drivers: Driver[]
   results: PredictionResult[]
   total: number
@@ -257,21 +251,21 @@ interface DropdownPortalProps {
   onVote: (driverCode: string) => void
 }
 
-function DropdownPortal({
+function DropdownContent({
   triggerRef,
-  dropdownRef,
   drivers,
   results,
   total,
   selectedDriver,
   onVote,
-}: DropdownPortalProps) {
-  const [position, setPosition] = useState({ left: 0, top: 0, width: 0 })
+}: DropdownContentProps) {
+  const [pos, setPos] = useState({ left: 0, top: 0, width: 0 })
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      setPosition({
+      setPos({
         left: rect.left,
         top: rect.bottom + 8,
         width: rect.width,
@@ -279,19 +273,27 @@ function DropdownPortal({
     }
   }, [triggerRef])
 
+  const handleClick = (e: React.MouseEvent, driverCode: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    onVote(driverCode)
+  }
+
   return (
     <div
       ref={dropdownRef}
       className="rounded-lg border border-border bg-card shadow-xl"
       style={{
         position: "fixed",
-        left: position.left,
-        top: position.top,
-        width: position.width,
-        zIndex: 1000,
+        left: pos.left,
+        top: pos.top,
+        width: pos.width,
+        zIndex: 9999,
         maxHeight: "400px",
         overflowY: "auto",
       }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {drivers.map((driver) => {
         const driverResults = results.find((r) => r.driverCode === driver.code)
@@ -302,7 +304,8 @@ function DropdownPortal({
         return (
           <button
             key={driver.code}
-            onClick={() => onVote(driver.code)}
+            type="button"
+            onClick={(e) => handleClick(e, driver.code)}
             className={cn(
               "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary",
               selectedDriver === driver.code && "bg-primary/10"
