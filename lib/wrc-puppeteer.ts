@@ -15,7 +15,6 @@ async function fetchDirect(url: string): Promise<string | null> {
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
       },
-      next: { revalidate: 86400 },
     })
     if (!res.ok) return null
     return res.text()
@@ -47,7 +46,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://phantomjscloud.com/api/browser/v2/${PHANTOMJS_API_KEY}/?request=${encodeURIComponent(JSON.stringify(requestPayload))}`
-    const res = await fetch(apiUrl, { next: { revalidate: 86400 } })
+    const res = await fetch(apiUrl)
 
     if (!res.ok) {
       console.error(`PhantomJsCloud failed: ${res.status} for ${url}`)
@@ -384,35 +383,41 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   const errors: string[] = []
 
   const now = Date.now()
-  const ninetyDays = 90 * 24 * 60 * 60 * 1000
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000
   const recentRallies = WRC_RALLIES.filter(r => {
     const rallyTime = new Date(r.startDate).getTime()
-    return Math.abs(rallyTime - now) < ninetyDays
+    return rallyTime >= now - thirtyDays && rallyTime <= now + thirtyDays * 2
   })
 
-  const rallies = recentRallies.length > 0 ? recentRallies : WRC_RALLIES.slice(0, 3)
+  const rallies = recentRallies.length > 0 ? recentRallies : WRC_RALLIES.slice(0, 2)
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
 
-  for (const rally of rallies) {
-    const sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
+  const results = await Promise.allSettled(
+    rallies.map(rally => scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate).then(sessions => ({ rally, sessions })))
+  )
 
-    if (sessions && sessions.length > 0) {
-      const index = events.findIndex((e) => e.round === rally.round)
-      if (index !== -1) {
-        events[index] = {
-          ...events[index],
-          sessions,
-          url: `https://www.wrc.com/en/events/${rally.eventSlug}`,
-          tentative: false,
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      const { rally, sessions } = result.value
+      if (sessions && sessions.length > 0) {
+        const index = events.findIndex((e) => e.round === rally.round)
+        if (index !== -1) {
+          events[index] = {
+            ...events[index],
+            sessions,
+            url: `https://www.wrc.com/en/events/${rally.eventSlug}`,
+            tentative: false,
+          }
         }
+        successCount++
+        console.log(`WRC success: ${rally.name} (${sessions.length} sessions)`)
+      } else {
+        errors.push(rally.name)
+        console.log(`WRC failed: ${rally.name} (using fallback)`)
       }
-
-      successCount++
-      console.log(`WRC success: ${rally.name} (${sessions.length} sessions)`)
     } else {
-      errors.push(rally.name)
-      console.log(`WRC failed: ${rally.name} (using fallback)`)
+      console.error(`WRC error: ${result.reason}`)
     }
   }
 

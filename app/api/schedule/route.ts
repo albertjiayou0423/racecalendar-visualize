@@ -3,7 +3,7 @@ import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
 import { buildWrcEvents } from "@/lib/wrc-data"
 import type { ScheduleResponse } from "@/lib/types"
 
-export const revalidate = 3600
+export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
 export async function GET() {
