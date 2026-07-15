@@ -10,6 +10,7 @@ import {
   countdown,
   formatDateTime,
   formatTime,
+  firstSession,
   isPast,
   mainSession,
 } from "@/lib/format"
