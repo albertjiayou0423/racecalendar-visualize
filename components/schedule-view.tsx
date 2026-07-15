@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Search, TriangleAlert } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Search, TriangleAlert, Sparkles } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -21,6 +21,7 @@ import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json() as Promise<ScheduleResponse>)
 
@@ -367,6 +368,16 @@ export function ScheduleView() {
 
       <div className="flex justify-center">
         <FeedbackButton />
+      </div>
+
+      <div className="flex justify-center">
+        <Link
+          href="/about"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <Sparkles className="size-3.5" />
+          v1.0.3 · 更新日志
+        </Link>
       </div>
 
       <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
