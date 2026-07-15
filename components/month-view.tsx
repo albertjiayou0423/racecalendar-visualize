@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 
 const WEEKDAY_HEADERS = ["一", "二", "三", "四", "五", "六", "日"]
 
-/** 取某 UTC 时间在北京时区的 YYYY-MM-DD 与日序号 */
+/** 取某 UTC 时间在北京时区的 YYYY-MM-DD */
 function dayKeyInBeijing(utc: string): string {
   const d = new Date(utc)
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -21,10 +21,13 @@ function dayKeyInBeijing(utc: string): string {
   return fmt.format(d) // YYYY-MM-DD
 }
 
-/** 取年月日的数字 */
-function ymdOfKey(key: string): { y: number; m: number; d: number } {
-  const [y, m, d] = key.split("-").map(Number)
-  return { y, m, d }
+/** 取某赛事在北京时区覆盖的所有日期（去重） */
+function eventDayKeys(e: RaceEvent): string[] {
+  const set = new Set<string>()
+  for (const s of e.sessions) {
+    set.add(dayKeyInBeijing(s.utc))
+  }
+  return [...set]
 }
 
 interface MonthViewProps {
@@ -44,7 +47,7 @@ export function MonthView({ events, now }: MonthViewProps) {
     const target = mainSession(upcoming[0] ?? events[0])?.utc
     if (!target) return new Date()
     const key = dayKeyInBeijing(target)
-    const { y, m } = ymdOfKey(key)
+    const [y, m] = key.split("-").map(Number)
     return new Date(Date.UTC(y, m - 1, 1))
   }, [events, now])
 
@@ -53,15 +56,26 @@ export function MonthView({ events, now }: MonthViewProps) {
     m: firstEventMonth.getUTCMonth() + 1,
   }))
 
-  // 把赛事按北京日期分桶
+  // 把赛事按北京日期分桶（同一场赛事在每个覆盖日期都出现一次）
+  // 每个分桶条目带上当天该赛事的首个场次 UTC，用于显示当日开始时间
   const byDay = useMemo(() => {
-    const map = new Map<string, RaceEvent[]>()
+    const map = new Map<string, { event: RaceEvent; firstUtc: string }[]>()
     for (const e of events) {
-      const main = mainSession(e)
-      if (!main) continue
-      const key = dayKeyInBeijing(main.utc)
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(e)
+      // 计算该赛事每个北京日期的首个场次
+      const dayFirst = new Map<string, string>()
+      for (const s of e.sessions) {
+        const key = dayKeyInBeijing(s.utc)
+        const prev = dayFirst.get(key)
+        if (!prev || s.utc < prev) dayFirst.set(key, s.utc)
+      }
+      for (const [key, firstUtc] of dayFirst) {
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push({ event: e, firstUtc })
+      }
+    }
+    // 每天内部按当天首个场次时间排序
+    for (const list of map.values()) {
+      list.sort((a, b) => a.firstUtc.localeCompare(b.firstUtc))
     }
     return map
   }, [events])
@@ -99,8 +113,8 @@ export function MonthView({ events, now }: MonthViewProps) {
     })
   }
 
-  // 该月是否有赛事
-  const monthEventCount = useMemo(() => {
+  // 该月有赛事的天数（去重赛事数）
+  const monthEventDays = useMemo(() => {
     const prefix = `${cursor.y}-${String(cursor.m).padStart(2, "0")}`
     let n = 0
     for (const key of byDay.keys()) {
@@ -115,8 +129,8 @@ export function MonthView({ events, now }: MonthViewProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{monthLabel}</span>
-          {monthEventCount > 0 ? (
-            <span>· {monthEventCount} 场赛事</span>
+          {monthEventDays > 0 ? (
+            <span>· {monthEventDays} 场次</span>
           ) : null}
         </div>
         <div className="flex items-center gap-1">
@@ -164,8 +178,11 @@ export function MonthView({ events, now }: MonthViewProps) {
           if (!cell.key) {
             return <div key={i} className="min-h-20 rounded-lg border border-border/40 bg-card/30" />
           }
-          const dayEvents = byDay.get(cell.key) ?? []
-          const past = dayEvents.every((e) => new Date(mainSession(e)!.utc).getTime() < now)
+          const dayItems = byDay.get(cell.key) ?? []
+          const past = dayItems.every(({ event }) => {
+            const m = mainSession(event)
+            return m && new Date(m.utc).getTime() < now
+          })
           return (
             <div
               key={cell.key}
@@ -185,19 +202,20 @@ export function MonthView({ events, now }: MonthViewProps) {
                 {cell.day}
               </div>
               <div className="mt-1 flex flex-col gap-0.5">
-                {dayEvents.slice(0, 3).map((e) => {
+                {dayItems.slice(0, 3).map(({ event: e, firstUtc }, idx) => {
                   const meta = SERIES_META[e.series]
-                  const main = mainSession(e)!
                   const time = new Intl.DateTimeFormat("en-GB", {
                     timeZone: BEIJING_TZ,
                     hour: "2-digit",
                     minute: "2-digit",
                     hourCycle: "h23",
-                  }).format(new Date(main.utc))
+                  }).format(new Date(firstUtc))
                   const flag = countryCodeToFlag(e.countryCode)
+                  // 同一天如果同一赛事已出现过（同一 event id），标记为"续"
+                  const prevSameEvent = idx > 0 && dayItems[idx - 1].event.id === e.id
                   return (
                     <div
-                      key={e.id}
+                      key={`${e.id}-${idx}`}
                       className={cn(
                         "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight",
                         past && "opacity-50",
@@ -205,7 +223,7 @@ export function MonthView({ events, now }: MonthViewProps) {
                       style={{
                         backgroundColor: `${meta.color}22`,
                       }}
-                      title={`${e.name} · ${time} 北京时间`}
+                      title={`${e.name}${prevSameEvent ? "（续）" : ""} · ${time} 北京时间`}
                     >
                       <span
                         className="size-1.5 shrink-0 rounded-full"
@@ -213,8 +231,7 @@ export function MonthView({ events, now }: MonthViewProps) {
                         aria-hidden
                       />
                       <span className="truncate font-medium" style={{ color: meta.color }}>
-                        {flag ? `${flag} ` : ""}
-                        {meta.label}
+                        {prevSameEvent ? "续" : `${flag ? `${flag} ` : ""}${meta.label}`}
                       </span>
                       <span className="ml-auto font-mono tabular-nums text-muted-foreground">
                         {time}
@@ -222,9 +239,9 @@ export function MonthView({ events, now }: MonthViewProps) {
                     </div>
                   )
                 })}
-                {dayEvents.length > 3 ? (
+                {dayItems.length > 3 ? (
                   <div className="px-1 text-[10px] text-muted-foreground">
-                    +{dayEvents.length - 3} 场
+                    +{dayItems.length - 3} 场
                   </div>
                 ) : null}
               </div>
@@ -245,6 +262,7 @@ export function MonthView({ events, now }: MonthViewProps) {
             {SERIES_META[s].label}
           </span>
         ))}
+        <span className="text-muted-foreground/70">续 = 该赛事跨日场次</span>
       </div>
     </section>
   )
