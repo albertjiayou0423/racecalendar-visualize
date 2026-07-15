@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LoaderCircle, Radio, TriangleAlert, Trophy } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, LoaderCircle, Radio, TriangleAlert, Trophy } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -15,12 +15,14 @@ import {
 } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
+import { MonthView } from "@/components/month-view"
 import { cn } from "@/lib/utils"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json() as Promise<ScheduleResponse>)
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
+type ViewMode = "list" | "month"
 
 const SERIES_TABS: { key: SeriesFilter; label: string }[] = [
   { key: "ALL", label: "全部" },
@@ -163,19 +165,23 @@ export function ScheduleView() {
   })
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
+  const [view, setView] = useState<ViewMode>("list")
 
   const allEvents = data?.events ?? []
 
   const filtered = useMemo(() => {
     let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
-    if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
-    else if (time === "past") list = list.filter((e) => isPast(e, now))
+    // 月视图显示全部赛事，列表视图才按时间筛选
+    if (view === "list") {
+      if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
+      else if (time === "past") list = list.filter((e) => isPast(e, now))
+    }
     return [...list].sort((a, b) => {
       const am = mainSession(a)?.utc ?? ""
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, series, time, now])
+  }, [allEvents, series, time, view, now])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
@@ -203,44 +209,81 @@ export function ScheduleView() {
 
       {/* 筛选 */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="赛事系列">
-          {SERIES_TABS.map((t) => (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="赛事系列">
+            {SERIES_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={series === t.key}
+                onClick={() => setSeries(t.key)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+                  series === t.key
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {/* 视图切换 */}
+          <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
             <button
-              key={t.key}
               type="button"
-              role="tab"
-              aria-selected={series === t.key}
-              onClick={() => setSeries(t.key)}
+              onClick={() => setView("list")}
+              aria-label="列表视图"
+              aria-pressed={view === "list"}
               className={cn(
-                "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
-                series === t.key
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
-          {TIME_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={time === t.key}
-              onClick={() => setTime(t.key)}
-              className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                time === t.key
+                "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                view === "list"
                   ? "bg-secondary text-secondary-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t.label}
+              <List className="size-3.5" />
+              列表
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setView("month")}
+              aria-label="月视图"
+              aria-pressed={view === "month"}
+              className={cn(
+                "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                view === "month"
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <LayoutGrid className="size-3.5" />
+              月历
+            </button>
+          </div>
         </div>
+        {view === "list" ? (
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
+            {TIME_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={time === t.key}
+                onClick={() => setTime(t.key)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                  time === t.key
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/* 加载 / 错误 */}
@@ -258,10 +301,15 @@ export function ScheduleView() {
       ) : null}
 
       {/* 下一场高亮 */}
-      {!isLoading && nextUp && time !== "past" ? <NextUp event={nextUp} now={now} /> : null}
+      {!isLoading && nextUp && time !== "past" && view === "list" ? <NextUp event={nextUp} now={now} /> : null}
+
+      {/* 月视图 */}
+      {!isLoading && !error && view === "month" ? (
+        <MonthView events={filtered} now={now} />
+      ) : null}
 
       {/* 列表 */}
-      {!isLoading && !error ? (
+      {!isLoading && !error && view === "list" ? (
         <section className="flex flex-col gap-3" aria-label="赛程列表">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="size-4" aria-hidden />
