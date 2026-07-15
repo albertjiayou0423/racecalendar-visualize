@@ -124,6 +124,81 @@ interface ItineraryDay {
   stages: { time: string; name: string; isPowerStage: boolean }[]
 }
 
+function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDay[] | null {
+  const daySections: ItineraryDay[] = []
+  
+  const dayPattern = /<div[^>]*class="[^"]*(?:day|date)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi
+  let dayMatch
+  
+  while ((dayMatch = dayPattern.exec(html)) !== null) {
+    const dayContent = dayMatch[1]
+    
+    const dateTextMatch = dayContent.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+    if (!dateTextMatch) continue
+    
+    const day = parseInt(dateTextMatch[2], 10)
+    const month = MONTH_MAP[dateTextMatch[3]]
+    const [startY] = fallbackDate.split("-").map(Number)
+    
+    if (!month) continue
+    
+    const stages: { time: string; name: string; isPowerStage: boolean }[] = []
+    
+    const stagePattern = /cosmos-text[^>]*>(\d{1,2}:\d{2}):\s*(.+?)<\/cosmos-text>/gi
+    let stageMatch
+    
+    while ((stageMatch = stagePattern.exec(dayContent)) !== null) {
+      const time = stageMatch[1].padStart(5, "0")
+      const name = stageMatch[2].trim()
+      const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+      stages.push({ time, name, isPowerStage })
+    }
+    
+    if (stages.length === 0) {
+      const altStagePattern = />(\d{1,2}:\d{2}):\s*([^<]+)</g
+      while ((stageMatch = altStagePattern.exec(dayContent)) !== null) {
+        const time = stageMatch[1].padStart(5, "0")
+        const name = stageMatch[2].trim()
+        const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+        stages.push({ time, name, isPowerStage })
+      }
+    }
+    
+    if (stages.length > 0) {
+      daySections.push({ date: [startY, month, day], stages })
+    }
+  }
+  
+  if (daySections.length === 0) {
+    const allStagePattern = /(\d{1,2}:\d{2}):\s*([^<\n]+)/g
+    const allStages: { time: string; name: string; isPowerStage: boolean }[] = []
+    let match
+    
+    while ((match = allStagePattern.exec(html)) !== null) {
+      const time = match[1].padStart(5, "0")
+      const name = match[2].trim()
+      if (!name || name.length < 3) continue
+      if (name.includes("UTC") || name.includes("Version") || name.includes("Stage") || name.includes("km")) {
+        const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+        allStages.push({ time, name, isPowerStage })
+      }
+    }
+    
+    if (allStages.length > 0) {
+      const [y, m, d] = fallbackDate.split("-").map(Number)
+      daySections.push({ date: [y, m, d], stages: allStages })
+    }
+  }
+  
+  if (daySections.length > 0) {
+    console.log(`Parsed ${daySections.length} days from HTML`)
+    return daySections
+  }
+  
+  console.error("No itinerary data found in HTML")
+  return null
+}
+
 function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: string): ItineraryDay[] | null {
   for (const key of Object.keys(cacheData)) {
     const value = cacheData[key]
@@ -238,7 +313,11 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     return null
   }
 
-  const days = parseItineraryFromCache(itineraryCache, startDate)
+  let days = parseItineraryFromCache(itineraryCache, startDate)
+  if (!days || days.length === 0) {
+    console.log(`WRC: no itinerary data in cache, trying HTML parsing for ${eventSlug}`)
+    days = parseItineraryFromHtml(itineraryHtml, startDate)
+  }
   if (!days || days.length === 0) {
     console.error(`WRC: no itinerary data parsed for ${eventSlug}`)
     return null
@@ -305,13 +384,13 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   const errors: string[] = []
 
   const now = Date.now()
-  const sixtyDays = 60 * 24 * 60 * 60 * 1000
-  const ralliesToScrape = WRC_RALLIES.filter(r => {
+  const ninetyDays = 90 * 24 * 60 * 60 * 1000
+  const recentRallies = WRC_RALLIES.filter(r => {
     const rallyTime = new Date(r.startDate).getTime()
-    return Math.abs(rallyTime - now) < sixtyDays
+    return Math.abs(rallyTime - now) < ninetyDays
   })
 
-  const rallies = ralliesToScrape.length > 0 ? ralliesToScrape : WRC_RALLIES.slice(0, 2)
+  const rallies = recentRallies.length > 0 ? recentRallies : WRC_RALLIES.slice(0, 3)
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
 
