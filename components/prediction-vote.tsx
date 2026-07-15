@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Trophy, CheckCircle2, Users, ChevronDown } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
@@ -21,9 +21,7 @@ interface PredictionResult {
   count: number
 }
 
-// 各赛事车手列表
 const DRIVERS: Record<string, Driver[]> = {
-  // F1 2026
   F1: [
     { code: "VER", name: "维斯塔潘", team: "红牛 Racing" },
     { code: "NOR", name: "诺里斯", team: "迈凯伦" },
@@ -46,7 +44,6 @@ const DRIVERS: Record<string, Driver[]> = {
     { code: "BEA", name: "比尔曼", team: "哈斯" },
     { code: "LAW", name: "劳森", team: "Racing Bulls" },
   ],
-  // FE 2026（简化）
   FE: [
     { code: "EVANS", name: "Mitch Evans", team: "Jaguar TCS Racing" },
     { code: "BIRD", name: "Sam Bird", team: "McLaren Formula E" },
@@ -59,18 +56,17 @@ const DRIVERS: Record<string, Driver[]> = {
     { code: "WEHRLEIN", name: "Pascal Wehrlein", team: "Porsche Formula E" },
     { code: "EVANS_B", name: "Nick Cassidy", team: "Envision Racing" },
   ],
-  // WRC 2026（简化）
   WRC: [
-    { code: "OGIER", name: "塞巴斯蒂安·奥吉尔", team: "丰田 Gazoo" },
-    { code: "LOEB", name: "塞巴斯蒂安·勒布", team: "现代 N" },
-    { code: "NEUVILLE", name: "蒂埃里·诺伊维尔", team: "现代 N" },
-    { code: "TÄNAK", name: "奥特·塔纳克", team: "现代 N" },
-    { code: "ROVANPERÄ", name: "卡勒·罗万佩拉", team: "丰田 Gazoo" },
-    { code: "EVANS", name: "埃尔芬·埃文斯", team: "丰田 Gazoo" },
-    { code: "KATSI", name: "格雷瓜尔·穆纳", team: "现代 N" },
-    { code: "SUNINEN", name: "蒂莫·苏尼宁", team: "现代 N" },
-    { code: "BREEN", name: "克雷格·布林", team: "福特 M-Sport" },
-    { code: "FOURNIER", name: "亚多·福尼耶", team: "丰田 Gazoo" },
+    { code: "OGIER", name: "塞巴斯蒂安·奥吉尔 / 文森特·兰布拉斯", team: "丰田 Gazoo Racing" },
+    { code: "LOEB", name: "塞巴斯蒂安·勒布 / 伊夫·穆勒", team: "现代 N" },
+    { code: "NEUVILLE", name: "蒂埃里·诺伊维尔 / 马蒂亚斯·韦伊勒", team: "现代 N" },
+    { code: "TÄNAK", name: "奥特·塔纳克 / 马丁·亚尔韦", team: "现代 N" },
+    { code: "ROVANPERÄ", name: "卡勒·罗万佩拉 / 乔尼·哈尔塔宁", team: "丰田 Gazoo Racing" },
+    { code: "EVANS", name: "埃尔芬·埃文斯 / 斯科特·马丁", team: "丰田 Gazoo Racing" },
+    { code: "KATSI", name: "格雷瓜尔·穆纳 / 塞巴斯蒂安·德尔普拉多", team: "现代 N" },
+    { code: "SUNINEN", name: "蒂莫·苏尼宁 / 米卡·安蒂拉", team: "现代 N" },
+    { code: "BREEN", name: "克雷格·布林 / 詹姆斯·富尔顿", team: "福特 M-Sport" },
+    { code: "FOURNIER", name: "亚多·福尼耶 / 文森特·兰布拉斯", team: "丰田 Gazoo Racing" },
   ],
 }
 
@@ -80,11 +76,13 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const [total, setTotal] = useState(0)
   const [showDropdown, setShowDropdown] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const drivers = DRIVERS[event.series] ?? []
   const meta = SERIES_META[event.series]
 
-  // 获取投票数据
   const fetchPredictions = useCallback(async () => {
     try {
       const res = await fetch(`/api/predictions?eventId=${event.id}`)
@@ -105,7 +103,17 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     fetchPredictions()
   }, [fetchPredictions])
 
-  // 提交投票
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   const handleVote = async (driverCode: string) => {
     try {
       const res = await fetch("/api/predictions", {
@@ -117,7 +125,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
       if (res.ok) {
         setSelectedDriver(driverCode)
         setShowDropdown(false)
-        // 刷新投票结果
         await fetchPredictions()
       }
     } catch (err) {
@@ -130,7 +137,10 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
 
   return (
-    <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+    <div 
+      ref={containerRef}
+      className="mt-4 relative rounded-xl border border-primary/20 bg-primary/5 p-4"
+    >
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Trophy className="size-4 text-primary" />
         <span>预测 {meta.label} 冠军</span>
@@ -149,7 +159,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
         </div>
       ) : (
         <>
-          {/* 投票按钮 / 已投票显示 */}
           <div className="mt-3">
             {selectedDriver ? (
               <div className="flex items-center gap-2">
@@ -176,10 +185,12 @@ export function PredictionVote({ event }: PredictionVoteProps) {
             )}
           </div>
 
-          {/* 下拉选择 */}
           {showDropdown && (
-            <div className="mt-2 rounded-lg border border-border bg-card shadow-lg">
-              <div className="max-h-48 overflow-auto">
+            <div 
+              ref={dropdownRef}
+              className="absolute left-4 right-4 top-full mt-2 z-50 rounded-lg border border-border bg-card shadow-xl"
+            >
+              <div className="max-h-60 overflow-auto">
                 {drivers.map((driver) => {
                   const driverResults = results.find((r) => r.driverCode === driver.code)
                   const percentage = total > 0 && driverResults
@@ -220,7 +231,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
             </div>
           )}
 
-          {/* 投票结果柱状图 */}
           {results.length > 0 && (
             <div className="mt-4 space-y-2">
               <div className="text-xs text-muted-foreground">预测分布</div>
