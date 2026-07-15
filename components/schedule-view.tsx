@@ -330,9 +330,9 @@ export function ScheduleView() {
         </div>
       ) : null}
 
-      {/* 上一站回顾 + 下一站预览 */}
+      {/* 上一站回顾 + 下一站预览（上下排列） */}
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <LastRaceResults />
           <NextRacePreview event={nextUp} />
         </div>
