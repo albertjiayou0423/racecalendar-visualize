@@ -220,10 +220,7 @@ export function ScheduleView() {
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <BeijingClock now={now} />
-            <FeedbackButton />
-          </div>
+          <BeijingClock now={now} />
         </div>
         {data ? <SourceBar data={data} /> : null}
       </header>
@@ -356,7 +353,11 @@ export function ScheduleView() {
         </section>
       ) : null}
 
-      <footer className="mt-4 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+      <div className="flex justify-center">
+        <FeedbackButton />
+      </div>
+
+      <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         <p>
           时间说明：F1 与 Formula E 场次时间来自官方公开接口并换算为北京时间（UTC+8）；WRC
           为官方公布赛历，各赛段具体发车时间以官方 itinerary 为准（标有

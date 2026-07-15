@@ -6,8 +6,36 @@ import type { ScheduleResponse } from "@/lib/types"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
+const MAX_DAILY_REQUESTS = 100
+let todayCount = 0
+let todayDate = new Date().toDateString()
+
+function getTodayCount(): number {
+  const now = new Date().toDateString()
+  if (now !== todayDate) {
+    todayDate = now
+    todayCount = 0
+  }
+  return todayCount
+}
+
+function incrementCount() {
+  todayCount++
+}
+
 export async function GET() {
-  const [f1, fe, wrc] = await Promise.all([fetchF1(), fetchFe(), fetchWrc()])
+  const count = getTodayCount()
+  const shouldScrapeWrc = count < MAX_DAILY_REQUESTS
+
+  if (shouldScrapeWrc) {
+    incrementCount()
+  }
+
+  const [f1, fe, wrc] = await Promise.all([
+    fetchF1(),
+    fetchFe(),
+    shouldScrapeWrc ? fetchWrc() : Promise.resolve({ events: buildWrcEvents(), ok: false, note: "今日爬取次数已达上限，使用估计数据" }),
+  ])
   
   const wrcEvents = wrc.ok && wrc.events.length > 0 
     ? wrc.events 
