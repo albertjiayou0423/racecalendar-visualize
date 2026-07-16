@@ -11,6 +11,24 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.0.5",
+    date: "2026-07-16",
+    items: [
+      { type: "feat", text: "赛前预测冠军投票，所有用户共享投票数据（Neon PostgreSQL）" },
+      { type: "feat", text: "FE 积分榜页面，车手头像和国家旗帜显示" },
+      { type: "feat", text: "高级筛选：赛道特性（街道赛 / 拉力 / 场地）和地区筛选" },
+      { type: "feat", text: "赛事官网链接跳转，一键直达官方信息" },
+      { type: "feat", text: "通知提醒时间可自定义配置" },
+      { type: "feat", text: "无网络时显示 localStorage 缓存数据，支持离线浏览" },
+      { type: "feat", text: "月视图点击日期展开当天赛事详情" },
+      { type: "feat", text: "加载状态骨架屏动画" },
+      { type: "feat", text: "滚动吸顶筛选栏（sticky header）" },
+      { type: "feat", text: "空搜索结果友好提示" },
+      { type: "fix", text: "修复 Next.js 16 中 cookies() 需要 await 的问题" },
+      { type: "fix", text: "修复 Neon 数据库 channel_binding 参数导致连接失败" },
+    ],
+  },
+  {
     version: "v1.0.4",
     date: "2026-07-15",
     items: [
@@ -97,7 +115,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.4</span>
+          <span className="text-3xl font-bold">v1.0.5</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -130,7 +148,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.4" && (
+                {entry.version === "v1.0.5" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
