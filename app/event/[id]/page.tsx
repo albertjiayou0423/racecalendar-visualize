@@ -3,13 +3,8 @@
 import { useState, useEffect } from "react"
 import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { SERIES_META } from "@/lib/format"
-import { EventHeader } from "@/components/event-header"
-import { SessionTimeline } from "@/components/session-timeline"
-import { WatchInfo } from "@/components/watch-info"
-import { Highlights } from "@/components/highlights"
-import { DeepInfo } from "@/components/deep-info"
-import { EventNotificationManager } from "@/components/event-notification-manager"
+import { SERIES_META, mainSession, formatDateTime, BEIJING_TZ } from "@/lib/format"
+import { countryCodeToFlag } from "@/lib/tz"
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [id, setId] = useState<string | null>(null)
@@ -17,7 +12,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
-  const [notificationManager, setNotificationManager] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
@@ -108,6 +102,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   if (!event) return null
 
   const meta = SERIES_META[event.series]
+  const main = mainSession(event)
+  const flag = countryCodeToFlag(event.countryCode)
 
   return (
     <div className="min-h-screen bg-background">
@@ -128,23 +124,77 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </header>
 
       <main className="mx-auto max-w-2xl p-4">
-        <EventHeader
-          event={event}
-          now={now}
-          onSetNotification={() => setNotificationManager(true)}
-        />
-        <SessionTimeline event={event} now={now} />
-        <WatchInfo event={event} />
-        <Highlights event={event} />
-        <DeepInfo event={event} />
-      </main>
+        <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-5">
+          <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: meta.color }} />
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className="rounded-full px-2 py-0.5 text-xs font-bold"
+                  style={{ backgroundColor: meta.color, color: "#fff" }}
+                >
+                  {meta.label}
+                </span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                  第 {event.round} 站
+                </span>
+                {flag && <span aria-hidden>{flag}</span>}
+              </div>
+              <h1 className="mt-3 text-xl font-bold">{event.name}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {event.circuit} · {event.locality}，{event.country}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-primary/15 px-3 py-1 text-xs font-medium text-primary">
+              即将开始
+            </span>
+          </div>
 
-      {notificationManager && (
-        <EventNotificationManager
-          event={event}
-          onClose={() => setNotificationManager(false)}
-        />
-      )}
+          {main && (
+            <div className="mt-5 rounded-lg bg-secondary/50 p-4">
+              <div className="text-xs text-muted-foreground">正赛时间</div>
+              <div className="mt-2 flex flex-wrap items-baseline gap-4">
+                <div>
+                  <div className="text-xs text-muted-foreground">北京时间</div>
+                  <div className="text-lg font-bold font-mono tabular-nums">
+                    {formatDateTime(main.utc, BEIJING_TZ)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">当地时间</div>
+                  <div className="text-lg font-bold font-mono tabular-nums">
+                    {formatDateTime(main.utc, event.tz)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-4 rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold">赛程时间线</h2>
+          <div className="mt-3 space-y-2">
+            {event.sessions.map((s, i) => (
+              <div key={i} className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{s.name}</span>
+                  <span className="text-xs text-muted-foreground">未开始</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">北京</span>
+                    <span className="ml-1 font-mono tabular-nums">{formatDateTime(s.utc, BEIJING_TZ)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">当地</span>
+                    <span className="ml-1 font-mono tabular-nums">{formatDateTime(s.utc, event.tz)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
     </div>
   )
 }
