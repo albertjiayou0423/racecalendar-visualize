@@ -8,8 +8,8 @@ async function ensureDb() {
   await initDb()
 }
 
-function getVoterId(): string {
-  const cookieStore = cookies()
+async function getVoterId(): Promise<string> {
+  const cookieStore = await cookies()
   let voterId = cookieStore.get("voter_id")?.value
   if (!voterId) {
     voterId = randomUUID()
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       ORDER BY count DESC
     `
 
-    const voterId = getVoterId()
+    const voterId = await getVoterId()
     const myVote = await sql`
       SELECT driver_code
       FROM predictions
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const voterId = getVoterId()
+    const voterId = await getVoterId()
 
     await sql`
       INSERT INTO predictions (event_id, driver_code, voter_id)
