@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight } from "lucide-react"
-import { Link } from "next/link"
+import Link from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
 import { WikipediaImage } from "./wikipedia-image"
