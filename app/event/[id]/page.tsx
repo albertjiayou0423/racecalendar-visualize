@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
@@ -12,7 +12,7 @@ import { DeepInfo } from "@/components/deep-info"
 import { EventNotificationManager } from "@/components/event-notification-manager"
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+  const [id, setId] = useState<string | null>(null)
   const [event, setEvent] = useState<RaceEvent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +25,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }, [])
 
   useEffect(() => {
+    const resolveParams = async () => {
+      const resolved = await params
+      setId(resolved.id)
+    }
+    resolveParams()
+  }, [params])
+
+  useEffect(() => {
+    if (!id) return
     fetchEvent()
   }, [id])
 
@@ -49,7 +58,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
-  if (loading) {
+  if (!id || loading) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="mx-auto max-w-2xl">
