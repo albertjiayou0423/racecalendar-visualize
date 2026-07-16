@@ -92,6 +92,15 @@ export function isPast(event: RaceEvent, now: number): boolean {
   return new Date(first.utc).getTime() < now
 }
 
+/** 事件是否正在进行中（当前时间在某个场次的开始和结束之间） */
+export function isLive(event: RaceEvent, now: number): boolean {
+  return event.sessions.some((s) => {
+    const start = new Date(s.utc).getTime()
+    const end = start + 2 * 60 * 60 * 1000
+    return now >= start && now <= end
+  })
+}
+
 /** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
 export function countdown(utc: string, now: number) {
   const diff = new Date(utc).getTime() - now

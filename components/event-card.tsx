@@ -14,6 +14,7 @@ import {
   formatDate,
   formatDateTime,
   formatTime,
+  isLive,
   mainSession,
   offsetLabel,
 } from "@/lib/format"
@@ -112,14 +113,24 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   return (
     <>
       <article className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-muted-foreground/30 hover:shadow-md">
+        {/* 顶部 LIVE 条 */}
+        {isLiveNow && (
+          <div className="flex items-center justify-center gap-2 bg-red-500 px-4 py-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+            </span>
+            <span className="text-xs font-bold text-white">LIVE</span>
+          </div>
+        )}
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
           {/* 系列 + 轮次 */}
           <div className="flex items-center gap-3 sm:w-28 sm:shrink-0">
             <span
               className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-sm font-bold"
-              style={{ backgroundColor: meta.color, color: meta.textColor }}
+              style={{ backgroundColor: isLiveNow ? "#ef4444" : meta.color, color: isLiveNow ? "#fff" : meta.textColor }}
             >
-              {meta.label}
+              {isLiveNow ? "LIVE" : meta.label}
             </span>
             <span className="text-xs text-muted-foreground">第 {event.round} 站</span>
           </div>
@@ -129,6 +140,15 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             <h3 className="flex items-center gap-2 text-balance text-base font-semibold leading-tight">
               {flag ? <span aria-hidden>{flag}</span> : null}
               <span className="truncate">{event.name}</span>
+              {isLiveNow && (
+                <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+                  </span>
+                  LIVE
+                </span>
+              )}
             </h3>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
               <MapPin className="size-3.5 shrink-0" aria-hidden />
