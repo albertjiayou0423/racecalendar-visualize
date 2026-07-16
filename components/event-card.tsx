@@ -26,8 +26,30 @@ interface DayGroup {
   sessions: RaceSession[]
 }
 
-function CountdownPill({ utc, now }: { utc: string; now: number }) {
-  const c = countdown(utc, now)
+function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
+  const first = firstSession(event)
+  if (!first) {
+    return (
+      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        赛程待定
+      </span>
+    )
+  }
+  
+  const live = isLive(event, now)
+  if (live) {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-xs font-semibold text-white">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+        </span>
+        LIVE
+      </span>
+    )
+  }
+  
+  const c = countdown(first.utc, now)
   if (c.past) {
     return (
       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -184,7 +206,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             ) : (
               <span className="text-sm text-muted-foreground">赛程待定</span>
             )}
-            {first ? <CountdownPill utc={first.utc} now={now} /> : null}
+            {first ? <CountdownPill event={event} now={now} /> : null}
           </div>
         </div>
 

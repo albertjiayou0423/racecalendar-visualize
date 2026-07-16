@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, X, CalendarDays, Clock } from "lucide-react"
-import type { RaceEvent } from "@/lib/types"
+import type { RaceEvent, RaceSession } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, firstSession, formatTime, formatDateTime } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
@@ -10,7 +10,6 @@ import { EventCard } from "./event-card"
 
 const WEEKDAY_HEADERS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
-/** 取某 UTC 时间在北京时区的 YYYY-MM-DD */
 function dayKeyInBeijing(utc: string): string {
   const d = new Date(utc)
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -22,16 +21,6 @@ function dayKeyInBeijing(utc: string): string {
   return fmt.format(d)
 }
 
-/** 取某赛事在北京时区覆盖的所有日期（去重） */
-function eventDayKeys(e: RaceEvent): string[] {
-  const set = new Set<string>()
-  for (const s of e.sessions) {
-    set.add(dayKeyInBeijing(s.utc))
-  }
-  return [...set]
-}
-
-/** 获取某周的日期范围 */
 function getWeekDates(cursor: { y: number; w: number }): string[] {
   const { y, w } = cursor
   const jan1 = new Date(Date.UTC(y, 0, 1))
@@ -56,13 +45,18 @@ function getWeekDates(cursor: { y: number; w: number }): string[] {
   return dates
 }
 
+interface DaySession {
+  event: RaceEvent
+  session: RaceSession
+  time: string
+}
+
 interface WeekViewProps {
   events: RaceEvent[]
   now: number
 }
 
 export function WeekView({ events, now }: WeekViewProps) {
-  // 默认定位到当前周
   const currentWeek = useMemo(() => {
     const d = new Date(now)
     const start = new Date(d)
@@ -81,23 +75,23 @@ export function WeekView({ events, now }: WeekViewProps) {
   const [cursor, setCursor] = useState(() => currentWeek)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
-  // 把赛事按北京日期分桶
   const byDay = useMemo(() => {
-    const map = new Map<string, { event: RaceEvent; firstUtc: string }[]>()
+    const map = new Map<string, DaySession[]>()
     for (const e of events) {
-      const dayFirst = new Map<string, string>()
       for (const s of e.sessions) {
         const key = dayKeyInBeijing(s.utc)
-        const prev = dayFirst.get(key)
-        if (!prev || s.utc < prev) dayFirst.set(key, s.utc)
-      }
-      for (const [key, firstUtc] of dayFirst) {
+        const time = new Intl.DateTimeFormat("en-GB", {
+          timeZone: BEIJING_TZ,
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(new Date(s.utc))
         if (!map.has(key)) map.set(key, [])
-        map.get(key)!.push({ event: e, firstUtc })
+        map.get(key)!.push({ event: e, session: s, time })
       }
     }
     for (const list of map.values()) {
-      list.sort((a, b) => a.firstUtc.localeCompare(b.firstUtc))
+      list.sort((a, b) => a.session.utc.localeCompare(b.session.utc))
     }
     return map
   }, [events])
@@ -126,7 +120,6 @@ export function WeekView({ events, now }: WeekViewProps) {
     })
   }
 
-  // 统计本周赛事数
   const weekEventCount = useMemo(() => {
     const set = new Set<string>()
     for (const key of weekDates) {
@@ -138,7 +131,6 @@ export function WeekView({ events, now }: WeekViewProps) {
 
   return (
     <section className="flex flex-col gap-3" aria-label="周视图">
-      {/* 周切换 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{weekLabel}</span>
@@ -173,12 +165,10 @@ export function WeekView({ events, now }: WeekViewProps) {
         </div>
       </div>
 
-      {/* 周视图主体 */}
       <div className="grid grid-cols-7 gap-1">
         {weekDates.map((key, i) => {
-          const dayItems = byDay.get(key) ?? []
+          const daySessions = byDay.get(key) ?? []
           const [y, m, d] = key.split("-").map(Number)
-          const date = new Date(Date.UTC(y, m - 1, d))
           const isToday = key === todayKey
           const selected = selectedDay === key
 
@@ -186,12 +176,11 @@ export function WeekView({ events, now }: WeekViewProps) {
             <div
               key={key}
               className={cn(
-                "min-h-[140px] rounded-lg border bg-card p-2 transition-all",
+                "min-h-[180px] rounded-lg border bg-card p-2 transition-all",
                 isToday ? "border-primary ring-1 ring-primary/30" : "border-border",
                 selected && "ring-2 ring-primary"
               )}
             >
-              {/* 日期标题 */}
               <button
                 type="button"
                 onClick={() => setSelectedDay(selected ? null : key)}
@@ -210,51 +199,49 @@ export function WeekView({ events, now }: WeekViewProps) {
                 </div>
               </button>
 
-              {/* 当日赛事 */}
-              <div className="mt-2 flex flex-col gap-1">
-                {dayItems.slice(0, 4).map(({ event: e, firstUtc }, idx) => {
+              <div className="mt-2 flex flex-col gap-1 max-h-[140px] overflow-y-auto">
+                {daySessions.map(({ event: e, session: s, time }, idx) => {
                   const meta = SERIES_META[e.series]
-                  const time = new Intl.DateTimeFormat("en-GB", {
-                    timeZone: BEIJING_TZ,
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hourCycle: "h23",
-                  }).format(new Date(firstUtc))
-                  const flag = countryCodeToFlag(e.countryCode)
+                  const live = new Date(s.utc).getTime() <= now && now <= new Date(s.utc).getTime() + 2 * 60 * 60 * 1000
                   
                   return (
                     <button
-                      key={`${e.id}-${idx}`}
+                      key={`${e.id}-${s.name}-${idx}`}
                       type="button"
                       onClick={() => setSelectedDay(key)}
                       className={cn(
-                        "flex items-center gap-1 rounded px-1.5 py-1 text-[10px] leading-tight text-left w-full transition-colors hover:bg-secondary/80"
+                        "flex items-start gap-1.5 rounded px-1.5 py-1 text-[10px] leading-tight text-left w-full transition-colors hover:bg-secondary/80"
                       )}
                       style={{
-                        backgroundColor: `${meta.color}15`,
+                        backgroundColor: live ? `${meta.color}33` : `${meta.color}15`,
                       }}
-                      title={`${e.name} · ${time} 北京时间`}
+                      title={`${e.name} · ${s.name} · ${time} 北京时间`}
                     >
                       <span
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: meta.color }}
-                        aria-hidden
-                      />
-                      <span className="truncate font-medium flex-1" style={{ color: meta.color }}>
-                        {meta.label}
-                      </span>
-                      <span className="font-mono tabular-nums text-muted-foreground shrink-0">
+                        className="shrink-0 font-mono tabular-nums text-muted-foreground"
+                      >
                         {time}
                       </span>
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className="font-medium"
+                          style={{ color: meta.color }}
+                        >
+                          {meta.label}
+                        </span>
+                        <span className="text-muted-foreground/70">
+                          {s.isMain ? " · 正赛" : ""}
+                        </span>
+                        {live && (
+                          <span className="ml-1 rounded bg-red-500/20 px-0.5 text-[9px] text-red-500">
+                            LIVE
+                          </span>
+                        )}
+                      </div>
                     </button>
                   )
                 })}
-                {dayItems.length > 4 ? (
-                  <span className="px-1.5 text-[10px] text-muted-foreground">
-                    +{dayItems.length - 4}
-                  </span>
-                ) : null}
-                {dayItems.length === 0 ? (
+                {daySessions.length === 0 ? (
                   <span className="px-1.5 text-[10px] text-muted-foreground/50">-</span>
                 ) : null}
               </div>
@@ -263,7 +250,6 @@ export function WeekView({ events, now }: WeekViewProps) {
         })}
       </div>
 
-      {/* 图例 */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         {(["F1", "WRC", "FE"] as const).map((s) => (
           <span key={s} className="flex items-center gap-1.5">
@@ -277,7 +263,6 @@ export function WeekView({ events, now }: WeekViewProps) {
         ))}
       </div>
 
-      {/* 选中日期展开面板 */}
       {selectedDay ? (
         <div className="rounded-xl border border-primary/30 bg-card p-4 sm:p-5">
           <div className="flex items-center justify-between">
