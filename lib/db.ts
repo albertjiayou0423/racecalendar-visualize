@@ -3,14 +3,26 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 let sqlInstance: NeonQueryFunction | null = null
 let initialized = false
 
+function cleanDbUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    u.searchParams.delete("channel_binding")
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
 export function getSql(): NeonQueryFunction | null {
   const DATABASE_URL = process.env.DATABASE_URL
   if (!DATABASE_URL) return null
   
   if (!sqlInstance) {
     try {
-      sqlInstance = neon(DATABASE_URL)
-    } catch {
+      const cleanUrl = cleanDbUrl(DATABASE_URL)
+      sqlInstance = neon(cleanUrl)
+    } catch (err) {
+      console.error("Failed to create DB connection:", err)
       return null
     }
   }

@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error("Failed to save prediction:", err)
-    return NextResponse.json({ error: "Database error" }, { status: 500 })
+    const msg = err instanceof Error ? err.message : "Database error"
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
