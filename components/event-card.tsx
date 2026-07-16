@@ -96,17 +96,17 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   }
 
   return (
-    <article className="overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-muted-foreground/30">
-      <div style={{ perspective: "1000px" }}>
+    <article className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-muted-foreground/30 hover:shadow-md">
+      <div style={{ perspective: "1500px" }}>
         <div
-          className="relative transition-transform duration-500"
+          className="relative transition-all duration-600 ease-out"
           style={{
             transformStyle: "preserve-3d",
-            transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+            transform: isFlipped ? "rotateY(180deg) scale(0.98)" : "rotateY(0deg) scale(1)",
           }}
         >
           {/* 正面 */}
-          <div style={{ backfaceVisibility: "hidden" }}>
+          <div style={{ backfaceVisibility: "hidden", transformStyle: "preserve-3d" }}>
             <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
               {/* 系列 + 轮次 */}
               <div className="flex items-center gap-3 sm:w-28 sm:shrink-0">
@@ -131,6 +131,12 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     {event.circuit} · {event.locality}，{event.country}
                   </span>
                 </p>
+                {/* F1 赛道平面图 */}
+                {event.series === "F1" && event.circuitWikipediaUrl && (
+                  <div className="mt-2">
+                    <WikipediaImage url={event.circuitWikipediaUrl} />
+                  </div>
+                )}
               </div>
 
               {/* 开赛时间 + 倒计时 */}
@@ -329,7 +335,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           {/* 背面 */}
           <div
             className="absolute inset-0 flex flex-col overflow-y-auto bg-card"
-            style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+            style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", transformStyle: "preserve-3d" }}
           >
             {/* 背面头部 */}
             <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-4 py-3">
@@ -456,7 +462,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     href={event.circuitWikipediaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary transition-colors hover:bg-secondary/80"
+                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary shadow-sm transition-all duration-200 hover:bg-secondary/80 hover:shadow-md hover:-translate-y-0.5"
                   >
                     <ExternalLink className="size-3.5" aria-hidden />
                     赛道 Wiki
@@ -467,7 +473,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     href={event.wikipediaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary transition-colors hover:bg-secondary/80"
+                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary shadow-sm transition-all duration-200 hover:bg-secondary/80 hover:shadow-md hover:-translate-y-0.5"
                   >
                     <ExternalLink className="size-3.5" aria-hidden />
                     赛事 Wiki
@@ -478,7 +484,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     href={event.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary transition-colors hover:bg-secondary/80"
+                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary shadow-sm transition-all duration-200 hover:bg-secondary/80 hover:shadow-md hover:-translate-y-0.5"
                   >
                     <ExternalLink className="size-3.5" aria-hidden />
                     官方网站

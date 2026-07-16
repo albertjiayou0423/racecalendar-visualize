@@ -11,6 +11,18 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.0.7",
+    date: "2026-07-16",
+    items: [
+      { type: "feat", text: "F1 详细信息显示：去年冠军、最快圈速、赛道长度和圈数" },
+      { type: "feat", text: "F1 默认显示赛道平面图（Wikipedia 链接）" },
+      { type: "ui", text: "优化卡片翻转动画，更流畅的 3D 效果" },
+      { type: "ui", text: "优化链接 Hover 效果，添加阴影和缩放动画" },
+      { type: "ui", text: "卡片背面重新排版，增加适当留白和卡片式布局" },
+      { type: "perf", text: "优化 Wikipedia 图片加载，限制最大高度减少体积" },
+    ],
+  },
+  {
     version: "v1.0.6",
     date: "2026-07-16",
     items: [
@@ -125,7 +137,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.6</span>
+          <span className="text-3xl font-bold">v1.0.7</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -158,7 +170,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.6" && (
+                {entry.version === "v1.0.7" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

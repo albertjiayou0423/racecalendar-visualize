@@ -72,11 +72,11 @@ export function WikipediaImage({ url, maxHeight = 200 }: WikipediaImageProps) {
   }
 
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg">
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg shadow-sm transition-all duration-200 hover:shadow-md">
       <img
         src={imageUrl}
         alt="Wikipedia 赛道图片"
-        className="h-auto w-full max-h-[200px] object-cover transition-transform hover:scale-[1.02]"
+        className="h-auto w-full max-h-[200px] object-cover transition-transform duration-300 ease-out hover:scale-[1.05]"
         loading="lazy"
       />
     </a>
