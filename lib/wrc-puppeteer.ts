@@ -4,24 +4,40 @@ import { buildWrcEvents } from "./wrc-data"
 
 // ============ 直接 fetch (主要方案) ============
 
-async function fetchDirect(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-      },
-    })
-    if (!res.ok) return null
-    return res.text()
-  } catch (e) {
-    console.error(`Direct fetch error for ${url}:`, e)
-    return null
+async function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate",
+          "Connection": "keep-alive",
+          "Upgrade-Insecure-Requests": "1",
+        },
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) {
+        if (res.status >= 500 && i < retries) {
+          console.log(`Direct fetch ${url} returned ${res.status}, retrying...`)
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+          continue
+        }
+        return null
+      }
+      return res.text()
+    } catch (e) {
+      if (i < retries) {
+        console.log(`Direct fetch error for ${url}, retrying...`, e)
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+        continue
+      }
+      console.error(`Direct fetch error for ${url}:`, e)
+      return null
+    }
   }
+  return null
 }
 
 // ============ PhantomJsCloud API (fallback) ============

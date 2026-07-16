@@ -11,6 +11,17 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.0.8",
+    date: "2026-07-16",
+    items: [
+      { type: "feat", text: "赛事详情改为模态框弹窗展示，移除翻转动画" },
+      { type: "feat", text: "F1 赛道平面图直接嵌入显示（硬编码 Wikipedia 图片）" },
+      { type: "feat", text: "F1 正面卡片直接显示赛道平面图" },
+      { type: "ui", text: "优化模态框：ESC 关闭、遮罩模糊、sticky 头部" },
+      { type: "ui", text: "优化链接 Hover 效果：阴影 + 上移动画" },
+    ],
+  },
+  {
     version: "v1.0.7",
     date: "2026-07-16",
     items: [
@@ -137,7 +148,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.7</span>
+          <span className="text-3xl font-bold">v1.0.8</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -170,7 +181,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.7" && (
+                {entry.version === "v1.0.8" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

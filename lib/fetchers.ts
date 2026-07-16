@@ -68,6 +68,30 @@ function toUtc(session?: ErgastSession): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
+const CIRCUIT_IMAGES: Record<string, string> = {
+  albert_park: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Albert_Park_Grand_Prix_Circuit_2022.svg/800px-Albert_Park_Grand_Prix_Circuit_2022.svg.png",
+  shanghai: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Shanghai_International_Circuit.svg/800px-Shanghai_International_Circuit.svg.png",
+  suzuka: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Suzuka_circuit_map--2003-2006.svg/800px-Suzuka_circuit_map--2003-2006.svg.png",
+  miami: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Miami_International_Autodrome_2022.svg/800px-Miami_International_Autodrome_2022.svg.png",
+  villeneuve: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Circuit_Gilles_Villeneuve_2002.svg/800px-Circuit_Gilles_Villeneuve_2002.svg.png",
+  monaco: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Circuit_de_Monaco.svg/800px-Circuit_de_Monaco.svg.png",
+  catalunya: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Circuit_de_Barcelona-Catalunya.svg/800px-Circuit_de_Barcelona-Catalunya.svg.png",
+  red_bull_ring: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Red_Bull_Ring_2016.svg/800px-Red_Bull_Ring_2016.svg.png",
+  silverstone: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Silverstone_Circuit_2011.svg/800px-Silverstone_Circuit_2011.svg.png",
+  spa: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Circuit_de_Spa-Francorchamps.svg/800px-Circuit_de_Spa-Francorchamps.svg.png",
+  hungaroring: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Hungaroring.svg/800px-Hungaroring.svg.png",
+  zandvoort: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/Circuit_Zandvoort_2020.svg/800px-Circuit_Zandvoort_2020.svg.png",
+  monza: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Autodromo_Nazionale_Monza.svg/800px-Autodromo_Nazionale_Monza.svg.png",
+  baku: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Baku_City_Circuit_2016.svg/800px-Baku_City_Circuit_2016.svg.png",
+  marina_bay: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Marina_Bay_Street_Circuit_2023.svg/800px-Marina_Bay_Street_Circuit_2023.svg.png",
+  americas: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Circuit_of_the_Americas.svg/800px-Circuit_of_the_Americas.svg.png",
+  rodriguez: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Autodromo_Hermanos_Rodriguez.svg/800px-Autodromo_Hermanos_Rodriguez.svg.png",
+  interlagos: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Autodromo_Jose_Carlos_Pace.svg/800px-Autodromo_Jose_Carlos_Pace.svg.png",
+  vegas: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Las_Vegas_Strip_Circuit_2023.svg/800px-Las_Vegas_Strip_Circuit_2023.svg.png",
+  losail: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Losail_International_Circuit.svg/800px-Losail_International_Circuit.svg.png",
+  yas_marina: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Yas_Marina_Circuit_2021.svg/800px-Yas_Marina_Circuit_2021.svg.png",
+}
+
 const CIRCUIT_INFO: Record<string, { length: string; laps: string }> = {
   albert_park: { length: "5.303 km", laps: "57" },
   shanghai: { length: "5.451 km", laps: "56" },
@@ -192,6 +216,7 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
         lon: parseFloat(r.Circuit.Location.long),
         wikipediaUrl: r.url,
         circuitWikipediaUrl: r.Circuit.url,
+        circuitImageUrl: CIRCUIT_IMAGES[r.Circuit.circuitId],
         lastYearWinner: lastYearResult
           ? {
               driver: `${lastYearResult.Driver.givenName} ${lastYearResult.Driver.familyName}`,

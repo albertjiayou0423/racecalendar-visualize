@@ -2,24 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
-  BEIJING_TZ,
-  SERIES_META,
-  countdown,
-  formatDateTime,
-  formatTime,
-  firstSession,
-  isPast,
-  mainSession,
-} from "@/lib/format"
+    BEIJING_TZ,
+    SERIES_META,
+    countdown,
+    formatDateTime,
+    formatTime,
+    firstSession,
+    isPast,
+    isLive,
+    mainSession,
+  } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
+import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -57,7 +59,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
-type ViewMode = "list" | "month"
+type ViewMode = "list" | "week" | "month"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -104,6 +106,7 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
   if (!first) return null
   const c = countdown(first.utc, now)
   const flag = countryCodeToFlag(event.countryCode)
+  const live = isLive(event, now)
 
   return (
     <section
@@ -112,24 +115,33 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
     >
       <div
         className="absolute inset-x-0 top-0 h-1"
-        style={{ backgroundColor: meta.color }}
+        style={{ backgroundColor: live ? "#ef4444" : meta.color }}
         aria-hidden
       />
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span
           className="rounded px-2 py-0.5 font-bold"
-          style={{ backgroundColor: meta.color, color: meta.textColor }}
+          style={{ backgroundColor: live ? "#ef4444" : meta.color, color: "#fff" }}
         >
-          {meta.label}
+          {live ? "LIVE" : meta.label}
         </span>
-        <span>{meta.full}</span>
+        <span>{live ? "进行中" : meta.full}</span>
         <span>·</span>
-        <span>下一场赛事</span>
+        <span>{live ? "当前赛事" : "下一场赛事"}</span>
       </div>
 
       <h2 className="mt-3 flex items-center gap-2 text-pretty text-2xl font-bold leading-tight sm:text-3xl">
         {flag ? <span aria-hidden>{flag}</span> : null}
         {event.name}
+        {live && (
+          <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+            </span>
+            LIVE
+          </span>
+        )}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {event.circuit} · {event.locality}，{event.country}
@@ -137,10 +149,18 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
 
       <div className="mt-5 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
         <div>
-          <div className="text-xs text-muted-foreground">距开赛</div>
+          <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
           <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
-            {c.past ? (
-              <span className="text-2xl text-primary">进行中 / 已结束</span>
+            {live ? (
+              <span className="flex items-center gap-2 text-2xl text-red-500">
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+                </span>
+                正在进行
+              </span>
+            ) : c.past ? (
+              <span className="text-2xl text-muted-foreground">已结束</span>
             ) : (
               <>
                 <TimeBlock value={c.days} unit="天" />
@@ -331,6 +351,21 @@ export function ScheduleView() {
               </button>
               <button
                 type="button"
+                onClick={() => setView("week")}
+                aria-label="周视图"
+                aria-pressed={view === "week"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  view === "week"
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CalendarRange className="size-3.5" />
+                周
+              </button>
+              <button
+                type="button"
                 onClick={() => setView("month")}
                 aria-label="月视图"
                 aria-pressed={view === "month"}
@@ -487,6 +522,11 @@ export function ScheduleView() {
         <NextRacePreview event={nextUp} />
       ) : null}
 
+      {/* 周视图 */}
+      {!isLoading && !error && view === "week" ? (
+        <WeekView events={filtered} now={now} />
+      ) : null}
+
       {/* 月视图 */}
       {!isLoading && !error && view === "month" ? (
         <MonthView events={filtered} now={now} />
@@ -540,7 +580,7 @@ export function ScheduleView() {
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Sparkles className="size-3.5" />
-          v1.0.4 · 更新日志
+          v1.0.8 · 更新日志
         </Link>
       </div>
 

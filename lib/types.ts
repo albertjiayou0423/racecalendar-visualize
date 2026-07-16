@@ -12,72 +12,62 @@ export interface RaceSession {
 }
 
 export interface Broadcaster {
-  /** 转播方名称 */
   name: string
-  /** 补充说明 */
   note?: string
+  /** 观看链接 */
+  url?: string
+  /** 是否确认 */
+  confirmed?: boolean
 }
 
 export interface RaceEvent {
   id: string
   series: Series
-  /** 分站赛轮次 */
   round: number
-  /** 赛事名称（中文） */
   name: string
-  /** 赛道 / 赛事总部 */
   circuit: string
-  /** 城市 */
   locality: string
-  /** 国家（中文） */
   country: string
-  /** 两位国家代码，用于国旗 */
   countryCode?: string
-  /** 当地 IANA 时区，例如 Asia/Shanghai */
   tz: string
-  /** 各场次，按时间升序 */
   sessions: RaceSession[]
-  /** 中国大陆转播方 */
   broadcaster?: Broadcaster
-  /** 官方赛事页面链接 */
+  /** 多个转播方 */
+  broadcasters?: Broadcaster[]
   url?: string
-  /** 整个赛事的时间是否为估计值（未爬取到真实数据） */
   tentative?: boolean
-  /** 赛道特性 */
   circuitType?: "street" | "permanent" | "hybrid" | "rally"
-  /** 地区 */
   region?: "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
-  /** 纬度（用于天气查询） */
   lat?: number
-  /** 经度（用于天气查询） */
   lon?: number
-  /** 赛道/赛事 Wikipedia 图片链接 */
   circuitImageUrl?: string
-  /** Wikipedia 页面链接 */
   wikipediaUrl?: string
-  /** 赛道 Wikipedia 页面链接（用于获取赛道平面图） */
   circuitWikipediaUrl?: string
-  /** 去年冠军 */
   lastYearWinner?: {
     driver: string
     constructor: string
   }
-  /** 去年最快圈速 */
   lastYearFastestLap?: {
     driver: string
     time: string
     lap: string
   }
-  /** 赛道信息 */
   circuitInfo?: {
     length: string
     laps: string
   }
-  /** 额外信息 */
   extraInfo?: {
     label: string
     value: string
   }[]
+  /** 比赛看点（3条） */
+  highlights?: {
+    track?: string
+    championship?: string
+    drivers?: string
+  }
+  /** 直播信息最后核验时间 */
+  broadcastCheckedAt?: string
 }
 
 export interface ScheduleResponse {
