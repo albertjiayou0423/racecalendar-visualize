@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X } from "lucide-react"
+import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight } from "lucide-react"
+import { Link } from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
 import { WikipediaImage } from "./wikipedia-image"
@@ -242,14 +243,13 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setShowDetail(true)}
+            <Link
+              href={`/event/${event.id}`}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               赛事详情
-              <Info className="size-3.5" aria-hidden />
-            </button>
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
