@@ -77,6 +77,12 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const dayGroups = groupSessionsByDay(event.sessions)
   const hasTentative = event.tentative === true
 
+  const isLiveNow = event.sessions.some((s) => {
+    const start = new Date(s.utc).getTime()
+    const end = start + 2 * 60 * 60 * 1000
+    return now >= start && now <= end
+  })
+
   const toggleDay = (date: string) => {
     setOpenDays((prev) => {
       const next = new Set(prev)
@@ -248,28 +254,34 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             ) : null}
           </p>
 
-          {/* Live Timing */}
-          <div className="border-t border-border">
-            <button
-              type="button"
-              onClick={() => setShowLiveTiming((v) => !v)}
-              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary"
-            >
-              <div className="flex items-center gap-2">
-                <Activity className="size-4 text-primary" />
-                <span>Live Timing</span>
-                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                  {event.series}
-                </span>
-              </div>
-              <ChevronDown className={cn("size-4 transition-transform", showLiveTiming && "rotate-180")} />
-            </button>
-            <LiveTiming
-              series={event.series}
-              eventName={event.name}
-              isExpanded={showLiveTiming}
-            />
-          </div>
+          {/* Live Timing - 只在 session 进行中显示 */}
+          {isLiveNow && (
+            <div className="border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowLiveTiming((v) => !v)}
+                className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  <Activity className="size-4 text-primary" />
+                  <span>Live Timing</span>
+                  <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
+                    LIVE
+                  </span>
+                </div>
+                <ChevronDown className={cn("size-4 transition-transform", showLiveTiming && "rotate-180")} />
+              </button>
+              <LiveTiming
+                series={event.series}
+                eventName={event.name}
+                isExpanded={showLiveTiming}
+              />
+            </div>
+          )}
         </div>
       ) : null}
     </article>

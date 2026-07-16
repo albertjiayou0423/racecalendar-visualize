@@ -21,28 +21,21 @@ async function fetchOpenF1<T>(endpoint: string, params?: Record<string, string>)
 }
 
 async function getF1LiveTiming(): Promise<LiveTimingData | null> {
-  // 获取最新的 session
   const sessions = await fetchOpenF1<OpenF1Session[]>("sessions", {
     year: new Date().getFullYear().toString(),
   })
 
   if (!sessions || sessions.length === 0) return null
 
-  // 找到最近的或正在进行的 session
   const now = new Date().toISOString()
   const activeSession = sessions
     .filter((s) => s.date_start <= now && s.date_end >= now)
     .sort((a, b) => new Date(b.date_start).getTime() - new Date(a.date_start).getTime())[0]
 
-  const latestSession = activeSession || sessions
-    .filter((s) => s.date_start <= now)
-    .sort((a, b) => new Date(b.date_start).getTime() - new Date(a.date_start).getTime())[0]
+  if (!activeSession) return null
 
-  if (!latestSession) return null
+  const sessionKey = activeSession.session_key.toString()
 
-  const sessionKey = latestSession.session_key.toString()
-
-  // 并行获取车手、位置、圈速数据
   const [drivers, positions, laps] = await Promise.all([
     fetchOpenF1<OpenF1Driver[]>("drivers", { session_key: sessionKey }),
     fetchOpenF1<OpenF1Position[]>("position", { session_key: sessionKey }),
@@ -51,7 +44,6 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
 
   if (!drivers || drivers.length === 0) return null
 
-  // 获取每个车手的最新位置
   const latestPositions = new Map<number, OpenF1Position>()
   if (positions) {
     positions.forEach((p) => {
@@ -62,7 +54,6 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
     })
   }
 
-  // 获取每个车手的最新圈速
   const latestLaps = new Map<number, OpenF1Lap>()
   const bestLaps = new Map<number, number>()
   if (laps) {
@@ -71,14 +62,12 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
       if (!existing || l.lap_number > existing.lap_number) {
         latestLaps.set(l.driver_number, l)
       }
-      // 记录最佳圈速
       if (l.lap_duration && (!bestLaps.has(l.driver_number) || l.lap_duration < bestLaps.get(l.driver_number)!)) {
         bestLaps.set(l.driver_number, l.lap_duration)
       }
     })
   }
 
-  // 构建车手数据
   const driverList: LiveTimingDriver[] = drivers
     .map((d) => {
       const pos = latestPositions.get(d.driver_number)
@@ -104,22 +93,17 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
     .filter((d) => d.position > 0)
     .sort((a, b) => a.position - b.position)
 
-  // 计算差距（简化版：第一名 gap 为 —，其他为与前一名的差距）
   if (driverList.length > 1) {
-    // 由于没有精确的 gap 数据，这里简化处理
     for (let i = 1; i < driverList.length; i++) {
-      driverList[i].gap = `+${i * 2}.5` // 占位，实际应从interval数据计算
+      driverList[i].gap = `+${i * 2}.5`
     }
   }
 
-  const isLive = activeSession !== undefined
-  const status = isLive ? "live" : "finished"
-
   return {
     series: "F1",
-    sessionName: latestSession.session_name,
-    status,
-    totalLaps: 0, // OpenF1 不直接提供总圈数
+    sessionName: activeSession.session_name,
+    status: "live",
+    totalLaps: 0,
     currentLap: Math.max(...driverList.map((d) => d.laps), 0),
     safetyCar: false,
     virtualSafetyCar: false,
