@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
@@ -21,6 +21,7 @@ import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
+import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -58,7 +59,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
-type ViewMode = "list" | "month"
+type ViewMode = "list" | "week" | "month"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -350,6 +351,21 @@ export function ScheduleView() {
               </button>
               <button
                 type="button"
+                onClick={() => setView("week")}
+                aria-label="周视图"
+                aria-pressed={view === "week"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  view === "week"
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CalendarRange className="size-3.5" />
+                周
+              </button>
+              <button
+                type="button"
                 onClick={() => setView("month")}
                 aria-label="月视图"
                 aria-pressed={view === "month"}
@@ -506,6 +522,11 @@ export function ScheduleView() {
         <NextRacePreview event={nextUp} />
       ) : null}
 
+      {/* 周视图 */}
+      {!isLoading && !error && view === "week" ? (
+        <WeekView events={filtered} now={now} />
+      ) : null}
+
       {/* 月视图 */}
       {!isLoading && !error && view === "month" ? (
         <MonthView events={filtered} now={now} />
@@ -559,7 +580,7 @@ export function ScheduleView() {
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Sparkles className="size-3.5" />
-          v1.0.4 · 更新日志
+          v1.0.8 · 更新日志
         </Link>
       </div>
 
