@@ -14,6 +14,30 @@ interface ErgastSession {
   date: string
   time: string
 }
+interface ErgastDriver {
+  driverId: string
+  givenName: string
+  familyName: string
+  nationality: string
+}
+interface ErgastConstructor {
+  constructorId: string
+  name: string
+  nationality: string
+}
+interface ErgastFastestLap {
+  rank: string
+  lap: string
+  Time: { time: string }
+}
+interface ErgastResult {
+  position: string
+  Driver: ErgastDriver
+  Constructor: ErgastConstructor
+  laps: string
+  Time?: { time: string; millis: string }
+  FastestLap?: ErgastFastestLap
+}
 interface ErgastRace {
   season: string
   round: string
@@ -22,7 +46,8 @@ interface ErgastRace {
   Circuit: {
     circuitId: string
     circuitName: string
-    Location: { locality: string; country: string }
+    url?: string
+    Location: { lat: string; long: string; locality: string; country: string }
   }
   date: string
   time?: string
@@ -32,6 +57,7 @@ interface ErgastRace {
   SprintQualifying?: ErgastSession
   Sprint?: ErgastSession
   Qualifying?: ErgastSession
+  Results?: ErgastResult[]
 }
 
 function toUtc(session?: ErgastSession): string | null {
@@ -42,19 +68,59 @@ function toUtc(session?: ErgastSession): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
+const CIRCUIT_INFO: Record<string, { length: string; laps: string }> = {
+  albert_park: { length: "5.303 km", laps: "57" },
+  shanghai: { length: "5.451 km", laps: "56" },
+  suzuka: { length: "5.807 km", laps: "53" },
+  miami: { length: "5.412 km", laps: "57" },
+  villeneuve: { length: "4.361 km", laps: "70" },
+  monaco: { length: "3.337 km", laps: "78" },
+  catalunya: { length: "4.657 km", laps: "66" },
+  red_bull_ring: { length: "4.318 km", laps: "71" },
+  silverstone: { length: "5.891 km", laps: "52" },
+  spa: { length: "7.004 km", laps: "44" },
+  hungaroring: { length: "4.381 km", laps: "70" },
+  zandvoort: { length: "4.259 km", laps: "72" },
+  monza: { length: "5.793 km", laps: "53" },
+  madring: { length: "4.428 km", laps: "66" },
+  baku: { length: "6.003 km", laps: "51" },
+  marina_bay: { length: "5.063 km", laps: "62" },
+  americas: { length: "5.513 km", laps: "56" },
+  rodriguez: { length: "4.304 km", laps: "71" },
+  interlagos: { length: "4.309 km", laps: "71" },
+  vegas: { length: "6.201 km", laps: "50" },
+  losail: { length: "5.380 km", laps: "57" },
+  yas_marina: { length: "5.281 km", laps: "58" },
+}
+
 export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
   try {
-    const res = await fetch("https://api.jolpi.ca/ergast/f1/current.json", {
-      next: { revalidate: 3600 },
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const json = await res.json()
-    const races: ErgastRace[] = json?.MRData?.RaceTable?.Races ?? []
+    const [currentRes, lastYearRes] = await Promise.all([
+      fetch("https://api.jolpi.ca/ergast/f1/current.json", { next: { revalidate: 3600 } }),
+      fetch("https://api.jolpi.ca/ergast/f1/2025/results.json", { next: { revalidate: 86400 } }),
+    ])
+
+    if (!currentRes.ok) throw new Error(`HTTP ${currentRes.status}`)
+    const currentJson = await currentRes.json()
+    const races: ErgastRace[] = currentJson?.MRData?.RaceTable?.Races ?? []
+
+    let lastYearResults: Record<string, ErgastResult[]> = {}
+    if (lastYearRes.ok) {
+      const lastYearJson = await lastYearRes.json()
+      const lastYearRaces: ErgastRace[] = lastYearJson?.MRData?.RaceTable?.Races ?? []
+      for (const race of lastYearRaces) {
+        if (race.Results) {
+          lastYearResults[race.Circuit.circuitId] = race.Results
+        }
+      }
+    }
 
     const events: RaceEvent[] = races.map((r) => {
       const tz = F1_CIRCUIT_TZ[r.Circuit.circuitId] ?? "UTC"
       const countryInfo = COUNTRY_MAP[r.Circuit.Location.country]
       const sessions: RaceSession[] = []
+      const lastYearResult = lastYearResults[r.Circuit.circuitId]?.[0]
+      const circuitInfo = CIRCUIT_INFO[r.Circuit.circuitId]
 
       const push = (name: string, s?: ErgastSession, isMain?: boolean) => {
         const utc = toUtc(s)
@@ -71,11 +137,9 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
 
       sessions.sort((a, b) => a.utc.localeCompare(b.utc))
 
-      // 赛道类型（基于 circuitId 判断）
-      const streetCircuits = ["monaco", "singapore", "las_vegas", "baku", "jeddah", "miami", "melbourne", "monza"]
+      const streetCircuits = ["monaco", "singapore", "las_vegas", "baku", "jeddah", "miami", "marina_bay", "baku"]
       const isStreet = streetCircuits.some(c => r.Circuit.circuitId.toLowerCase().includes(c))
 
-      // 地区（基于国家）
       const regionMap: Record<string, "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"> = {
         "Australia": "oceania",
         "Japan": "asia",
@@ -124,6 +188,24 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
         url: r.url,
         circuitType: isStreet ? "street" : "permanent",
         region,
+        lat: parseFloat(r.Circuit.Location.lat),
+        lon: parseFloat(r.Circuit.Location.long),
+        wikipediaUrl: r.url,
+        circuitWikipediaUrl: r.Circuit.url,
+        lastYearWinner: lastYearResult
+          ? {
+              driver: `${lastYearResult.Driver.givenName} ${lastYearResult.Driver.familyName}`,
+              constructor: lastYearResult.Constructor.name,
+            }
+          : undefined,
+        lastYearFastestLap: lastYearResult?.FastestLap
+          ? {
+              driver: `${lastYearResult.Driver.givenName} ${lastYearResult.Driver.familyName}`,
+              time: lastYearResult.FastestLap.Time.time,
+              lap: lastYearResult.FastestLap.lap,
+            }
+          : undefined,
+        circuitInfo,
       }
     })
 

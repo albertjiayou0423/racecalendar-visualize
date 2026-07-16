@@ -47,6 +47,37 @@ export interface RaceEvent {
   circuitType?: "street" | "permanent" | "hybrid" | "rally"
   /** 地区 */
   region?: "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
+  /** 纬度（用于天气查询） */
+  lat?: number
+  /** 经度（用于天气查询） */
+  lon?: number
+  /** 赛道/赛事 Wikipedia 图片链接 */
+  circuitImageUrl?: string
+  /** Wikipedia 页面链接 */
+  wikipediaUrl?: string
+  /** 赛道 Wikipedia 页面链接（用于获取赛道平面图） */
+  circuitWikipediaUrl?: string
+  /** 去年冠军 */
+  lastYearWinner?: {
+    driver: string
+    constructor: string
+  }
+  /** 去年最快圈速 */
+  lastYearFastestLap?: {
+    driver: string
+    time: string
+    lap: string
+  }
+  /** 赛道信息 */
+  circuitInfo?: {
+    length: string
+    laps: string
+  }
+  /** 额外信息 */
+  extraInfo?: {
+    label: string
+    value: string
+  }[]
 }
 
 export interface ScheduleResponse {
