@@ -55,7 +55,25 @@ export interface RaceEvent {
   circuitImageUrl?: string
   /** Wikipedia 页面链接 */
   wikipediaUrl?: string
-  /** 额外信息（赛道长度、圈数等） */
+  /** 赛道 Wikipedia 页面链接（用于获取赛道平面图） */
+  circuitWikipediaUrl?: string
+  /** 去年冠军 */
+  lastYearWinner?: {
+    driver: string
+    constructor: string
+  }
+  /** 去年最快圈速 */
+  lastYearFastestLap?: {
+    driver: string
+    time: string
+    lap: string
+  }
+  /** 赛道信息 */
+  circuitInfo?: {
+    length: string
+    laps: string
+  }
+  /** 额外信息 */
   extraInfo?: {
     label: string
     value: string

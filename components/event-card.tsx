@@ -353,19 +353,91 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             </div>
 
             {/* 背面内容 */}
-            <div className="flex-1 space-y-4 p-4">
-              {/* Wikipedia 图片 */}
-              {event.wikipediaUrl && (
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold">赛事图片</h4>
-                  <WikipediaImage url={event.wikipediaUrl} />
+            <div className="flex-1 space-y-5 p-4">
+              {/* 赛道图片 */}
+              {(event.circuitWikipediaUrl || event.wikipediaUrl) && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold">赛道图片</h4>
+                    <span className="text-[10px] text-muted-foreground">Wikipedia</span>
+                  </div>
+                  <WikipediaImage url={event.circuitWikipediaUrl || event.wikipediaUrl} />
                 </div>
               )}
 
-              {/* 更多信息 */}
+              {/* 天气预报 */}
+              {main && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold">当地天气预报</h4>
+                    <span className="text-[10px] text-muted-foreground">{new Date(main.utc).toISOString().split("T")[0]}</span>
+                  </div>
+                  <WeatherCard
+                    city={event.locality}
+                    country={event.country}
+                    date={new Date(main.utc).toISOString().split("T")[0]}
+                    startTime={formatTime(main.utc, event.tz)}
+                    lat={event.lat}
+                    lon={event.lon}
+                  />
+                </div>
+              )}
+
+              {/* 赛道信息 */}
+              {event.circuitInfo && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <h4 className="mb-3 text-sm font-semibold">赛道信息</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-secondary/50 px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">赛道长度</div>
+                      <div className="mt-0.5 text-sm font-medium">{event.circuitInfo.length}</div>
+                    </div>
+                    <div className="rounded-lg bg-secondary/50 px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">比赛圈数</div>
+                      <div className="mt-0.5 text-sm font-medium">{event.circuitInfo.laps} 圈</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 去年冠军 */}
+              {event.lastYearWinner && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <h4 className="mb-2 text-sm font-semibold">2025 冠军</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">车手</span>
+                    <span className="text-sm font-medium">{event.lastYearWinner.driver}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">车队</span>
+                    <span className="text-sm font-medium">{event.lastYearWinner.constructor}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 去年最快圈速 */}
+              {event.lastYearFastestLap && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <h4 className="mb-2 text-sm font-semibold">2025 最快圈速</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">车手</span>
+                    <span className="text-sm font-medium">{event.lastYearFastestLap.driver}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">圈速</span>
+                    <span className="text-sm font-medium font-mono">{event.lastYearFastestLap.time}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">圈数</span>
+                    <span className="text-sm font-medium">第 {event.lastYearFastestLap.lap} 圈</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 更多信息（WRC） */}
               {event.extraInfo && event.extraInfo.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold">更多信息</h4>
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <h4 className="mb-3 text-sm font-semibold">更多信息</h4>
                   <div className="grid gap-2">
                     {event.extraInfo.map((info, i) => (
                       <div key={i} className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2 text-sm">
@@ -379,7 +451,18 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
               {/* 赛事链接 */}
               <div className="flex flex-wrap gap-2">
-                {event.wikipediaUrl && (
+                {event.circuitWikipediaUrl && (
+                  <a
+                    href={event.circuitWikipediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary transition-colors hover:bg-secondary/80"
+                  >
+                    <ExternalLink className="size-3.5" aria-hidden />
+                    赛道 Wiki
+                  </a>
+                )}
+                {event.wikipediaUrl && event.wikipediaUrl !== event.circuitWikipediaUrl && (
                   <a
                     href={event.wikipediaUrl}
                     target="_blank"
@@ -387,7 +470,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary transition-colors hover:bg-secondary/80"
                   >
                     <ExternalLink className="size-3.5" aria-hidden />
-                    Wikipedia
+                    赛事 Wiki
                   </a>
                 )}
                 {event.url && (
