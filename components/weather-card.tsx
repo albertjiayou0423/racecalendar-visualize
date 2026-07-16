@@ -11,9 +11,11 @@ interface WeatherCardProps {
   country: string
   date: string
   startTime: string
+  lat?: number
+  lon?: number
 }
 
-export function WeatherCard({ city, country, date, startTime }: WeatherCardProps) {
+export function WeatherCard({ city, country, date, startTime, lat, lon }: WeatherCardProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hourly, setHourly] = useState<HourlyForecast[]>([])
@@ -28,6 +30,8 @@ export function WeatherCard({ city, country, date, startTime }: WeatherCardProps
         country: country,
         date: date,
       })
+      if (lat !== undefined) params.set("lat", lat.toString())
+      if (lon !== undefined) params.set("lon", lon.toString())
       const res = await fetch(`/api/weather?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
@@ -42,7 +46,7 @@ export function WeatherCard({ city, country, date, startTime }: WeatherCardProps
     } finally {
       setLoading(false)
     }
-  }, [city, country, date])
+  }, [city, country, date, lat, lon])
 
   useEffect(() => {
     fetchWeather()

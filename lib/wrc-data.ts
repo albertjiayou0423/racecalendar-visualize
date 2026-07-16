@@ -22,23 +22,32 @@ interface WrcRallyDef {
   finish: [number, number, number]
   /** 每天的赛段数 [首日Shakedown, 第一比赛日, 第二比赛日, 末日(不含Power Stage)] */
   stages?: [number, number, number, number]
+  /** 赛事总部地理坐标（用于天气查询） */
+  lat: number
+  lon: number
+  /** Wikipedia 赛事页面链接 */
+  wikipediaUrl: string
+  /** 赛道/赛事 Wikipedia 图片链接 */
+  circuitImageUrl?: string
+  /** 额外信息 */
+  extraInfo?: { label: string; value: string }[]
 }
 
 const RALLIES: WrcRallyDef[] = [
-  { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", start: [2026, 1, 22], finish: [2026, 1, 25] },
-  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", start: [2026, 2, 12], finish: [2026, 2, 15] },
-  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", start: [2026, 3, 12], finish: [2026, 3, 15] },
-  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", start: [2026, 4, 9], finish: [2026, 4, 12] },
-  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", start: [2026, 4, 23], finish: [2026, 4, 26] },
-  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", start: [2026, 5, 7], finish: [2026, 5, 10] },
-  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", start: [2026, 5, 28], finish: [2026, 5, 31] },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", start: [2026, 6, 25], finish: [2026, 6, 28] },
-  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", start: [2026, 7, 16], finish: [2026, 7, 19] },
-  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", start: [2026, 7, 30], finish: [2026, 8, 2] },
-  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", start: [2026, 8, 27], finish: [2026, 8, 30] },
-  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", start: [2026, 9, 10], finish: [2026, 9, 13] },
-  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", start: [2026, 10, 1], finish: [2026, 10, 4] },
-  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", start: [2026, 11, 11], finish: [2026, 11, 14] },
+  { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", start: [2026, 1, 22], finish: [2026, 1, 25], lat: 44.5594, lon: 6.0786, wikipediaUrl: "https://en.wikipedia.org/wiki/Monte_Carlo_Rally", extraInfo: [{ label: "路面类型", value: "沥青 / 冰雪混合" }, { label: "特色", value: "赛季揭幕战，以高难度山地赛段闻名" }] },
+  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", start: [2026, 2, 12], finish: [2026, 2, 15], lat: 63.8258, lon: 20.2630, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Sweden", extraInfo: [{ label: "路面类型", value: "冰雪" }, { label: "特色", value: "全年唯一纯冰雪赛事" }] },
+  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", start: [2026, 3, 12], finish: [2026, 3, 15], lat: -1.2921, lon: 36.8219, wikipediaUrl: "https://en.wikipedia.org/wiki/Safari_Rally", extraInfo: [{ label: "路面类型", value: "砂石 / 泥土" }, { label: "特色", value: "世界最艰苦拉力赛之一" }] },
+  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", start: [2026, 4, 9], finish: [2026, 4, 12], lat: 45.3271, lon: 14.4422, wikipediaUrl: "https://en.wikipedia.org/wiki/Croatia_Rally", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "欧洲最快沥青拉力赛之一" }] },
+  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", start: [2026, 4, 23], finish: [2026, 4, 26], lat: 28.1235, lon: -15.4366, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Islas_Canarias", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "火山岛山地赛段" }] },
+  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", start: [2026, 5, 7], finish: [2026, 5, 10], lat: 41.1579, lon: -8.6291, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_de_Portugal", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "经典砂石拉力赛，观众人数众多" }] },
+  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", start: [2026, 5, 28], finish: [2026, 5, 31], lat: 35.0833, lon: 137.1564, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Japan", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "狭窄林间山路，高难度" }] },
+  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", start: [2026, 6, 25], finish: [2026, 6, 28], lat: 37.9733, lon: 22.9511, wikipediaUrl: "https://en.wikipedia.org/wiki/Acropolis_Rally", extraInfo: [{ label: "路面类型", value: "砂石 / 岩石" }, { label: "特色", value: "" }] },
+  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", start: [2026, 7, 16], finish: [2026, 7, 19], lat: 58.3780, lon: 26.7280, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Estonia", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "高速砂石路，平均时速极高" }] },
+  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", start: [2026, 7, 30], finish: [2026, 8, 2], lat: 62.2426, lon: 25.7473, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Finland", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "跳跃之王，经典飞跳赛段" }] },
+  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", start: [2026, 8, 27], finish: [2026, 8, 30], lat: -27.3370, lon: -55.8670, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Paraguay", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "WRC新站点，南美高速砂石路" }] },
+  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", start: [2026, 9, 10], finish: [2026, 9, 13], lat: -36.8270, lon: -73.0500, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Chile", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "太平洋沿岸山地赛段" }] },
+  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", start: [2026, 10, 1], finish: [2026, 10, 4], lat: 40.5580, lon: 8.3190, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Italia_Sardegna", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "地中海岛屿高温砂石赛" }] },
+  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", start: [2026, 11, 11], finish: [2026, 11, 14], lat: 21.5433, lon: 39.1728, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Saudi_Arabia", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "沙漠拉力，全新站点" }] },
 ]
 
 /** 计算两个日期相差的天数 */
@@ -175,6 +184,11 @@ export function buildWrcEvents(): RaceEvent[] {
       tentative: true,
       circuitType: "rally",
       region: regionMap[def.country] ?? "europe",
+      lat: def.lat,
+      lon: def.lon,
+      wikipediaUrl: def.wikipediaUrl,
+      circuitImageUrl: def.circuitImageUrl,
+      extraInfo: def.extraInfo,
     }
   })
 }

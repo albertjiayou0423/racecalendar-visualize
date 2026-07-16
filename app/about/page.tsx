@@ -11,6 +11,16 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.0.6",
+    date: "2026-07-16",
+    items: [
+      { type: "feat", text: "赛事卡片支持翻转显示详细信息（3D 翻转动画）" },
+      { type: "feat", text: "卡片背面显示 Wikipedia 赛事图片和更多信息" },
+      { type: "feat", text: "天气预报支持通过地理坐标查询（解决 WRC 天气加载失败）" },
+      { type: "fix", text: "修复 WRC 所有赛事天气无法加载的问题（中文城市名地理编码失败）" },
+    ],
+  },
+  {
     version: "v1.0.5",
     date: "2026-07-16",
     items: [
@@ -115,7 +125,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.5</span>
+          <span className="text-3xl font-bold">v1.0.6</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -148,7 +158,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.5" && (
+                {entry.version === "v1.0.6" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
