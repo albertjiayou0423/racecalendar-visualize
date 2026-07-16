@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
@@ -11,7 +11,8 @@ import { Highlights } from "@/components/highlights"
 import { DeepInfo } from "@/components/deep-info"
 import { EventNotificationManager } from "@/components/event-notification-manager"
 
-export default function EventDetailPage({ params }: { params: { id: string } }) {
+export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const [event, setEvent] = useState<RaceEvent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +26,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
 
   useEffect(() => {
     fetchEvent()
-  }, [params.id])
+  }, [id])
 
   async function fetchEvent() {
     setLoading(true)
@@ -34,7 +35,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
       const res = await fetch(`/api/schedule`)
       if (!res.ok) throw new Error("Failed to fetch schedule")
       const data = await res.json()
-      const found = data.events.find((e: RaceEvent) => e.id === params.id)
+      const found = data.events.find((e: RaceEvent) => e.id === id)
       if (!found) {
         setError("赛事不存在")
         setLoading(false)
