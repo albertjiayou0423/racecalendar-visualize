@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink } from "lucide-react"
+import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity } from "lucide-react"
+import { LiveTiming } from "./live-timing"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -67,6 +68,7 @@ function groupSessionsByDay(sessions: RaceSession[]): DayGroup[] {
 export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [open, setOpen] = useState(false)
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
+  const [showLiveTiming, setShowLiveTiming] = useState(false)
   const meta = SERIES_META[event.series]
   const main = mainSession(event)
   const first = firstSession(event)
@@ -245,6 +247,29 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：Formula E 官方 API</span>
             ) : null}
           </p>
+
+          {/* Live Timing */}
+          <div className="border-t border-border">
+            <button
+              type="button"
+              onClick={() => setShowLiveTiming((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary"
+            >
+              <div className="flex items-center gap-2">
+                <Activity className="size-4 text-primary" />
+                <span>Live Timing</span>
+                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                  {event.series}
+                </span>
+              </div>
+              <ChevronDown className={cn("size-4 transition-transform", showLiveTiming && "rotate-180")} />
+            </button>
+            <LiveTiming
+              series={event.series}
+              eventName={event.name}
+              isExpanded={showLiveTiming}
+            />
+          </div>
         </div>
       ) : null}
     </article>
