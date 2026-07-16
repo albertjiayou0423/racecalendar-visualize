@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity } from "lucide-react"
 import { LiveTiming } from "./live-timing"
+import { WeatherCard } from "./weather-card"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -253,6 +254,21 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：Formula E 官方 API</span>
             ) : null}
           </p>
+
+          {/* 天气预报 */}
+          {main && (
+            <div className="border-t border-border/50 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">当地天气预报</span>
+                <WeatherCard
+                  city={event.locality}
+                  country={event.country}
+                  date={new Date(main.utc).toISOString().split("T")[0]}
+                  startTime={formatTime(main.utc, event.tz)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Live Timing - 只在 session 进行中显示 */}
           {isLiveNow && (
