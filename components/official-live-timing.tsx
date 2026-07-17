@@ -16,6 +16,8 @@ export function OfficialLiveTiming({ url, eventName, disabled }: OfficialLiveTim
 
   if (disabled) return null
 
+  const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <button
@@ -54,7 +56,7 @@ export function OfficialLiveTiming({ url, eventName, disabled }: OfficialLiveTim
           ) : (
             <div className="relative">
               <iframe
-                src={url}
+                src={proxyUrl}
                 title={`${eventName} 官方 Live Timing`}
                 className="w-full h-[600px] border-0"
                 onLoad={() => setLoaded(true)}
@@ -74,7 +76,7 @@ export function OfficialLiveTiming({ url, eventName, disabled }: OfficialLiveTim
 
           <div className="flex items-center justify-between border-t border-border px-4 py-2 bg-muted/30">
             <span className="text-xs text-muted-foreground">
-              数据来源：WRC 官方网站
+              数据来源：WRC 官方网站（通过代理）
             </span>
             <a
               href={url}
@@ -83,7 +85,7 @@ export function OfficialLiveTiming({ url, eventName, disabled }: OfficialLiveTim
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <ExternalLink className="size-3" />
-              查看完整页面
+              在新窗口打开
             </a>
           </div>
         </div>
