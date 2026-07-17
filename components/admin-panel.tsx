@@ -163,10 +163,26 @@ export function AdminPanel() {
   }
 
   const handleLogout = () => {
-    document.cookie = "admin_auth=; max-age=0; path=/admin"
+    document.cookie = "admin_auth=; max-age=0; path=/"
     setAuthenticated(false)
     setStatus(null)
     setCrawlStatus(null)
+    setOverrides([])
+    setPreviewData(null)
+    setSnapshotData(null)
+  }
+
+  // 统一处理 API 响应，401 时自动登出
+  const handleApiResponse = async (res: Response) => {
+    if (res.status === 401) {
+      handleLogout()
+      throw new Error("登录已过期，请重新登录")
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.message || `请求失败 (${res.status})`)
+    }
+    return res.json()
   }
 
   // ─── 服务状态 ─────────────────────────────────────────
@@ -189,12 +205,11 @@ export function AdminPanel() {
   const fetchCrawlStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/crawl")
-      if (res.ok) {
-        const data = await res.json()
-        setCrawlStatus(data.data)
-      }
+      const data = await handleApiResponse(res)
+      setCrawlStatus(data.data)
     } catch (e) {
       console.error("Failed to fetch crawl status:", e)
+      setCrawlStatus(null)
     }
   }, [])
 
@@ -206,14 +221,10 @@ export function AdminPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ series }),
       })
-      const data = await res.json()
-      if (data.ok) {
-        alert(`${series} 爬取成功：${data.data.eventCount} 场赛事`)
-      } else {
-        alert(`${series} 爬取失败：${data.message}`)
-      }
+      const data = await handleApiResponse(res)
+      alert(`${series} 爬取成功：${data.data.eventCount} 场赛事`)
     } catch (e) {
-      alert("爬取请求失败")
+      alert(e instanceof Error ? e.message : "爬取请求失败")
     } finally {
       setCrawling(null)
       fetchCrawlStatus()
@@ -225,12 +236,11 @@ export function AdminPanel() {
   const fetchOverrides = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/overrides")
-      if (res.ok) {
-        const data = await res.json()
-        setOverrides(data.data ?? [])
-      }
+      const data = await handleApiResponse(res)
+      setOverrides(data.data ?? [])
     } catch (e) {
       console.error("Failed to fetch overrides:", e)
+      setOverrides([])
     }
   }, [])
 
@@ -250,16 +260,13 @@ export function AdminPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, data: editForm }),
       })
-      if (res.ok) {
-        setEditingOverride(null)
-        setEditForm({})
-        setNewEventId("")
-        fetchOverrides()
-      } else {
-        alert("保存失败")
-      }
-    } catch {
-      alert("保存请求失败")
+      await handleApiResponse(res)
+      setEditingOverride(null)
+      setEditForm({})
+      setNewEventId("")
+      fetchOverrides()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "保存请求失败")
     } finally {
       setSaving(false)
     }
@@ -273,11 +280,10 @@ export function AdminPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId }),
       })
-      if (res.ok) {
-        fetchOverrides()
-      }
-    } catch {
-      alert("删除失败")
+      await handleApiResponse(res)
+      fetchOverrides()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "删除失败")
     }
   }
 
@@ -287,12 +293,11 @@ export function AdminPanel() {
     setPreviewLoading(true)
     try {
       const res = await fetch(`/api/admin/preview?series=${series}`)
-      if (res.ok) {
-        const data = await res.json()
-        setPreviewData(data.data)
-      }
+      const data = await handleApiResponse(res)
+      setPreviewData(data.data)
     } catch (e) {
       console.error("Failed to fetch preview:", e)
+      setPreviewData(null)
     } finally {
       setPreviewLoading(false)
     }
@@ -302,12 +307,11 @@ export function AdminPanel() {
     setSnapshotLoading(true)
     try {
       const res = await fetch(`/api/admin/snapshot?series=${series}`)
-      if (res.ok) {
-        const data = await res.json()
-        setSnapshotData(data.data)
-      }
-    } catch {
-      console.error("Failed to fetch snapshot")
+      const data = await handleApiResponse(res)
+      setSnapshotData(data.data)
+    } catch (e) {
+      console.error("Failed to fetch snapshot:", e)
+      setSnapshotData(null)
     } finally {
       setSnapshotLoading(false)
     }
