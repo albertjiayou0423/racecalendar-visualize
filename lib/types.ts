@@ -68,6 +68,10 @@ export interface RaceEvent {
   }
   /** 直播信息最后核验时间 */
   broadcastCheckedAt?: string
+  /** 官方 Live Timing 页面链接（WRC 专用） */
+  liveTimingUrl?: string
+  /** 赛事 slug（用于生成官方链接） */
+  eventSlug?: string
 }
 
 export interface ScheduleResponse {

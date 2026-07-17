@@ -8,6 +8,7 @@ import { SERIES_META } from "@/lib/format"
 import { WatchInfo } from "@/components/watch-info"
 import { Highlights } from "@/components/highlights"
 import { DeepInfo } from "@/components/deep-info"
+import { OfficialLiveTiming } from "@/components/official-live-timing"
 import { EventNotificationManager } from "@/components/event-notification-manager"
 import { EventHeader } from "@/components/event-header"
 import { SessionTimeline } from "@/components/session-timeline"
@@ -131,6 +132,11 @@ export default function EventDetailPage() {
         <WatchInfo event={event} />
         <Highlights event={event} />
         <DeepInfo event={event} />
+        {event.liveTimingUrl && (
+          <div className="mt-4">
+            <OfficialLiveTiming url={event.liveTimingUrl} eventName={event.name} />
+          </div>
+        )}
       </main>
 
       {notificationManager && (
