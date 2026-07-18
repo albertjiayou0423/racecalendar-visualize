@@ -7,6 +7,7 @@ import { buildWrcEvents } from "./wrc-data"
 async function fetchDirect(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
+      next: { revalidate: 3600 },
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -46,7 +47,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://phantomjscloud.com/api/browser/v2/${PHANTOMJS_API_KEY}/?request=${encodeURIComponent(JSON.stringify(requestPayload))}`
-    const res = await fetch(apiUrl)
+    const res = await fetch(apiUrl, { next: { revalidate: 3600 } })
 
     if (!res.ok) {
       console.error(`PhantomJsCloud failed: ${res.status} for ${url}`)
@@ -105,7 +106,7 @@ const MONTH_MAP: Record<string, number> = {
 }
 
 function parseDateText(dateText: string, fallbackDate: string): [number, number, number] {
-  const match = dateText.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+  const match = dateText.match(/(\w+),?\s*(\d{1,2})\s+(\w+)/)
   if (match) {
     const day = parseInt(match[2], 10)
     const month = MONTH_MAP[match[3]]
@@ -140,7 +141,7 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
   while ((dayMatch = dayPattern.exec(cleanHtml)) !== null) {
     const dayContent = dayMatch[1]
     
-    const dateTextMatch = dayContent.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+    const dateTextMatch = dayContent.match(/(\w+),?\s*(\d{1,2})\s+(\w+)/)
     if (!dateTextMatch) continue
     
     const day = parseInt(dateTextMatch[2], 10)
@@ -546,6 +547,10 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
   return sessions
 }
 
+// ============ In-memory Cache ============
+
+const scrapedSessionsCache: Record<string, { sessions: RaceSession[]; source: string }> = {}
+
 // ============ WRC 赛事列表 ============
 
 interface WrcRally {
@@ -613,6 +618,17 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
       if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
         sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
         if (sessions && sessions.length > 0) source = "ocblacktop"
+      }
+
+      // 检查并在抓取失败时使用内存缓存
+      if ((!sessions || sessions.length === 0) && scrapedSessionsCache[rally.eventSlug]) {
+        const cached = scrapedSessionsCache[rally.eventSlug]
+        sessions = cached.sessions
+        source = cached.source.endsWith("-cached") ? cached.source : `${cached.source}-cached`
+        console.log(`WRC cache hit: ${rally.name} loaded from in-memory cache (${sessions.length} sessions)`)
+      } else if (sessions && sessions.length > 0) {
+        // 抓取成功，存入内存缓存
+        scrapedSessionsCache[rally.eventSlug] = { sessions, source }
       }
 
       return { rally, sessions, source }

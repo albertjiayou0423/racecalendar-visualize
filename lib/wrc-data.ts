@@ -31,6 +31,8 @@ interface WrcRallyDef {
   circuitImageUrl?: string
   /** 额外信息 */
   extraInfo?: { label: string; value: string }[]
+  /** 官方已发布的行程表，用作高可用备用缓存 */
+  officialSessions?: RaceSession[]
 }
 
 const RALLIES: WrcRallyDef[] = [
@@ -41,7 +43,113 @@ const RALLIES: WrcRallyDef[] = [
   { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", start: [2026, 4, 23], finish: [2026, 4, 26], lat: 28.1235, lon: -15.4366, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Islas_Canarias", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "火山岛山地赛段" }] },
   { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", start: [2026, 5, 7], finish: [2026, 5, 10], lat: 41.1579, lon: -8.6291, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_de_Portugal", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "经典砂石拉力赛，观众人数众多" }] },
   { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", start: [2026, 5, 28], finish: [2026, 5, 31], lat: 35.0833, lon: 137.1564, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Japan", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "狭窄林间山路，高难度" }] },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", start: [2026, 6, 25], finish: [2026, 6, 28], lat: 37.9733, lon: 22.9511, wikipediaUrl: "https://en.wikipedia.org/wiki/Acropolis_Rally", extraInfo: [{ label: "路面类型", value: "砂石 / 岩石" }, { label: "特色", value: "" }] },
+  {
+    round: 8,
+    name: "希腊卫城拉力赛",
+    hq: "卢特拉基（Loutraki）",
+    city: "科林西亚",
+    country: "希腊",
+    code: "GR",
+    tz: "Europe/Athens",
+    start: [2026, 6, 25],
+    finish: [2026, 6, 28],
+    lat: 37.9733,
+    lon: 22.9511,
+    wikipediaUrl: "https://en.wikipedia.org/wiki/Acropolis_Rally",
+    extraInfo: [{ label: "路面类型", value: "砂石 / 岩石" }, { label: "特色", value: "极其艰苦的经典岩石赛段" }],
+    officialSessions: [
+      {
+        "name": "Shakedown (3.34 km)",
+        "utc": "2026-06-25T06:01:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS1 EKO SSS (1.86 km)",
+        "utc": "2026-06-25T16:05:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS2 Bauxites (22.97 km)",
+        "utc": "2026-06-26T05:48:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS3 Parnassos Mt (22.28 km)",
+        "utc": "2026-06-26T06:51:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS4 Stiri 1 (24.18 km)",
+        "utc": "2026-06-26T08:14:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS5 Elikon Mt (17.80 km)",
+        "utc": "2026-06-26T10:35:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS6 Stiri 2 (24.18 km)",
+        "utc": "2026-06-26T11:46:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS7 Thiva (17.81 km)",
+        "utc": "2026-06-26T13:56:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS8 Ghymno 1 (19.60 km)",
+        "utc": "2026-06-27T04:54:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS9 Kolines (21.30 km)",
+        "utc": "2026-06-27T06:19:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS10 Menalo Mt 1 (15.01 km)",
+        "utc": "2026-06-27T08:05:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS11 Kefalari (18.17 km)",
+        "utc": "2026-06-27T09:58:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS12 Ghymno 2 (19.60 km)",
+        "utc": "2026-06-27T13:39:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS13 Menalo Mt 2 (15.01 km)",
+        "utc": "2026-06-27T16:05:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS14 Aghii Theodori 1 (25.39 km)",
+        "utc": "2026-06-28T05:28:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS15 Loutraki 1 (16.61 km)",
+        "utc": "2026-06-28T06:35:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS16 Aghii Theodori 2 (25.39 km)",
+        "utc": "2026-06-28T09:10:00.000Z",
+        "isMain": false
+      },
+      {
+        "name": "SS17 Loutraki 2 - Wolf Power Stage (16.61 km)",
+        "utc": "2026-06-28T11:15:00.000Z",
+        "isMain": true
+      }
+    ]
+  },
   { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", start: [2026, 7, 16], finish: [2026, 7, 19], lat: 58.3780, lon: 26.7280, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Estonia", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "高速砂石路，平均时速极高" }] },
   { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", start: [2026, 7, 30], finish: [2026, 8, 2], lat: 62.2426, lon: 25.7473, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Finland", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "跳跃之王，经典飞跳赛段" }] },
   { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", start: [2026, 8, 27], finish: [2026, 8, 30], lat: -27.3370, lon: -55.8670, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Paraguay", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "WRC新站点，南美高速砂石路" }] },
@@ -175,13 +283,13 @@ export function buildWrcEvents(): RaceEvent[] {
       country: def.country,
       countryCode: def.code,
       tz: def.tz,
-      sessions: buildSessions(def),
+      sessions: def.officialSessions ?? buildSessions(def),
       broadcaster: {
         name: "腾讯视频",
         note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
       },
       url: "https://www.wrc.com/",
-      tentative: true,
+      tentative: !def.officialSessions,
       circuitType: "rally",
       region: regionMap[def.country] ?? "europe",
       lat: def.lat,
