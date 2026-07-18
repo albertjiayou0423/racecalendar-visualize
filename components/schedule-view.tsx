@@ -544,13 +544,33 @@ export function ScheduleView() {
         </Link>
       </div>
 
-      <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+      <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground space-y-4">
         <p>
           时间说明：F1 与 Formula E 场次时间来自官方公开接口并换算为北京时间（UTC+8）；WRC
           为官方公布赛历，各赛段具体发车时间以官方 itinerary 为准（标有
           <TriangleAlert className="mx-0.5 inline size-3" aria-hidden />
           的为估计时间）。转播信息仅供参考，请以对应平台节目单为准。
         </p>
+
+        {/* Developer Info Bottom Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-border/40 pt-4">
+          <div className="flex items-center gap-2.5">
+            <div className="relative size-6 overflow-hidden rounded-md bg-muted p-0.5 border border-border/60">
+              <img
+                src="/icon.svg"
+                alt="Huo_sai Logo"
+                className="size-full object-contain"
+              />
+            </div>
+            <span className="font-semibold text-foreground/80 text-xs">Huo_sai</span>
+          </div>
+          <Link
+            href="/developer"
+            className="inline-flex items-center gap-1 rounded bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 self-start sm:self-auto"
+          >
+            了解更多
+          </Link>
+        </div>
       </footer>
     </div>
   )
