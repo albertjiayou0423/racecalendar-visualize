@@ -85,11 +85,14 @@ export function firstSession(event: RaceEvent) {
   return event.sessions[0]
 }
 
-/** 事件是否已结束（首个场次时间早于当前） */
+/** 事件是否已结束（最后一个场次开始后的3小时视为结束，避免进行中的赛事被提早标记为已结束） */
 export function isPast(event: RaceEvent, now: number): boolean {
-  const first = firstSession(event)
-  if (!first) return true
-  return new Date(first.utc).getTime() < now
+  if (!event.sessions || event.sessions.length === 0) return true
+  const last = event.sessions[event.sessions.length - 1]
+  if (!last) return true
+  // 最后一个场次开始时间 + 3小时视为整个赛事彻底结束
+  const eventEndTime = new Date(last.utc).getTime() + 3 * 60 * 60 * 1000
+  return eventEndTime < now
 }
 
 /** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
