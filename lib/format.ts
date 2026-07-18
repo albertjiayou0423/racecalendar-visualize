@@ -95,6 +95,25 @@ export function isPast(event: RaceEvent, now: number): boolean {
   return eventEndTime < now
 }
 
+/** 事件是否还未开始 */
+export function isUpcoming(event: RaceEvent, now: number): boolean {
+  if (!event.sessions || event.sessions.length === 0) return false
+  const first = event.sessions[0]
+  if (!first) return false
+  return now < new Date(first.utc).getTime()
+}
+
+/** 事件是否正在进行中 */
+export function isOngoing(event: RaceEvent, now: number): boolean {
+  if (!event.sessions || event.sessions.length === 0) return false
+  const first = event.sessions[0]
+  const last = event.sessions[event.sessions.length - 1]
+  if (!first || !last) return false
+  const startTime = new Date(first.utc).getTime()
+  const endTime = new Date(last.utc).getTime() + 3 * 60 * 60 * 1000
+  return now >= startTime && now <= endTime
+}
+
 /** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
 export function countdown(utc: string, now: number) {
   const diff = new Date(utc).getTime() - now
