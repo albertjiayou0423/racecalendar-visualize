@@ -3,17 +3,19 @@
 import { useState, useEffect } from "react"
 import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { firstSession, formatDateTime, formatTime, SERIES_META } from "@/lib/format"
+import { firstSession, formatDateTime, formatTime, SERIES_META, isOngoing } from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
 import { PredictionVote } from "@/components/prediction-vote"
 
 interface NextRacePreviewProps {
   event: RaceEvent
+  now: number
 }
 
-export function NextRacePreview({ event }: NextRacePreviewProps) {
+export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const first = firstSession(event)
   const meta = SERIES_META[event.series]
+  const ongoing = isOngoing(event, now)
 
   return (
     <section
@@ -58,13 +60,28 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
 
       {first ? (
         <div className="mt-4 rounded-xl bg-muted/30 p-4">
-          <div className="text-xs text-muted-foreground">距开赛</div>
-          <div className="mt-1 font-mono text-2xl font-bold tabular-nums">
-            <Countdown targetTime={first.utc} />
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {formatDateTime(first.utc, BEIJING_TZ)} 北京时间
-          </div>
+          {ongoing ? (
+            <div>
+              <div className="text-xs text-muted-foreground">赛事状态</div>
+              <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                正在进行中
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="text-xs text-muted-foreground">距开赛</div>
+              <div className="mt-1 font-mono text-2xl font-bold tabular-nums">
+                <Countdown targetTime={first.utc} />
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatDateTime(first.utc, BEIJING_TZ)} 北京时间
+              </div>
+            </>
+          )}
         </div>
       ) : null}
 

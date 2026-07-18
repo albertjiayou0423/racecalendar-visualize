@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, Radio } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -221,9 +221,11 @@ export function ScheduleView() {
   const [hasAutoSwitched, setHasAutoSwitched] = useState(false)
   useEffect(() => {
     if (data?.events && !hasAutoSwitched) {
-      const hasOngoing = data.events.some((e) => isOngoing(e, now))
-      if (hasOngoing) {
+      const ongoingEvents = data.events.filter((e) => isOngoing(e, now))
+      if (ongoingEvents.length >= 2) {
         setTime("ongoing")
+      } else {
+        setTime("upcoming")
       }
       setHasAutoSwitched(true)
     }
@@ -318,12 +320,20 @@ export function ScheduleView() {
     })
   }, [baseFilteredList, time, view, now])
 
-  const nextUp = useMemo(() => {
-    const upcoming = allEvents
-      .filter((e) => (series === "ALL" ? true : e.series === series))
-      .filter((e) => !isPast(e, now))
+  const previewEvent = useMemo(() => {
+    const activeEvents = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
+    const ongoingList = activeEvents.filter((e) => isOngoing(e, now))
+
+    if (ongoingList.length >= 2) {
+      return null
+    }
+    if (ongoingList.length === 1) {
+      return ongoingList[0]
+    }
+    const upcomingList = activeEvents
+      .filter((e) => isUpcoming(e, now))
       .sort((a, b) => (mainSession(a)?.utc ?? "").localeCompare(mainSession(b)?.utc ?? ""))
-    return upcoming[0]
+    return upcomingList[0] || null
   }, [allEvents, series, now])
 
   return (
@@ -567,16 +577,16 @@ export function ScheduleView() {
       ) : null}
 
       {/* 上一站回顾 + 下一站预览（上下排列） */}
-      {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
+      {!isLoading && !error && view === "list" && previewEvent && time !== "past" && series === "F1" ? (
         <div className="flex flex-col gap-4">
           <LastRaceResults />
-          <NextRacePreview event={nextUp} />
+          <NextRacePreview event={previewEvent} now={now} />
         </div>
       ) : null}
 
       {/* 下一场高亮 */}
-      {!isLoading && !error && view === "list" && nextUp && time !== "past" && series !== "F1" ? (
-        <NextRacePreview event={nextUp} />
+      {!isLoading && !error && view === "list" && previewEvent && time !== "past" && series !== "F1" ? (
+        <NextRacePreview event={previewEvent} now={now} />
       ) : null}
 
       {/* 月视图 */}
