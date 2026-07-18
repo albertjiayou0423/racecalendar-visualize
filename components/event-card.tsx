@@ -16,6 +16,9 @@ import {
   formatTime,
   mainSession,
   offsetLabel,
+  isUpcoming,
+  isOngoing,
+  isPast,
 } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
@@ -25,15 +28,31 @@ interface DayGroup {
   sessions: RaceSession[]
 }
 
-function CountdownPill({ utc, now }: { utc: string; now: number }) {
-  const c = countdown(utc, now)
-  if (c.past) {
+function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
+  if (isPast(event, now)) {
     return (
       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
         已结束
       </span>
     )
   }
+
+  if (isOngoing(event, now)) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-450 opacity-75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        </span>
+        进行中
+      </span>
+    )
+  }
+
+  const first = firstSession(event)
+  if (!first) return null
+
+  const c = countdown(first.utc, now)
   const soon = c.days === 0
   return (
     <span
@@ -154,7 +173,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 ) : (
                   <span className="text-sm text-muted-foreground">赛程待定</span>
                 )}
-                {first ? <CountdownPill utc={first.utc} now={now} /> : null}
+                {first ? <CountdownPill event={event} now={now} /> : null}
               </div>
             </div>
 
