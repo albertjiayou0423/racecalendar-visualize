@@ -30,7 +30,7 @@ export default function DeveloperPage() {
             <div className="flex items-center gap-4">
               <div className="relative size-16 overflow-hidden rounded-xl bg-muted border border-border p-1">
                 <Image
-                  src="/icon.svg"
+                  src="/brand-logo.svg"
                   alt="Huo_sai Logo"
                   fill
                   className="object-contain"

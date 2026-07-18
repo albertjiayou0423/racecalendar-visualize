@@ -218,6 +218,17 @@ export function ScheduleView() {
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
 
+  const [hasAutoSwitched, setHasAutoSwitched] = useState(false)
+  useEffect(() => {
+    if (data?.events && !hasAutoSwitched) {
+      const hasOngoing = data.events.some((e) => isOngoing(e, now))
+      if (hasOngoing) {
+        setTime("ongoing")
+      }
+      setHasAutoSwitched(true)
+    }
+  }, [data, hasAutoSwitched, now])
+
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
 
@@ -638,7 +649,7 @@ export function ScheduleView() {
           <div className="flex items-center gap-2.5">
             <div className="relative size-6 overflow-hidden rounded-md bg-muted p-0.5 border border-border/60">
               <img
-                src="/icon.svg"
+                src="/brand-logo.svg"
                 alt="Huo_sai Logo"
                 className="size-full object-contain"
               />
