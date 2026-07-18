@@ -92,3 +92,50 @@ WRC success (wrc-official): 爱沙尼亚拉力赛 (19 sessions)
 WRC failed: 芬兰拉力赛 (using fallback)
 WRC failed: 巴拉圭拉力赛 (using fallback)
 WRC failed: 智利拉力赛 (using fallback)
+ GET / 200 in 463ms (next.js: 70ms, application-code: 393ms)
+WRC: scraping 5 rallies (filtered by date)
+WRC: fetching https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026
+WRC: fetching https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026
+WRC: fetching https://www.wrc.com/en/events/wrc-secto-rally-finland-2026
+WRC: fetching https://www.wrc.com/en/events/wrc-rally-del-paraguay-2026
+WRC: fetching https://www.wrc.com/en/events/wrc-rally-chile-bio-bio-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-rally-del-paraguay-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-secto-rally-finland-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-rally-chile-bio-bio-2026
+ GET /developer 200 in 54ms (next.js: 13ms, application-code: 41ms)
+WRC: found itinerary URL: https://www.wrc.com/en/events/wrc-rally-chile-bio-bio-2026/itinerary-stages-wrc-rally-chile-bio-bio
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-rally-chile-bio-bio-2026/itinerary-stages-wrc-rally-chile-bio-bio
+WRC: found itinerary URL: https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026/itinerary-wrc-rally-estonia-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-delfi-rally-estonia-2026/itinerary-wrc-rally-estonia-2026
+WRC: found itinerary URL: https://www.wrc.com/en/events/wrc-rally-del-paraguay-2026/itinerary-wrc-ueno-rally-del-paraguay-2026
+WRC: pageTabs not found, trying fallback itinerary URL: https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026/itinerary-wrc-acropolis-rally-greece-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-rally-del-paraguay-2026/itinerary-wrc-ueno-rally-del-paraguay-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-acropolis-rally-greece-2026/itinerary-wrc-acropolis-rally-greece-2026
+No itinerary FAQ found in prerender cache
+WRC: no itinerary data in cache, trying HTML parsing for wrc-rally-chile-bio-bio-2026
+No itinerary data found in HTML
+WRC: no itinerary data parsed for wrc-rally-chile-bio-bio-2026
+ GET / 200 in 46ms (next.js: 6ms, application-code: 40ms)
+WRC: parsed 19 sessions for wrc-delfi-rally-estonia-2026
+No itinerary FAQ found in prerender cache
+WRC: no itinerary data in cache, trying HTML parsing for wrc-rally-del-paraguay-2026
+No itinerary data found in HTML
+WRC: no itinerary data parsed for wrc-rally-del-paraguay-2026
+No itinerary FAQ found in prerender cache
+WRC: no itinerary data in cache, trying HTML parsing for wrc-acropolis-rally-greece-2026
+No itinerary data found in HTML
+WRC: no itinerary data parsed for wrc-acropolis-rally-greece-2026
+ GET /api/schedule 200 in 7.3s (next.js: 15ms, application-code: 7.3s)
+WRC: found itinerary URL: https://www.wrc.com/en/events/wrc-secto-rally-finland-2026/itinerary-wrc-secto-rally-finland-2026
+WRC: direct fetch failed, trying PhantomJsCloud for https://www.wrc.com/en/events/wrc-secto-rally-finland-2026/itinerary-wrc-secto-rally-finland-2026
+No itinerary FAQ found in prerender cache
+WRC: no itinerary data in cache, trying HTML parsing for wrc-secto-rally-finland-2026
+No itinerary data found in HTML
+WRC: no itinerary data parsed for wrc-secto-rally-finland-2026
+WRC failed: 希腊卫城拉力赛 (using fallback)
+WRC success (wrc-official): 爱沙尼亚拉力赛 (19 sessions)
+WRC failed: 芬兰拉力赛 (using fallback)
+WRC failed: 巴拉圭拉力赛 (using fallback)
+WRC failed: 智利拉力赛 (using fallback)

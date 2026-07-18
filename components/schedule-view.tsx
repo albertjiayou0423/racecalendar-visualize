@@ -557,7 +557,7 @@ export function ScheduleView() {
           <div className="flex items-center gap-2.5">
             <div className="relative size-6 overflow-hidden rounded-md bg-muted p-0.5 border border-border/60">
               <img
-                src="/icon.svg"
+                src="/huosai-logo.svg"
                 alt="Huo_sai Logo"
                 className="size-full object-contain"
               />
