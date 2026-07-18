@@ -40,21 +40,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await sql`
+    const results = (await sql`
       SELECT driver_code, COUNT(*) as count
       FROM predictions
       WHERE event_id = ${eventId}
       GROUP BY driver_code
       ORDER BY count DESC
-    `
+    `) as any
 
     const voterId = await getVoterId()
-    const myVote = await sql`
+    const myVote = (await sql`
       SELECT driver_code
       FROM predictions
       WHERE event_id = ${eventId} AND voter_id = ${voterId}
       LIMIT 1
-    `
+    `) as any
 
     return NextResponse.json({
       results: results.map((r: { driver_code: string; count: number }) => ({

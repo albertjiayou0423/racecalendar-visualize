@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const { password } = await request.json()
   const adminPassword = process.env.ADMIN_PASSWORD
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: false, message: "密码错误" }, { status: 401 })
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const auth = request.cookies.get("admin_auth")
   return NextResponse.json({ authenticated: auth?.value === "true" })
 }

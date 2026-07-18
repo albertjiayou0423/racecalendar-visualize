@@ -1,6 +1,6 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 
-let sqlInstance: NeonQueryFunction | null = null
+let sqlInstance: NeonQueryFunction<any, any> | null = null
 let initialized = false
 
 function cleanDbUrl(url: string): string {
@@ -13,7 +13,7 @@ function cleanDbUrl(url: string): string {
   }
 }
 
-export function getSql(): NeonQueryFunction | null {
+export function getSql(): NeonQueryFunction<any, any> | null {
   const DATABASE_URL = process.env.DATABASE_URL
   if (!DATABASE_URL) return null
   
@@ -29,7 +29,7 @@ export function getSql(): NeonQueryFunction | null {
   return sqlInstance
 }
 
-export async function getSqlOrFail(): Promise<NeonQueryFunction> {
+export async function getSqlOrFail(): Promise<NeonQueryFunction<any, any>> {
   const sql = getSql()
   if (!sql) {
     throw new Error("DATABASE_URL is not defined")

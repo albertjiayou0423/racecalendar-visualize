@@ -367,7 +367,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     <h4 className="text-sm font-semibold">赛道图片</h4>
                     <span className="text-[10px] text-muted-foreground">Wikipedia</span>
                   </div>
-                  <WikipediaImage url={event.circuitWikipediaUrl || event.wikipediaUrl} />
+                  <WikipediaImage url={event.circuitWikipediaUrl || event.wikipediaUrl || ""} />
                 </div>
               )}
 

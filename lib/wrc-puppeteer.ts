@@ -151,7 +151,7 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
     
     const stages: { time: string; name: string; isPowerStage: boolean }[] = []
     
-    const stagePattern = /cosmos-text[^>]*>(\d{1,2}:\d{2}):\s*(.+?)<\/cosmos-text>/gi
+    const stagePattern = /cosmos-text[^>]*>(\d{1,2}:\d{2})[:\s-]\s*(.+?)<\/cosmos-text>/gi
     let stageMatch
     
     while ((stageMatch = stagePattern.exec(dayContent)) !== null) {
@@ -162,7 +162,7 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
     }
     
     if (stages.length === 0) {
-      const altStagePattern = />(\d{1,2}:\d{2}):\s*([^<]+)</g
+      const altStagePattern = />(\d{1,2}:\d{2})[:\s-]\s*([^<]+)</g
       while ((stageMatch = altStagePattern.exec(dayContent)) !== null) {
         const time = stageMatch[1].padStart(5, "0")
         const name = stageMatch[2].trim()
@@ -177,7 +177,7 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
   }
   
   if (daySections.length === 0) {
-    const allStagePattern = /(\d{1,2}:\d{2}):\s*([^<\n]+)/g
+    const allStagePattern = /(\d{1,2}:\d{2})[:\s-]\s*([^<\n]+)/g
     const allStages: { time: string; name: string; isPowerStage: boolean }[] = []
     let match
     
@@ -245,7 +245,7 @@ function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: s
               if (el.variant !== "text") continue
               const text = el.text || ""
 
-              const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
+              const stageMatch = text.match(/^(\d{1,2}:\d{2})[:\s-]\s*(.+)$/)
               if (!stageMatch) continue
 
               const time = stageMatch[1].padStart(5, "0")
@@ -566,9 +566,9 @@ const WRC_RALLIES: WrcRally[] = [
   { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", eventSlug: "wrc-safari-rally-kenya-2026", startDate: "2026-03-20" },
   { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", eventSlug: "wrc-croatia-rally-2026", startDate: "2026-04-10" },
   { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", eventSlug: "wrc-rally-islas-canarias-2026", startDate: "2026-04-25" },
-  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-rally-de-portugal-2026", startDate: "2026-05-15" },
-  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-rally-japan-2026", startDate: "2026-05-29" },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-acropolis-rally-greece-2026", startDate: "2026-06-26" },
+  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-vodafone-rally-de-portugal-2026", startDate: "2026-05-15" },
+  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-forum8-rally-japan-2026", startDate: "2026-05-29" },
+  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-eko-acropolis-rally-greece-2026", startDate: "2026-06-26" },
   { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", eventSlug: "wrc-delfi-rally-estonia-2026", startDate: "2026-07-17" },
   { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", eventSlug: "wrc-secto-rally-finland-2026", startDate: "2026-08-07" },
   { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-28" },
