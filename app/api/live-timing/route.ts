@@ -3,6 +3,13 @@ import type { LiveTimingData, LiveTimingDriver, OpenF1Session, OpenF1Driver, Ope
 
 const OPENF1_BASE = "https://api.openf1.org/v1"
 
+interface OpenF1Interval {
+  gap_to_leader: number | null
+  interval: number | null
+  driver_number: number
+  date: string
+}
+
 async function fetchOpenF1<T>(endpoint: string, params?: Record<string, string>): Promise<T | null> {
   try {
     const url = new URL(`${OPENF1_BASE}/${endpoint}`)
@@ -36,10 +43,11 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
 
   const sessionKey = activeSession.session_key.toString()
 
-  const [drivers, positions, laps] = await Promise.all([
+  const [drivers, positions, laps, intervals] = await Promise.all([
     fetchOpenF1<OpenF1Driver[]>("drivers", { session_key: sessionKey }),
     fetchOpenF1<OpenF1Position[]>("position", { session_key: sessionKey }),
     fetchOpenF1<OpenF1Lap[]>("laps", { session_key: sessionKey }),
+    fetchOpenF1<OpenF1Interval[]>("intervals", { session_key: sessionKey }),
   ])
 
   if (!drivers || drivers.length === 0) return null
@@ -68,11 +76,47 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
     })
   }
 
+  // 引入 intervals 大盘数据
+  const latestIntervals = new Map<number, OpenF1Interval>()
+  if (intervals) {
+    intervals.forEach((inv) => {
+      const existing = latestIntervals.get(inv.driver_number)
+      if (!existing || new Date(inv.date) > new Date(existing.date)) {
+        latestIntervals.set(inv.driver_number, inv)
+      }
+    })
+  }
+
   const driverList: LiveTimingDriver[] = drivers
     .map((d) => {
       const pos = latestPositions.get(d.driver_number)
       const lap = latestLaps.get(d.driver_number)
       const bestLap = bestLaps.get(d.driver_number)
+      const inv = latestIntervals.get(d.driver_number)
+
+      // 根据 OpenF1 intervals 规范完美解析 gap 差距
+      let gapStr = "—"
+      if (inv) {
+        if (inv.gap_to_leader === null || inv.gap_to_leader === undefined) {
+          gapStr = pos?.position === 1 ? "LEADER" : "—"
+        } else if (typeof inv.gap_to_leader === "number") {
+          gapStr = pos?.position === 1 ? "LEADER" : `+${inv.gap_to_leader.toFixed(3)}`
+        } else {
+          gapStr = String(inv.gap_to_leader)
+        }
+      }
+
+      // 根据 OpenF1 intervals 规范完美解析 interval 区间
+      let intervalStr = "—"
+      if (inv) {
+        if (inv.interval === null || inv.interval === undefined) {
+          intervalStr = "—"
+        } else if (typeof inv.interval === "number") {
+          intervalStr = pos?.position === 1 ? "—" : `+${inv.interval.toFixed(3)}`
+        } else {
+          intervalStr = String(inv.interval)
+        }
+      }
 
       return {
         position: pos?.position ?? 0,
@@ -81,8 +125,8 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
         driverName: d.broadcast_name || d.full_name,
         team: d.team_name,
         teamColor: d.team_colour ? `#${d.team_colour}` : undefined,
-        gap: "—",
-        interval: "—",
+        gap: gapStr,
+        interval: intervalStr,
         lastLap: lap?.lap_duration ? formatLapTime(lap.lap_duration) : "—",
         bestLap: bestLap ? formatLapTime(bestLap) : "—",
         laps: lap?.lap_number ?? 0,
@@ -92,12 +136,6 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
     })
     .filter((d) => d.position > 0)
     .sort((a, b) => a.position - b.position)
-
-  if (driverList.length > 1) {
-    for (let i = 1; i < driverList.length; i++) {
-      driverList[i].gap = `+${i * 2}.5`
-    }
-  }
 
   return {
     series: "F1",

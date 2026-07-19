@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight, X, CalendarDays } from "lucide-react"
+import { ChevronLeft, ChevronRight, X, CalendarDays, Flag, Clock } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, firstSession, formatTime } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
@@ -20,15 +20,6 @@ function dayKeyInBeijing(utc: string): string {
     day: "2-digit",
   })
   return fmt.format(d) // YYYY-MM-DD
-}
-
-/** 取某赛事在北京时区覆盖的所有日期（去重） */
-function eventDayKeys(e: RaceEvent): string[] {
-  const set = new Set<string>()
-  for (const s of e.sessions) {
-    set.add(dayKeyInBeijing(s.utc))
-  }
-  return [...set]
 }
 
 interface MonthViewProps {
@@ -59,12 +50,10 @@ export function MonthView({ events, now }: MonthViewProps) {
 
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
-  // 把赛事按北京日期分桶（同一场赛事在每个覆盖日期都出现一次）
-  // 每个分桶条目带上当天该赛事的首个场次 UTC，用于显示当日开始时间
+  // 把赛事按北京日期分桶
   const byDay = useMemo(() => {
     const map = new Map<string, { event: RaceEvent; firstUtc: string }[]>()
     for (const e of events) {
-      // 计算该赛事每个北京日期的首个场次
       const dayFirst = new Map<string, string>()
       for (const s of e.sessions) {
         const key = dayKeyInBeijing(s.utc)
@@ -76,7 +65,6 @@ export function MonthView({ events, now }: MonthViewProps) {
         map.get(key)!.push({ event: e, firstUtc })
       }
     }
-    // 每天内部按当天首个场次时间排序
     for (const list of map.values()) {
       list.sort((a, b) => a.firstUtc.localeCompare(b.firstUtc))
     }
@@ -86,7 +74,6 @@ export function MonthView({ events, now }: MonthViewProps) {
   // 生成月历格子：从本月1号所在的周一开始
   const cells = useMemo(() => {
     const { y, m } = cursor
-    // 1号是周几（0=周日 → 转成周一为起点的偏移）
     const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay()
     const leadDays = (firstDow + 6) % 7 // 周一为0
     const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
@@ -116,7 +103,6 @@ export function MonthView({ events, now }: MonthViewProps) {
     })
   }
 
-  // 该月有赛事的天数（去重赛事数）
   const monthEventDays = useMemo(() => {
     const prefix = `${cursor.y}-${String(cursor.m).padStart(2, "0")}`
     let n = 0
@@ -133,7 +119,9 @@ export function MonthView({ events, now }: MonthViewProps) {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{monthLabel}</span>
           {monthEventDays > 0 ? (
-            <span>· {monthEventDays} 场次</span>
+            <span className="bg-secondary/50 px-2 py-0.5 rounded-full text-xs text-muted-foreground font-medium">
+              本月共 {monthEventDays} 场次
+            </span>
           ) : null}
         </div>
         <div className="flex items-center gap-1">
@@ -151,7 +139,7 @@ export function MonthView({ events, now }: MonthViewProps) {
               const d = new Date()
               setCursor({ y: d.getUTCFullYear(), m: d.getUTCMonth() + 1 })
             }}
-            className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
           >
             今天
           </button>
@@ -167,7 +155,7 @@ export function MonthView({ events, now }: MonthViewProps) {
       </div>
 
       {/* 星期表头 */}
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-muted-foreground">
         {WEEKDAY_HEADERS.map((w) => (
           <div key={w} className="py-1">
             {w}
@@ -179,35 +167,44 @@ export function MonthView({ events, now }: MonthViewProps) {
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell, i) => {
           if (!cell.key) {
-            return <div key={i} className="min-h-20 rounded-lg border border-border/40 bg-card/30" />
+            return <div key={i} className="min-h-24 rounded-lg border border-border/40 bg-card/10" />
           }
           const dayItems = byDay.get(cell.key) ?? []
           const past = dayItems.every(({ event }) => {
             const f = firstSession(event)
             return f && new Date(f.utc).getTime() < now
           })
+
+          // 计算昨天的 YYYY-MM-DD
+          let yesterdayKey = ""
+          if (cell.key) {
+            const [cy, cm, cd] = cell.key.split("-").map(Number)
+            const yesterdayDate = new Date(Date.UTC(cy, cm - 1, cd - 1))
+            yesterdayKey = `${yesterdayDate.getUTCFullYear()}-${String(yesterdayDate.getUTCMonth() + 1).padStart(2, "0")}-${String(yesterdayDate.getUTCDate()).padStart(2, "0")}`
+          }
+
           return (
             <button
               key={cell.key}
               type="button"
               onClick={() => setSelectedDay(cell.key)}
               className={cn(
-                "min-h-20 w-full rounded-lg border bg-card p-1.5 text-left transition-colors",
+                "min-h-24 w-full rounded-lg border bg-card p-1.5 text-left transition-all relative flex flex-col justify-between hover:scale-[1.01] hover:shadow-sm",
                 cell.isToday
-                  ? "border-primary"
+                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
                   : "border-border hover:border-primary/40",
-                selectedDay === cell.key && "ring-2 ring-primary",
+                selectedDay === cell.key && "ring-2 ring-primary bg-primary/5",
               )}
             >
               <div
                 className={cn(
-                  "text-xs font-medium tabular-nums",
-                  cell.isToday ? "text-primary" : "text-muted-foreground",
+                  "text-xs font-bold tabular-nums",
+                  cell.isToday ? "text-primary bg-primary/10 px-1 rounded" : "text-muted-foreground",
                 )}
               >
                 {cell.day}
               </div>
-              <div className="mt-1 flex flex-col gap-0.5">
+              <div className="mt-1.5 flex flex-col gap-1 w-full flex-1 justify-end">
                 {dayItems.slice(0, 3).map(({ event: e, firstUtc }, idx) => {
                   const meta = SERIES_META[e.series]
                   const time = new Intl.DateTimeFormat("en-GB", {
@@ -216,38 +213,47 @@ export function MonthView({ events, now }: MonthViewProps) {
                     minute: "2-digit",
                     hourCycle: "h23",
                   }).format(new Date(firstUtc))
+
                   const flag = countryCodeToFlag(e.countryCode)
-                  // 同一天如果同一赛事已出现过（同一 event id），标记为"续"
-                  const prevSameEvent = idx > 0 && dayItems[idx - 1].event.id === e.id
+
+                  // 甘特图连线判断 (Continuation matching across consecutive days):
+                  // 1. 如果当天不是该赛事的第一天（即昨天的数据里也包含此赛事的 id），则标记为"跨天连线"
+                  const hasContinuation = yesterdayKey ? byDay.get(yesterdayKey)?.some(({ event: prevE }) => prevEventIdMatch(prevE.id, e.id)) : false
+
                   return (
                     <div
                       key={`${e.id}-${idx}`}
                       className={cn(
-                        "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight",
-                        past && "opacity-50",
+                        "flex items-center gap-1 px-1 py-0.5 text-[9px] leading-none select-none font-medium",
+                        hasContinuation ? "rounded-r border-l-0" : "rounded",
+                        past && "opacity-45",
                       )}
                       style={{
-                        backgroundColor: `${meta.color}22`,
+                        backgroundColor: `${meta.color}15`,
+                        borderLeft: hasContinuation ? "none" : `2px solid ${meta.color}`,
+                        color: meta.color,
                       }}
-                      title={`${e.name}${prevSameEvent ? "（续）" : ""} · ${time} 北京时间`}
+                      title={`${e.name}${hasContinuation ? "（续）" : ""} · ${time} 北京`}
                     >
-                      <span
-                        className="size-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: meta.color }}
-                        aria-hidden
-                      />
-                      <span className="truncate font-medium" style={{ color: meta.color }}>
-                        {prevSameEvent ? "续" : `${flag ? `${flag} ` : ""}${meta.label}`}
+                      <span className="truncate font-semibold flex items-center gap-0.5">
+                        {hasContinuation ? (
+                          <span className="opacity-80">续 · {meta.label}</span>
+                        ) : (
+                          <>
+                            {flag ? <span>{flag}</span> : null}
+                            <span>{meta.label}</span>
+                          </>
+                        )}
                       </span>
-                      <span className="ml-auto font-mono tabular-nums text-muted-foreground">
+                      <span className="ml-auto font-mono tabular-nums opacity-80 text-[8px]">
                         {time}
                       </span>
                     </div>
                   )
                 })}
                 {dayItems.length > 3 ? (
-                  <div className="px-1 text-[10px] text-muted-foreground">
-                    +{dayItems.length - 3} 场
+                  <div className="px-1 text-[9px] font-semibold text-muted-foreground">
+                    + {dayItems.length - 3} 场
                   </div>
                 ) : null}
               </div>
@@ -257,54 +263,82 @@ export function MonthView({ events, now }: MonthViewProps) {
       </div>
 
       {/* 图例 */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground bg-secondary/15 px-3 py-2 rounded-lg">
         {(["F1", "WRC", "FE"] as const).map((s) => (
           <span key={s} className="flex items-center gap-1.5">
             <span
-              className="size-1.5 rounded-full"
+              className="size-2 rounded-full"
               style={{ backgroundColor: SERIES_META[s].color }}
               aria-hidden
             />
             {SERIES_META[s].label}
           </span>
         ))}
-        <span className="text-muted-foreground/70">续 = 该赛事跨日场次</span>
+        <span className="text-[10px] text-muted-foreground/60 border-l border-border pl-3">
+          续 = 该赛事跨越数日的赛段
+        </span>
       </div>
 
-      {/* 选中日期展开面板 */}
-      {selectedDay ? (
-        <div className="rounded-xl border border-primary/30 bg-card p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <CalendarDays className="size-4 text-muted-foreground" />
-              <span className="font-medium">{selectedDay}</span>
-              <span className="text-muted-foreground">
-                {(() => {
-                  const [y, m, d] = selectedDay.split("-").map(Number)
-                  const date = new Date(Date.UTC(y, m - 1, d))
-                  return date.toLocaleDateString("zh-CN", { weekday: "long" })
-                })()}
-              </span>
+      {/* 选中日期展开面板：升级为华丽的、无 Layout Shift 的半透明高斯模糊 Drawer/Modal 遮罩 */}
+      {selectedDay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div
+            className="bg-card border border-border/80 w-full max-w-lg rounded-2xl p-5 shadow-2xl relative flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border/40 pb-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <CalendarDays className="size-4 text-primary" />
+                <span className="text-foreground">{selectedDay}</span>
+                <span className="text-muted-foreground font-normal">
+                  {(() => {
+                    const [y, m, d] = selectedDay.split("-").map(Number)
+                    const date = new Date(Date.UTC(y, m - 1, d))
+                    return date.toLocaleDateString("zh-CN", { weekday: "long" })
+                  })()}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+                aria-label="关闭"
+              >
+                <X className="size-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedDay(null)}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-              aria-label="关闭"
-            >
-              <X className="size-4" />
-            </button>
+
+            {/* Event List Container (Scrollable) */}
+            <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1">
+              {(byDay.get(selectedDay) ?? []).map(({ event }) => (
+                <div key={event.id} className="relative group">
+                  <EventCard event={event} now={now} />
+                </div>
+              ))}
+              {(byDay.get(selectedDay) ?? []).length === 0 && (
+                <div className="py-12 flex flex-col items-center justify-center text-center gap-2">
+                  <Flag className="size-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">当天暂无赛事安排</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer summary */}
+            <div className="mt-4 pt-3 border-t border-border/40 flex justify-between items-center text-[10px] text-muted-foreground">
+              <span>共计 {(byDay.get(selectedDay) ?? []).length} 场赛事</span>
+              <span>点击空白处或右上角可关闭</span>
+            </div>
           </div>
-          <div className="mt-4 flex flex-col gap-3">
-            {(byDay.get(selectedDay) ?? []).map(({ event }) => (
-              <EventCard key={event.id} event={event} now={now} />
-            ))}
-            {byDay.get(selectedDay)?.length === 0 ? (
-              <p className="text-sm text-muted-foreground">当天暂无赛事</p>
-            ) : null}
-          </div>
+          {/* 点击背景关闭 */}
+          <div className="absolute inset-0 -z-10" onClick={() => setSelectedDay(null)} />
         </div>
-      ) : null}
+      )}
     </section>
   )
+}
+
+function prevEventIdMatch(a: string, b: string): boolean {
+  return a === b
 }
