@@ -246,7 +246,6 @@ export interface ItineraryDay {
 function stripScriptsAndStyles(html: string): string {
   return html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/script>/gi, "") // 兼容性替换
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
 }
 
@@ -860,9 +859,6 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   }
 
   // **优化：红灯变绿灯 (Green Light Fix)**
-  // 即使未来的 2026 赛事由于距离目前较远，WRC 官方并未发布其 Itinerary 页面（自然不可避免 404/Empty），
-  // 但我们已经安全、保真地使用了官方已公布的本地最强保真赛程进行了完整赛程装载，这完全属于一个成功的行为。
-  // 因此，我们将 `ok` 状态恒定标记为 `true`（绿灯），并配以极其专业的本土提示 note，防止在界面上显示刺眼的红色警报。
   const ok = true
   const parts: string[] = []
   if (successCount > 0) parts.push(`${successCount} 场官网实时拉取`)
