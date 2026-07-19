@@ -1,6 +1,44 @@
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents } from "./wrc-data"
+import { getSql, initDb } from "./db"
+
+// ============ 数据库缓存助手 ============
+
+async function saveWrcCache(round: number, sessions: RaceSession[]): Promise<void> {
+  const sql = getSql()
+  if (!sql) return
+  try {
+    await initDb()
+    const sessionsJson = JSON.stringify(sessions)
+    await sql`
+      INSERT INTO wrc_cache (round, sessions, updated_at)
+      VALUES (${round}, ${sessionsJson}, NOW())
+      ON CONFLICT (round) DO UPDATE SET sessions = ${sessionsJson}, updated_at = NOW()
+    `
+    console.log(`WRC: successfully saved round ${round} sessions to Neon Database!`)
+  } catch (err) {
+    console.error(`WRC: failed to save round ${round} to Neon database:`, err)
+  }
+}
+
+async function getWrcCache(round: number): Promise<RaceSession[] | null> {
+  const sql = getSql()
+  if (!sql) return null
+  try {
+    await initDb()
+    const rows = await sql`
+      SELECT sessions FROM wrc_cache WHERE round = ${round} LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      console.log(`WRC: successfully read round ${round} sessions from Neon Database!`)
+      return rows[0].sessions as RaceSession[]
+    }
+  } catch (err) {
+    console.error(`WRC: failed to read round ${round} from Neon database:`, err)
+  }
+  return null
+}
 
 // ============ 直接 fetch (主要方案) ============
 
@@ -679,7 +717,6 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     return null
   }
 
-  // **优化：多候选 URL 主动探测匹配机制**
   let itineraryUrl = extractItineraryUrlFromCache(homeCache)
   const slugClean = eventSlug.replace("wrc-", "")
   const candidateUrls = [
@@ -795,6 +832,7 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   const events: RaceEvent[] = [...fallbackEvents]
   let successCount = 0
   let ocblacktopCount = 0
+  let dbCacheCount = 0
   const errors: string[] = []
 
   const now = Date.now()
@@ -824,6 +862,19 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
         if (sessions && sessions.length > 0) source = "ocblacktop"
       }
 
+      // **优化：Neon 数据库高可用持久化缓存读写**
+      if (sessions && sessions.length > 0) {
+        // 如果抓取成功，立即写入云数据库作为极速热缓存，防止未来请求因 Vercel IP 被封导致降级
+        await saveWrcCache(rally.round, sessions)
+      } else {
+        // 如果抓取失败（例如在 Vercel 运行时被 Akamai 拦截），立即尝试读取云数据库中的缓存，避免显示估计时间！
+        const cached = await getWrcCache(rally.round)
+        if (cached && cached.length > 0) {
+          sessions = cached
+          source = "db-cache"
+        }
+      }
+
       return { rally, sessions, source }
     })
   )
@@ -840,11 +891,13 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
             url: source === "ocblacktop"
               ? `https://ocblacktop.com`
               : `https://www.wrc.com/en/events/${rally.eventSlug}`,
-            tentative: source === "ocblacktop",
+            tentative: source === "ocblacktop", // 只有极少数第三方源为估计，其余为官方
           }
         }
         if (source === "ocblacktop") {
           ocblacktopCount++
+        } else if (source === "db-cache") {
+          dbCacheCount++
         } else {
           successCount++
         }
@@ -862,6 +915,7 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   const ok = true
   const parts: string[] = []
   if (successCount > 0) parts.push(`${successCount} 场官网实时拉取`)
+  if (dbCacheCount > 0) parts.push(`${dbCacheCount} 场来自云端数据库热缓存`)
   if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自第三方容灾`)
   parts.push(`其余已装载 2026 官方公布赛历`)
   const note = parts.length > 0 ? parts.join("，") : "2026 WRC 赛历已安全装载"
