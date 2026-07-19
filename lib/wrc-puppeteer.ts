@@ -15,6 +15,7 @@ async function fetchDirect(url: string): Promise<string | null> {
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
       },
+      signal: AbortSignal.timeout(6000), // 设置 6 秒超时防挂
     })
     if (!res.ok) return null
     return res.text()
@@ -35,7 +36,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
     requestSettings: {
       doneWhen: [
         { event: "domReady" },
-        { event: "timeout", ms: 8000 },
+        { event: "timeout", ms: 6000 },
       ],
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     },
@@ -46,7 +47,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://phantomjscloud.com/api/browser/v2/${PHANTOMJS_API_KEY}/?request=${encodeURIComponent(JSON.stringify(requestPayload))}`
-    const res = await fetch(apiUrl)
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(8000) })
 
     if (!res.ok) {
       console.error(`PhantomJsCloud failed: ${res.status} for ${url}`)
@@ -82,7 +83,6 @@ export function extractPrerenderCache(html: string): Record<string, any> | null 
 // ============ 从主页提取行程 URL ============
 
 export function extractItineraryUrlFromCache(cacheData: Record<string, any>): string | null {
-  // 1. 优先直接查找 pageTabs
   for (const key of Object.keys(cacheData)) {
     if (key.includes("pageTabs")) {
       const value = cacheData[key]
@@ -96,7 +96,6 @@ export function extractItineraryUrlFromCache(cacheData: Record<string, any>): st
     }
   }
 
-  // 2. 降级：递归深度检索含有 itinerary 关键词的链接对象
   const deepFindItineraryUrl = (obj: any): string | null => {
     if (!obj || typeof obj !== "object") return null
     if (Array.isArray(obj)) {
@@ -144,7 +143,6 @@ export function parseDateText(dateText: string, fallbackDate: string): [number, 
 
   const normalized = dateText.toLowerCase().trim()
 
-  // 1. 尝试匹配月份名称
   let month: number | null = null
   let monthWord = ""
   for (const [key, value] of Object.entries(MONTH_MAP)) {
@@ -157,7 +155,6 @@ export function parseDateText(dateText: string, fallbackDate: string): [number, 
     }
   }
 
-  // 2. 检索 1 到 2 位的有效日期数字 (1 - 31)
   const numbers = normalized.match(/\b\d{1,2}\b/g)
   let day: number | null = null
   if (numbers && numbers.length > 0) {
@@ -169,7 +166,6 @@ export function parseDateText(dateText: string, fallbackDate: string): [number, 
 
   const [fallbackY, fallbackM, fallbackD] = fallbackDate.split("-").map(Number)
 
-  // 3. 检索 4 位年份数字
   const yearMatch = normalized.match(/\b(202\d)\b/)
   const year = yearMatch ? parseInt(yearMatch[1], 10) : fallbackY
 
@@ -177,7 +173,6 @@ export function parseDateText(dateText: string, fallbackDate: string): [number, 
     return [year, month, day]
   }
 
-  // 4. 正则兼容兜底 (Thursday, 22 January / Thursday, Jan 22 等)
   const match = dateText.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
   if (match) {
     const d = parseInt(match[2], 10)
@@ -251,6 +246,7 @@ export interface ItineraryDay {
 function stripScriptsAndStyles(html: string): string {
   return html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/script>/gi, "") // 兼容性替换
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
 }
 
@@ -280,9 +276,9 @@ export function parseItineraryFromHtml(html: string, fallbackDate: string): Itin
     
     const stages: { time: string; name: string; isPowerStage: boolean }[] = []
     
+    // 模板一：cosmos-text 节点
     const stagePattern = /cosmos-text[^>]*>(\d{1,2}:\d{2}):\s*(.+?)<\/cosmos-text>/gi
     let stageMatch
-    
     while ((stageMatch = stagePattern.exec(dayContent)) !== null) {
       const time = stageMatch[1].padStart(5, "0")
       const rawName = stageMatch[2].trim()
@@ -291,14 +287,31 @@ export function parseItineraryFromHtml(html: string, fallbackDate: string): Itin
       stages.push({ time, name, isPowerStage })
     }
     
+    // 模板二：通用标签包裹格式 (e.g. >10:30: SS2<)
     if (stages.length === 0) {
       const altStagePattern = />(\d{1,2}:\d{2}):\s*([^<]+)</g
       while ((stageMatch = altStagePattern.exec(dayContent)) !== null) {
         const time = stageMatch[1].padStart(5, "0")
         const rawName = stageMatch[2].trim()
         const name = rawName.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
-        const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
-        stages.push({ time, name, isPowerStage })
+        if (name && name.length >= 3 && name.length < 100) {
+          const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+          stages.push({ time, name, isPowerStage })
+        }
+      }
+    }
+
+    // 模板三：表格行形式 (e.g. <tr><td>10:30</td><td>SS2</td></tr>)
+    if (stages.length === 0) {
+      const tableRowPattern = /<tr>[\s\S]*?(\d{1,2}:\d{2})[\s\S]*?<td>([\s\S]*?)<\/td>/gi
+      while ((stageMatch = tableRowPattern.exec(dayContent)) !== null) {
+        const time = stageMatch[1].padStart(5, "0")
+        const rawName = stageMatch[2].trim()
+        const name = rawName.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+        if (name && name.length >= 3 && name.length < 100 && !name.includes(":") && !name.match(/^\d+$/)) {
+          const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+          stages.push({ time, name, isPowerStage })
+        }
       }
     }
     
@@ -307,6 +320,7 @@ export function parseItineraryFromHtml(html: string, fallbackDate: string): Itin
     }
   }
   
+  // 模板四：终极兜底全球正则大扫除扫描 (Global Plain Text Scanner)
   if (daySections.length === 0) {
     const allStagePattern = /(\d{1,2}:\d{2}):\s*([^<\n]+)/g
     const allStages: { time: string; name: string; isPowerStage: boolean }[] = []
@@ -316,8 +330,8 @@ export function parseItineraryFromHtml(html: string, fallbackDate: string): Itin
       const time = match[1].padStart(5, "0")
       const rawName = match[2].trim()
       const name = rawName.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
-      if (!name || name.length < 3 || name.length > 120) continue
-      if (name.includes("UTC") || name.includes("Version") || name.includes("Stage") || name.includes("km")) {
+      if (!name || name.length < 3 || name.length > 100) continue
+      if (name.includes("UTC") || name.includes("Version") || name.includes("Stage") || name.includes("km") || name.startsWith("SS") || name.startsWith("Shakedown")) {
         const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
         allStages.push({ time, name, isPowerStage })
       }
@@ -427,7 +441,6 @@ export function parseItems(items: any[], fallbackDate: string): ItineraryDay[] |
 }
 
 export function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: string): ItineraryDay[] | null {
-  // 1. 尝试首要结构路径
   for (const key of Object.keys(cacheData)) {
     const value = cacheData[key]
     if (!value?.data?.data) continue
@@ -439,7 +452,6 @@ export function parseItineraryFromCache(cacheData: Record<string, any>, fallback
     }
   }
 
-  // 2. 备选：深度检索 FAQ 项
   console.log("WRC: strict cache path failed, deep searching for FAQ items...")
   const items = findFaqItems(cacheData)
   if (items) {
@@ -467,7 +479,6 @@ async function fetchOcblacktop<T = any>(path: string): Promise<T | null> {
         "X-API-Key": OCBLACKTOP_API_KEY,
         "Accept": "application/json",
       },
-      // Vercel Hobby 默认 10s；ocblacktop 响应通常很快
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
@@ -665,35 +676,63 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     return null
   }
 
+  // **优化：多候选 URL 主动探测匹配机制**
+  // 除了通过 pageTabs 自动检测之外，还生成了 5 个不同排列组合的子候选 URL。
+  // 若当前提取失败，则采用这些极有可能存在的真实 itinerary 路径进行串行/并行深度抓取。
   let itineraryUrl = extractItineraryUrlFromCache(homeCache)
-  if (!itineraryUrl) {
-    itineraryUrl = `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`
-    console.log(`WRC: pageTabs not found, trying fallback itinerary URL: ${itineraryUrl}`)
-  } else {
-    console.log(`WRC: found itinerary URL: ${itineraryUrl}`)
+  const slugClean = eventSlug.replace("wrc-", "")
+  const candidateUrls = [
+    itineraryUrl,
+    `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`,
+    `https://www.wrc.com/en/events/${eventSlug}/itinerary-${slugClean}`,
+    `https://www.wrc.com/en/events/${eventSlug}/itinerary`,
+    `https://www.wrc.com/en/events/${eventSlug}/stages`,
+    `https://www.wrc.com/en/events/${eventSlug}/stages-${slugClean}`,
+  ].filter((url): url is string => typeof url === "string" && !!url)
+
+  // 去重
+  const uniqueCandidates = Array.from(new Set(candidateUrls))
+  console.log(`WRC: probing ${uniqueCandidates.length} candidate itinerary URLs for ${eventSlug}`)
+
+  let itineraryHtml: string | null = null
+  let successfulUrl = ""
+
+  for (const url of uniqueCandidates) {
+    console.log(`WRC: trying candidate URL: ${url}`)
+    itineraryHtml = await fetchDirect(url)
+    if (itineraryHtml && itineraryHtml.includes("rb3-prerender-data-cache")) {
+      successfulUrl = url
+      break
+    }
   }
 
-  let itineraryHtml = await fetchDirect(itineraryUrl)
-  if (!itineraryHtml || !itineraryHtml.includes("rb3-prerender-data-cache")) {
-    console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${itineraryUrl}`)
-    itineraryHtml = await fetchRenderedHtml(itineraryUrl)
+  // 如果直接 fetch 没成功，对首选候选 URL 使用 PhantomJsCloud 进行最后的重渲染抓取
+  if (!itineraryHtml) {
+    const fallbackUrl = uniqueCandidates[1] || uniqueCandidates[0]
+    console.log(`WRC: all direct candidate fetches failed. rendering fallback URL with PhantomJsCloud: ${fallbackUrl}`)
+    itineraryHtml = await fetchRenderedHtml(fallbackUrl)
+    if (itineraryHtml) successfulUrl = fallbackUrl
   }
+
   if (!itineraryHtml) {
     console.error(`WRC: failed to fetch itinerary page for ${eventSlug}`)
     return null
   }
 
+  console.log(`WRC: successfully obtained itinerary HTML from: ${successfulUrl}`)
+
   const itineraryCache = extractPrerenderCache(itineraryHtml)
-  if (!itineraryCache) {
-    console.error(`WRC: no prerender cache in itinerary page for ${eventSlug}`)
-    return null
+  let days: ItineraryDay[] | null = null
+
+  if (itineraryCache) {
+    days = parseItineraryFromCache(itineraryCache, startDate)
   }
 
-  let days = parseItineraryFromCache(itineraryCache, startDate)
   if (!days || days.length === 0) {
-    console.log(`WRC: no itinerary data in cache, trying HTML parsing for ${eventSlug}`)
+    console.log(`WRC: cache parse failed or empty, trying advanced multi-template HTML parsing for ${eventSlug}`)
     days = parseItineraryFromHtml(itineraryHtml, startDate)
   }
+
   if (!days || days.length === 0) {
     console.error(`WRC: no itinerary data parsed for ${eventSlug}`)
     return null
@@ -766,7 +805,8 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
     return rallyTime >= now - thirtyDays && rallyTime <= now + thirtyDays * 2
   })
 
-  const rallies = recentRallies.length > 0 ? recentRallies : WRC_RALLIES.slice(0, 2)
+  // 如果当前 30 天内没找到赛事，默认爬取前 3 场以填充首屏，避免空手而归
+  const rallies = recentRallies.length > 0 ? recentRallies : WRC_RALLIES.slice(0, 3)
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
 

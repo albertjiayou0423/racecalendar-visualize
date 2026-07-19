@@ -54,7 +54,7 @@ const DRIVER_METADATA: Record<string, Record<string, { color: string; flag: stri
     VERGNE: { color: "#C5A059", flag: "🇫🇷" },
     MORTARA: { color: "#FF0000", flag: "🇨🇭" },
     JEV: { color: "#FFFF00", flag: "🇫🇷" },
-    DI_GRASSI: { color: "#1E90FF", flag: "🇧🇷" },
+    DI_GRASSI: { color: "#1E90FF", flag: "🇧睿" },
     WEHRLEIN: { color: "#000000", flag: "🇩🇪" },
     EVANS_B: { color: "#008080", flag: "🇳🇿" },
   },
@@ -134,7 +134,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const meta = SERIES_META[event.series]
   const cacheKey = `prediction_voted_${event.id}`
 
-  // 初始化带有完整样式的车手对象
   const drivers: Driver[] = (DRIVERS_RAW[event.series] ?? []).map((d) => {
     const defaultMeta = { color: "#A0AEC0", flag: "🏁" }
     const customMeta = DRIVER_METADATA[event.series]?.[d.code] ?? defaultMeta
@@ -146,15 +145,12 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   })
 
   const fetchPredictions = useCallback(async () => {
-    // 优先从 localStorage 提取本地缓存，实现零延迟渲染 (optimistic rendering)
     try {
       const cachedVote = localStorage.getItem(cacheKey)
       if (cachedVote) {
         setSelectedDriver(cachedVote)
       }
-    } catch (e) {
-      // localStorage 不可用
-    }
+    } catch (e) {}
 
     try {
       const res = await fetch(`/api/predictions?eventId=${event.id}`)
@@ -163,7 +159,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
         setResults(data.results ?? [])
         setTotal(data.total ?? 0)
 
-        // 假如数据库中有更新的投票，则以数据库为准，同步更新本地缓存
         if (data.myVote) {
           setSelectedDriver(data.myVote)
           try {
@@ -190,7 +185,6 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     setIsVoting(true)
     setIsOpen(false)
 
-    // 1. 客户端立即乐观更新 (Optimistic UI Update) 并写入 LocalStorage 缓存
     const oldDriver = selectedDriver
     setSelectedDriver(driverCode)
     try {
@@ -205,17 +199,16 @@ export function PredictionVote({ event }: PredictionVoteProps) {
       })
 
       if (res.ok) {
-        setSuccessMsg("预测已保存！")
+        setSuccessMsg("VOTE SAVED")
         await fetchPredictions()
-        setTimeout(() => setSuccessMsg(null), 2500)
+        setTimeout(() => setSuccessMsg(null), 2000)
       } else {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "预测保存失败")
+        throw new Error(data.error || "Save failed")
       }
     } catch (err) {
       console.error("Failed to vote:", err)
-      setErrorMsg(err instanceof Error ? err.message : "预测保存失败，请重试")
-      // 失败时回滚
+      setErrorMsg(err instanceof Error ? err.message : "Save failed")
       setSelectedDriver(oldDriver)
       try {
         if (oldDriver) {
@@ -234,79 +227,72 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
 
   return (
-    <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 relative">
-      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <Trophy className="size-4 text-primary animate-pulse" />
-        <span>预测 {meta.label} 本站冠军</span>
+    <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 relative">
+      {/* 极简标题栏 */}
+      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground/90 font-mono uppercase tracking-wider">
+        <Trophy className="size-3.5 text-primary" />
+        <span>VOTE</span>
         {total > 0 && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary/40 px-2 py-0.5 rounded-full">
-            <Users className="size-3" />
-            {total} 人参与
+          <span className="ml-auto flex items-center gap-1 text-[9px] text-muted-foreground bg-secondary/45 px-1.5 py-0.2 rounded-full font-mono font-bold">
+            <Users className="size-2.5" />
+            <span>{total}</span>
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <div className="mt-3 space-y-2">
-          <div className="h-10 animate-pulse rounded-lg bg-muted" />
-          <div className="h-4 w-24 animate-pulse rounded bg-muted/70" />
+        <div className="mt-2 space-y-1.5">
+          <div className="h-9 animate-pulse rounded-lg bg-muted" />
         </div>
       ) : (
         <>
-          <div className="mt-3 relative">
-            {/* 已投车手展示卡片 */}
+          <div className="mt-2.5 relative">
+            {/* 我的选择简洁卡片：少字多单色线条 */}
             {selectedDriver && !errorMsg ? (
               <div
-                className="mb-3 flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5 transition-all"
-                style={{ borderLeft: `4px solid ${selectedDriverInfo?.color || "#10B981"}` }}
+                className="mb-2.5 flex items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 transition-all"
+                style={{ borderLeft: `3px solid ${selectedDriverInfo?.color || "#10B981"}` }}
               >
                 <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold font-mono text-white relative shadow-sm"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black font-mono text-white relative shadow-sm"
                   style={{ backgroundColor: selectedDriverInfo?.color || "#6B7280" }}
                 >
                   {selectedDriverInfo?.code}
-                  <span className="absolute -bottom-1 -right-1 text-sm bg-card rounded-full p-0.5 shadow-sm leading-none">
+                  <span className="absolute -bottom-1 -right-1 text-xs">
                     {selectedDriverInfo?.flag}
                   </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-500 flex items-center gap-1">
-                    <CheckCircle2 className="size-3" /> 我的冠军预测
+                <div className="min-w-0 flex-1 font-mono">
+                  <div className="text-[8px] font-black uppercase text-emerald-500 tracking-wider flex items-center gap-0.5">
+                    <CheckCircle2 className="size-2.5" /> MY PICK
                   </div>
-                  <div className="font-semibold text-sm text-foreground flex items-center gap-1">
-                    <span>{selectedDriverInfo?.name}</span>
-                    <span className="text-xs text-muted-foreground">({selectedDriverInfo?.team})</span>
+                  <div className="font-extrabold text-xs text-foreground truncate">
+                    {selectedDriverInfo?.name} <span className="text-[9px] text-muted-foreground font-normal">({selectedDriverInfo?.code})</span>
                   </div>
                 </div>
               </div>
             ) : null}
 
-            {/* 自定义精美下拉选择框 */}
+            {/* 下拉选择按钮：单色线条极简风 */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 disabled={isVoting}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed",
-                  isOpen && "border-primary ring-1 ring-primary"
+                  "flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-xs text-foreground font-semibold shadow-sm transition-all hover:border-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed",
+                  isOpen && "border-primary"
                 )}
               >
-                <span className="flex items-center gap-2 truncate">
-                  <Award className="size-4 text-muted-foreground" />
-                  {isVoting ? (
-                    <span className="text-muted-foreground">正在提交预测...</span>
-                  ) : selectedDriver ? (
-                    <span>更改冠军预测...</span>
-                  ) : (
-                    <span className="text-muted-foreground">选择你预测的冠军车手...</span>
-                  )}
+                <span className="flex items-center gap-1.5 truncate uppercase tracking-wider font-mono text-[10px] text-muted-foreground">
+                  <Award className="size-3.5 text-muted-foreground/80" />
+                  {isVoting ? "SYNCING..." : selectedDriver ? "CHANGE PICK" : "SELECT WINNER"}
                 </span>
-                <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
               </button>
 
               {isOpen && (
-                <div className="absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg p-1">
+                <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-lg p-1">
                   {drivers.map((driver) => {
                     const driverResults = results.find((r) => r.driverCode === driver.code)
                     const percentage = total > 0 && driverResults
@@ -320,12 +306,12 @@ export function PredictionVote({ event }: PredictionVoteProps) {
                         type="button"
                         onClick={() => handleVote(driver.code)}
                         className={cn(
-                          "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-secondary/50",
-                          isSelected && "bg-primary/10 font-medium text-primary"
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/50",
+                          isSelected && "bg-primary/10 font-bold text-primary"
                         )}
                       >
                         <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold font-mono text-white relative"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-black font-mono text-white relative"
                           style={{ backgroundColor: driver.color }}
                         >
                           {driver.code}
@@ -333,22 +319,11 @@ export function PredictionVote({ event }: PredictionVoteProps) {
                             {driver.flag}
                           </span>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-xs flex items-center gap-1.5">
-                            <span>{driver.name}</span>
-                            <span className="text-[10px] text-muted-foreground truncate font-normal">
-                              {driver.team}
-                            </span>
-                          </div>
+                        <span className="font-extrabold text-[11px] text-foreground truncate">{driver.name}</span>
+                        <div className="ml-auto text-right text-[10px] font-mono text-muted-foreground/75 shrink-0">
+                          {driverResults ? `${driverResults.count} (${percentage}%)` : "0"}
                         </div>
-                        <div className="text-right shrink-0 text-xs text-muted-foreground font-mono">
-                          {driverResults ? (
-                            <span>{driverResults.count}票 ({percentage}%)</span>
-                          ) : (
-                            <span className="opacity-40">0票</span>
-                          )}
-                        </div>
-                        {isSelected && <Check className="size-4 text-primary shrink-0" />}
+                        {isSelected && <Check className="size-3.5 text-primary shrink-0 ml-1" />}
                       </button>
                     )
                   })}
@@ -357,33 +332,32 @@ export function PredictionVote({ event }: PredictionVoteProps) {
             </div>
 
             {isVoting && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin text-primary" />
-                正在同步云端数据库...
+              <div className="mt-1.5 flex items-center gap-1 text-[9px] text-muted-foreground font-mono font-semibold uppercase">
+                <Loader2 className="size-3 animate-spin text-primary" />
+                <span>SYNCING...</span>
               </div>
             )}
 
             {successMsg && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-emerald-500 font-medium">
-                <CheckCircle2 className="size-3.5" />
-                {successMsg}
+              <div className="mt-1.5 flex items-center gap-1 text-[9px] text-emerald-500 font-mono font-bold uppercase">
+                <CheckCircle2 className="size-3" />
+                <span>SAVED</span>
               </div>
             )}
 
             {errorMsg && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-destructive font-medium">
-                <AlertCircle className="size-3.5" />
-                {errorMsg}
+              <div className="mt-1.5 flex items-center gap-1 text-[9px] text-destructive font-mono font-bold uppercase">
+                <AlertCircle className="size-3" />
+                <span>ERROR</span>
               </div>
             )}
           </div>
 
-          {/* 预测结果环比百分比图表 */}
+          {/* 预测结果百分比条形图：极简单色化 */}
           {results.length > 0 && (
-            <div className="mt-4 space-y-2 border-t border-border/40 pt-3">
-              <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                <span>实时预测大盘</span>
-                <span className="text-[10px] font-normal text-muted-foreground/60">(取前 5 位最高得票)</span>
+            <div className="mt-3.5 space-y-1.5 border-t border-border/40 pt-2.5">
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider font-mono flex items-center gap-1">
+                <span>POLL TREND</span>
               </div>
               {results.slice(0, 5).map((result) => {
                 const driver = drivers.find((d) => d.code === result.driverCode)
@@ -392,26 +366,20 @@ export function PredictionVote({ event }: PredictionVoteProps) {
                 const isMyVote = selectedDriver === result.driverCode
 
                 return (
-                  <div key={result.driverCode} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={cn("truncate flex items-center gap-1.5", isMyVote && "font-semibold text-primary")}>
-                        <span
-                          className="inline-block size-2 rounded-full shrink-0"
-                          style={{ backgroundColor: driver.color }}
-                        />
+                  <div key={result.driverCode} className="space-y-0.5">
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className={cn("truncate flex items-center gap-1 text-muted-foreground", isMyVote && "font-extrabold text-primary")}>
+                        <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: driver.color }} />
                         <span>{driver.flag}</span>
                         <span>{driver.name}</span>
-                        {isMyVote && <span className="text-[10px] bg-primary/20 text-primary px-1 py-0.1 rounded font-normal">你的选择</span>}
                       </span>
-                      <span className="text-muted-foreground shrink-0 ml-2 font-mono text-[11px] tabular-nums">
-                        {result.count} 票 ({percentage}%)
+                      <span className="text-muted-foreground/90 shrink-0 font-mono text-[9px] font-bold">
+                        {result.count} ({percentage}%)
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden relative shadow-inner">
+                    <div className="h-1 rounded-full bg-muted overflow-hidden relative shadow-inner">
                       <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-1000 ease-out"
-                        )}
+                        className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{
                           width: `${percentage}%`,
                           backgroundColor: driver.color
