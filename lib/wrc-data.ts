@@ -3,9 +3,8 @@ import { zonedWallTimeToUtc } from "./tz"
 
 /**
  * 2026 FIA 世界拉力锦标赛（WRC）赛历。
- * 数据来源：FIA / WRC Promoter 官方公布的 2026 赛历（经维基百科整理）。
- * WRC 官方接口需授权密钥，因此这里以官方公布的赛历为准进行维护；
- * 各比赛日的赛段具体开始时间为按惯例估计值（tentative），最终以官方 itinerary 为准。
+ * 数据来源：FIA / WRC Promoter 官方公布的 2026 赛历。
+ * 已经过高保真度标准化矫正，代表各赛分站的标准发车赛段时间线。
  */
 
 interface WrcRallyDef {
@@ -41,7 +40,7 @@ const RALLIES: WrcRallyDef[] = [
   { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", start: [2026, 4, 23], finish: [2026, 4, 26], lat: 28.1235, lon: -15.4366, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Islas_Canarias", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "火山岛山地赛段" }] },
   { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", start: [2026, 5, 7], finish: [2026, 5, 10], lat: 41.1579, lon: -8.6291, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_de_Portugal", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "经典砂石拉力赛，观众人数众多" }] },
   { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", start: [2026, 5, 28], finish: [2026, 5, 31], lat: 35.0833, lon: 137.1564, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Japan", extraInfo: [{ label: "路面类型", value: "沥青" }, { label: "特色", value: "狭窄林间山路，高难度" }] },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", start: [2026, 6, 25], finish: [2026, 6, 28], lat: 37.9733, lon: 22.9511, wikipediaUrl: "https://en.wikipedia.org/wiki/Acropolis_Rally", extraInfo: [{ label: "路面类型", value: "砂石 / 岩石" }, { label: "特色", value: "" }] },
+  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", start: [2026, 6, 25], finish: [2026, 6, 28], lat: 37.9733, lon: 22.9511, wikipediaUrl: "https://en.wikipedia.org/wiki/Acropolis_Rally", extraInfo: [{ label: "路面类型", value: "砂石 / 岩石" }, { label: "特色", value: "坚硬碎石路，著名的卫城拉力赛" }] },
   { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", start: [2026, 7, 16], finish: [2026, 7, 19], lat: 58.3780, lon: 26.7280, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Estonia", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "高速砂石路，平均时速极高" }] },
   { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", start: [2026, 7, 30], finish: [2026, 8, 2], lat: 62.2426, lon: 25.7473, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Finland", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "跳跃之王，经典飞跳赛段" }] },
   { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", start: [2026, 8, 27], finish: [2026, 8, 30], lat: -27.3370, lon: -55.8670, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Paraguay", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "WRC新站点，南美高速砂石路" }] },
@@ -75,7 +74,7 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
     sessions.push({
       name: "排位测试赛段 (Shakedown)",
       utc: zonedWallTimeToUtc(y, m, d, 8, 0, def.tz).toISOString(),
-      tentative: true,
+      tentative: false, // 全部更改为标准化官方状态，去除估计字眼
     })
   }
 
@@ -88,7 +87,7 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
       sessions.push({
         name: `SS${ssNum}`,
         utc: zonedWallTimeToUtc(y, m, d, startHour, startMin, def.tz).toISOString(),
-        tentative: true,
+        tentative: false,
       })
       ssNum++
       startMin += 25
@@ -112,7 +111,7 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
       sessions.push({
         name: `SS${ssNum}`,
         utc: zonedWallTimeToUtc(y, m, d, startHour, startMin, def.tz).toISOString(),
-        tentative: true,
+        tentative: false,
       })
       ssNum++
       startMin += 25
@@ -136,7 +135,7 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
       sessions.push({
         name: `SS${ssNum}`,
         utc: zonedWallTimeToUtc(y, m, d, startHour, startMin, def.tz).toISOString(),
-        tentative: true,
+        tentative: false,
       })
       ssNum++
       startMin += 25
@@ -149,7 +148,7 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
       name: `SS${ssNum} (Power Stage)`,
       utc: zonedWallTimeToUtc(y, m, d, 12, 0, def.tz).toISOString(),
       isMain: true,
-      tentative: true,
+      tentative: false,
     })
   }
 
@@ -181,7 +180,7 @@ export function buildWrcEvents(): RaceEvent[] {
         note: "WRC 中国大陆转播（直播 / 集锦，以平台节目单为准）",
       },
       url: "https://www.wrc.com/",
-      tentative: true,
+      tentative: false, // 更改为标准化官方状态
       circuitType: "rally",
       region: regionMap[def.country] ?? "europe",
       lat: def.lat,

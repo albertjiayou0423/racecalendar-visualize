@@ -22,6 +22,7 @@ import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
+import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -59,7 +60,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "ongoing" | "past" | "all"
-type ViewMode = "list" | "month"
+type ViewMode = "list" | "month" | "week"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -411,9 +412,9 @@ export function ScheduleView() {
                 aria-label="列表视图"
                 aria-pressed={view === "list"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition-all",
                   view === "list"
-                    ? "bg-secondary text-secondary-foreground"
+                    ? "bg-secondary text-secondary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -422,13 +423,28 @@ export function ScheduleView() {
               </button>
               <button
                 type="button"
+                onClick={() => setView("week")}
+                aria-label="周视图"
+                aria-pressed={view === "week"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition-all",
+                  view === "week"
+                    ? "bg-secondary text-secondary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Clock className="size-3.5" />
+                周历
+              </button>
+              <button
+                type="button"
                 onClick={() => setView("month")}
                 aria-label="月视图"
                 aria-pressed={view === "month"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition-all",
                   view === "month"
-                    ? "bg-secondary text-secondary-foreground"
+                    ? "bg-secondary text-secondary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -589,6 +605,11 @@ export function ScheduleView() {
         <NextRacePreview event={previewEvent} now={now} />
       ) : null}
 
+      {/* 周视图 */}
+      {!isLoading && !error && view === "week" ? (
+        <WeekView events={filtered} now={now} />
+      ) : null}
+
       {/* 月视图 */}
       {!isLoading && !error && view === "month" ? (
         <MonthView events={filtered} now={now} />
@@ -642,7 +663,7 @@ export function ScheduleView() {
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Sparkles className="size-3.5" />
-          v1.0.4 · 更新日志
+          v1.1.0 · 更新日志
         </Link>
       </div>
 

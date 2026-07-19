@@ -59,8 +59,17 @@ export async function initDb(): Promise<void> {
     await sql`
       CREATE INDEX IF NOT EXISTS idx_predictions_event_id ON predictions(event_id)
     `
-  } catch {
-    // ignore errors (table might already exist)
+
+    // 新增：WRC Itinerary 赛段数据库高可用持久化持久缓存表
+    await sql`
+      CREATE TABLE IF NOT EXISTS wrc_cache (
+        round INTEGER PRIMARY KEY,
+        sessions JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+  } catch (err) {
+    console.error("Failed to init database tables:", err)
   }
 }
 

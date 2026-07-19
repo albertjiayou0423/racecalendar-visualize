@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, Clock } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, Clock, AlertTriangle } from "lucide-react"
 import type { HourlyForecast, DailyForecast } from "@/app/api/weather/route"
 import { getWeatherInfo } from "@/app/api/weather/route"
 import { cn } from "@/lib/utils"
@@ -52,20 +52,34 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
     fetchWeather()
   }, [fetchWeather])
 
+  const raceRainAlertInfo = useMemo(() => {
+    if (hourly.length === 0) return { shouldAlert: false, maxProbability: 0 }
+
+    const startHour = parseInt(startTime.split(":")[0]) || 14
+    const raceHours = hourly.filter((h) => {
+      const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
+      return hh >= startHour - 1 && hh <= startHour + 3
+    })
+
+    if (raceHours.length === 0) return { shouldAlert: false, maxProbability: 0 }
+
+    const maxProbability = Math.max(...raceHours.map((h) => h.precipitationProbability))
+    return {
+      shouldAlert: maxProbability >= 50,
+      maxProbability,
+    }
+  }, [hourly, startTime])
+
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <RefreshCw className="size-4 animate-spin" />
-        加载天气...
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <RefreshCw className="size-3.5 animate-spin text-muted-foreground/60" />
+        <span>天气分析中...</span>
       </div>
     )
   }
 
-  if (error) {
-    return null
-  }
-
-  if (daily.length === 0) {
+  if (error || daily.length === 0) {
     return null
   }
 
@@ -79,40 +93,55 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   const weatherInfo = raceHour ? getWeatherInfo(raceHour.weatherCode) : getWeatherInfo(0)
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-          {getWeatherIcon(raceHour?.weatherCode || 0)}
+    <div className="flex flex-col gap-2.5 w-full bg-secondary/15 rounded-xl p-3 border border-border/40">
+      {/* 顶部简明快照：以单色线条风格与高度可视化为主，极大缩减文字文字 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-card border border-border/50 text-sm text-foreground/80">
+            {getWeatherIcon(raceHour?.weatherCode || 0)}
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+              <span>{weatherInfo.icon}</span>
+              <span>{weatherInfo.label}</span>
+              <span className="font-mono text-[11px] font-bold text-primary">{raceHour ? `${Math.round(raceHour.temperature)}°C` : ""}</span>
+            </div>
+            <div className="text-[9px] text-muted-foreground/80 font-mono mt-0.5">
+              RANGE: {day.tempMin}° ~ {day.tempMax}°
+            </div>
+          </div>
         </div>
-        <div>
-          <div className="flex items-center gap-1 text-sm font-medium">
-            <span>{weatherInfo.icon}</span>
-            <span>{weatherInfo.label}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {day.tempMin}° ~ {day.tempMax}°
-          </div>
+
+        {/* 简洁闪烁的警警示标 */}
+        <div className="flex items-center gap-2 shrink-0">
+          {raceRainAlertInfo.shouldAlert && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-500 animate-pulse">
+              <AlertTriangle className="size-3 text-amber-500" />
+              <span>WET ({raceRainAlertInfo.maxProbability}%)</span>
+            </span>
+          )}
+
+          {raceHour && (
+            <div className="flex items-center gap-2.5 text-[10px] font-semibold text-muted-foreground/80 font-mono">
+              <div className="flex items-center gap-0.5">
+                <Wind className="size-3 text-muted-foreground/60" />
+                <span>{Math.round(raceHour.windSpeed)} km/h</span>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <Droplets className="size-3 text-muted-foreground/60" />
+                <span>{raceHour.humidity}%</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
-        {raceHour && (
-          <>
-            <div className="flex items-center gap-1">
-              <Thermometer className="size-3" />
-              <span>{raceHour.temperature}°C</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Droplets className="size-3" />
-              <span>{raceHour.precipitationProbability}%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Wind className="size-3" />
-              <span>{raceHour.windSpeed} km/h</span>
-            </div>
-          </>
-        )}
-      </div>
+      {/* 整合并渲染基于 SVG 的精美折线图趋势 */}
+      {hourly.length > 0 && (
+        <div className="border-t border-border/40 pt-2">
+          <WeatherTimeline hourly={hourly} startTime={startTime} />
+        </div>
+      )}
     </div>
   )
 }
@@ -134,43 +163,135 @@ interface WeatherTimelineProps {
 
 export function WeatherTimeline({ hourly, startTime }: WeatherTimelineProps) {
   const startHour = parseInt(startTime.split(":")[0]) || 14
-  const relevantHours = hourly.filter((h) => {
-    const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
-    return hh >= Math.max(0, startHour - 4) && hh <= Math.min(23, startHour + 4)
-  })
+
+  // 筛选 race hour ± 4小时
+  const relevantHours = useMemo(() => {
+    return hourly.filter((h) => {
+      const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
+      return hh >= Math.max(0, startHour - 4) && hh <= Math.min(23, startHour + 4)
+    })
+  }, [hourly, startHour])
 
   if (relevantHours.length === 0) return null
 
+  // 1. 计算折线图 SVG 的点
+  const chartHeight = 50
+  const chartWidth = 320
+  const paddingX = 15
+  const paddingY = 8
+
+  const temps = relevantHours.map((h) => h.temperature)
+  const minTemp = Math.min(...temps)
+  const maxTemp = Math.max(...temps)
+  const tempRange = maxTemp - minTemp || 1
+
+  const points = relevantHours.map((h, i) => {
+    const x = paddingX + (i / (relevantHours.length - 1)) * (chartWidth - 2 * paddingX)
+    const y = chartHeight - paddingY - ((h.temperature - minTemp) / tempRange) * (chartHeight - 2 * paddingY)
+    return { x, y, temp: h.temperature, prob: h.precipitationProbability, code: h.weatherCode }
+  })
+
+  // 生成折线 PATH
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ")
+
+  // 生成降水概率面积图 PATH (位于底部)
+  const areaPath = points.map((p, i) => {
+    const py = chartHeight - paddingY - (p.prob / 100) * (chartHeight - 2 * paddingY) * 0.7 // 限高在 70% 避免遮盖
+    return `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${py.toFixed(1)}`
+  }).concat([
+    `L ${points[points.length - 1].x.toFixed(1)} ${(chartHeight - paddingY).toFixed(1)}`,
+    `L ${points[0].x.toFixed(1)} ${(chartHeight - paddingY).toFixed(1)}`,
+    "Z"
+  ]).join(" ")
+
   return (
-    <div className="mt-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="space-y-2">
+      {/* 极简单色标题 */}
+      <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
         <Clock className="size-3" />
-        <span>{startTime} 前后天气变化</span>
+        <span>天气折线走势 ({startTime} 前后)</span>
       </div>
-      <div className="mt-2 flex gap-1">
-        {relevantHours.map((h) => {
-          const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
-          const isRaceTime = Math.abs(hh - startHour) <= 1
-          const weatherInfo = getWeatherInfo(h.weatherCode)
-          return (
-            <div
-              key={h.time}
-              className={cn(
-                "flex flex-col items-center rounded-md px-2 py-1.5 text-xs",
-                isRaceTime && "bg-primary/10 ring-1 ring-primary/50",
-              )}
-            >
-              <span className={cn(isRaceTime && "font-medium")}>{hh}:00</span>
-              <span className="mt-1">{weatherInfo.icon}</span>
-              <span className={cn("mt-0.5 tabular-nums", isRaceTime && "font-medium")}>
-                {Math.round(h.temperature)}°
-              </span>
-              {h.precipitationProbability > 20 && (
-                <span className="text-[10px] text-blue-500">{h.precipitationProbability}%</span>
-              )}
-            </div>
-          )
-        })}
+
+      {/* SVG 趋势折线图 */}
+      <div className="relative w-full bg-card/25 rounded-lg border border-border/30 p-1">
+        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto overflow-visible select-none" xmlns="http://www.w3.org/2000/svg">
+          {/* 渐变遮罩定义 */}
+          <defs>
+            <linearGradient id="rainAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="tempLineGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.15" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* 1. 降水概率阴影区 */}
+          <path d={areaPath} fill="url(#rainAreaGrad)" stroke="none" />
+
+          {/* 2. 温度面积渐变阴影 */}
+          <path
+            d={linePath + ` L ${points[points.length-1].x} ${chartHeight - paddingY} L ${points[0].x} ${chartHeight - paddingY} Z`}
+            fill="url(#tempLineGrad)"
+            stroke="none"
+          />
+
+          {/* 3. 温度趋势主折线 (单色线条风格) */}
+          <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* 4. 数据节点圆圈与文本数值 */}
+          {points.map((p, idx) => {
+            const isRaceTime = Math.abs((parseInt(relevantHours[idx].time.split("T")[1]?.split(":")[0]) || 0) - startHour) <= 1
+            return (
+              <g key={idx}>
+                {/* 节点气温 */}
+                <text
+                  x={p.x}
+                  y={p.y - 4}
+                  textAnchor="middle"
+                  className={cn("text-[7px] font-extrabold font-mono tabular-nums fill-muted-foreground", isRaceTime && "fill-primary text-[8px]")}
+                >
+                  {Math.round(p.temp)}°
+                </text>
+
+                {/* 节点触点 */}
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={isRaceTime ? 3 : 2}
+                  fill={isRaceTime ? "var(--primary)" : "var(--card)"}
+                  stroke="var(--primary)"
+                  strokeWidth="1.2"
+                />
+              </g>
+            )
+          })}
+        </svg>
+
+        {/* 5. 对应的时间轴与单色线条气象 Icon (少字多图) */}
+        <div className="grid grid-cols-9 text-center mt-1 border-t border-border/20 pt-1.5">
+          {relevantHours.map((h, i) => {
+            const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
+            const isRaceTime = Math.abs(hh - startHour) <= 1
+            const weatherInfo = getWeatherInfo(h.weatherCode)
+            return (
+              <div key={h.time} className="flex flex-col items-center">
+                <span className={cn("text-[8px] font-bold text-muted-foreground/80 font-mono", isRaceTime && "text-primary font-black")}>
+                  {hh}:00
+                </span>
+                <span className="text-[10px] my-0.5 select-none" title={weatherInfo.label}>
+                  {weatherInfo.icon}
+                </span>
+                {h.precipitationProbability > 0 && (
+                  <span className={cn("text-[7px] font-mono font-bold text-muted-foreground/50", h.precipitationProbability > 20 && "text-blue-500 font-extrabold")}>
+                    {h.precipitationProbability}%
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

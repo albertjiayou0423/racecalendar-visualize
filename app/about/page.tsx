@@ -11,6 +11,18 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.1.0",
+    date: "2026-07-17",
+    items: [
+      { type: "refactor", text: "爬虫容灾架构与底层解析器重构：彻底提升 WRC 数据抓取的鲁棒性" },
+      { type: "feat", text: "支持从环境变量配置 PHANTOMJS_API_KEY，且备有低额度安全兜底" },
+      { type: "feat", text: "实现智能的 `parseDateText` 英文月份与缩写提取（不区分大小写），且支持年份自动补全" },
+      { type: "feat", text: "新增带深度嵌套闭合逻辑的 `extractTagBlocks` HTML 标签提取算法，有效避免因 div 嵌套导致的解析截断" },
+      { type: "feat", text: "针对 WRC 官方 prerender 缓存数据引入深层递归查找（Deep Recursive Search）算法，防止未来 DOM 结构微调失效" },
+      { type: "fix", text: "WRC 赛段名称自动过滤 HTML 特殊标签并合并多余空白，提供更洁净的展示文本" },
+    ],
+  },
+  {
     version: "v1.0.7",
     date: "2026-07-16",
     items: [
@@ -137,7 +149,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.7</span>
+          <span className="text-3xl font-bold">v1.1.0</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -170,7 +182,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.7" && (
+                {entry.version === "v1.1.0" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
