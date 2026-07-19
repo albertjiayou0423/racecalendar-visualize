@@ -97,7 +97,6 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const flag = countryCodeToFlag(event.countryCode)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions)
-  const hasTentative = event.tentative === true
   const isEventPast = isPast(event, now)
 
   const isLiveNow = event.sessions.some((s) => {
@@ -176,13 +175,6 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           ) : (
             <span className="text-muted-foreground/75 font-mono uppercase">TBD BROADCAST</span>
           )}
-
-          {/* 优化：已结束的赛事不显示估计/警告标签，自动展示为清洁结果 */}
-          {event.series === "WRC" && !isEventPast && (
-            <span className={cn("rounded px-1.5 py-0.2 text-[9px] font-black uppercase font-mono tracking-wider", hasTentative ? "bg-muted text-muted-foreground/70" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400")}>
-              {hasTentative ? "EST" : "OFFICIAL"}
-            </span>
-          )}
           {event.url ? (
             <a
               href={event.url}
@@ -260,17 +252,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                           <span className="flex items-center gap-1.5 text-xs">
                             {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                             <span className={cn(s.isMain && "font-bold text-foreground")}>{s.name}</span>
-                            {/* 优化：已结束的赛事不显示任何警告三角形/估计标识 */}
-                            {s.tentative && !isEventPast && (
-                              <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
-                            )}
                           </span>
                           <span className="text-right font-mono text-xs tabular-nums text-muted-foreground/90">
-                            {s.tentative && !isEventPast ? "约 " : ""}
                             {formatTime(s.utc, event.tz)}
                           </span>
                           <span className="text-right font-mono text-xs font-semibold tabular-nums text-foreground">
-                            {s.tentative && !isEventPast ? "约 " : ""}
                             {formatTime(s.utc, BEIJING_TZ)}
                           </span>
                         </li>
@@ -285,11 +271,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             FIRST: {first ? formatDateTime(first.utc, BEIJING_TZ) : "—"} (BJ)
             <span className="ml-2">·</span>
             {event.series === "WRC" ? (
-              hasTentative && !isEventPast ? (
-                <span className="ml-2">赛段为估计时间，以官方 Itinerary 为准</span>
-              ) : (
-                <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 Itinerary</span>
-              )
+              <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 Itinerary</span>
             ) : event.series === "F1" ? (
               <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：F1 官方数据</span>
             ) : event.series === "FE" ? (
@@ -321,7 +303,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               >
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-450 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
                   </span>
                   <Activity className="size-4 text-primary" />
