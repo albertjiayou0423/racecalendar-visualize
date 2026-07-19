@@ -150,12 +150,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     {event.circuit} · {event.locality}，{event.country}
                   </span>
                 </p>
-                {/* F1 赛道平面图 */}
-                {event.series === "F1" && event.circuitWikipediaUrl && (
-                  <div className="mt-2">
-                    <WikipediaImage url={event.circuitWikipediaUrl} />
-                  </div>
-                )}
+                {/* 优化：正面卡片不再直接渲染 F1 赛道图，而是只在详情时间展开页直接嵌入 */}
               </div>
 
               {/* 开赛时间 + 倒计时 */}
@@ -232,6 +227,13 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {/* 详细场次时间表 */}
             {open ? (
               <div className="border-t border-border">
+                {/* 优化：只在时间详情展开页直接嵌入显示 F1 赛道图片 */}
+                {event.series === "F1" && event.circuitWikipediaUrl && (
+                  <div className="px-4 py-3 border-b border-border/40 bg-secondary/10">
+                    <WikipediaImage url={event.circuitWikipediaUrl} />
+                  </div>
+                )}
+
                 <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <span>场次</span>
                   <span className="text-right">当地时间 · {localOffset}</span>
@@ -302,20 +304,17 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                   ) : null}
                 </p>
 
-                {/* 天气预报 */}
+                {/* 天气预报：优化去除了“当地天气预报”这几个字 */}
                 {main && (
                   <div className="border-t border-border/50 px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">当地天气预报</span>
-                      <WeatherCard
-                        city={event.locality}
-                        country={event.country}
-                        date={new Date(main.utc).toISOString().split("T")[0]}
-                        startTime={formatTime(main.utc, event.tz)}
-                        lat={event.lat}
-                        lon={event.lon}
-                      />
-                    </div>
+                    <WeatherCard
+                      city={event.locality}
+                      country={event.country}
+                      date={new Date(main.utc).toISOString().split("T")[0]}
+                      startTime={formatTime(main.utc, event.tz)}
+                      lat={event.lat}
+                      lon={event.lon}
+                    />
                   </div>
                 )}
 
@@ -390,13 +389,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 </div>
               )}
 
-              {/* 天气预报 */}
+              {/* 天气预报：优化去除了“当地天气预报”这几个字 */}
               {main && (
                 <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold">当地天气预报</h4>
-                    <span className="text-[10px] text-muted-foreground">{new Date(main.utc).toISOString().split("T")[0]}</span>
-                  </div>
                   <WeatherCard
                     city={event.locality}
                     country={event.country}
