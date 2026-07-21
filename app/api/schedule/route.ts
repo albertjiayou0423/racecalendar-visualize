@@ -3,6 +3,7 @@ import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
 import { buildWrcEvents } from "@/lib/wrc-data"
 import { initCrawlTables, saveCrawlSnapshot, getLatestSnapshot, getEventOverride, getCrawlQuota, incrementCrawlCount } from "@/lib/crawl-store"
 import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
+import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 
 export const revalidate = 3600
 export const maxDuration = 300
@@ -134,20 +135,54 @@ async function loadFromSnapshot(
   }
 }
 
+/** F1赛道名称到circuitId的映射 */
+const F1_CIRCUIT_MAP: Record<string, string> = {
+  "albert park": "albert_park",
+  "shanghai": "shanghai",
+  "suzuka": "suzuka",
+  "miami": "miami",
+  "villeneuve": "villeneuve",
+  "monaco": "monaco",
+  "catalunya": "catalunya",
+  "red bull ring": "red_bull_ring",
+  "silverstone": "silverstone",
+  "spa": "spa",
+  "hungaroring": "hungaroring",
+  "zandvoort": "zandvoort",
+  "monza": "monza",
+  "madrid": "madrid",
+  "baku": "baku",
+  "marina bay": "marina_bay",
+  "americas": "americas",
+  "rodriguez": "rodriguez",
+  "interlagos": "interlagos",
+  "vegas": "vegas",
+  "losail": "losail",
+  "yas marina": "yas_marina",
+}
+
 /** 对赛事列表应用手动覆盖 */
 async function applyOverrides(events: RaceEvent[]): Promise<RaceEvent[]> {
   try {
     return await Promise.all(
       events.map(async (event) => {
         const override = await getEventOverride(event.id)
-        if (override) {
-          return { ...event, ...override }
+        let result = override ? { ...event, ...override } : event
+
+        if (event.series === "F1") {
+          const circuitName = event.circuit.toLowerCase()
+          for (const [name, key] of Object.entries(F1_CIRCUIT_MAP)) {
+            if (circuitName.includes(name)) {
+              result = { ...result, circuitImageUrl: CIRCUIT_IMAGES[key] }
+              break
+            }
+          }
         }
-        return event
+
+        return result
       })
     )
   } catch {
-    // DB 不可用时直接返回原数据
     return events
   }
 }

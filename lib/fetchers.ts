@@ -68,7 +68,7 @@ function toUtc(session?: ErgastSession): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
-const CIRCUIT_IMAGES: Record<string, string> = {
+export const CIRCUIT_IMAGES: Record<string, string> = {
   albert_park: "/circuits/australia_track_2026trackmelbournedetailed.webp",
   shanghai: "/circuits/china_track_2026trackshanghaidetailed.webp",
   suzuka: "/circuits/japan_track_2026tracksuzukadetailed.webp",
