@@ -32,7 +32,7 @@ export async function GET() {
   const fe = feResult.result
   const wrc = wrcResult.result
 
-  const wrcEvents = wrc.ok && wrc.events.length > 0
+  const wrcEvents = wrc.events.length > 0
     ? wrc.events
     : buildWrcEvents()
 
