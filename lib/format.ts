@@ -102,6 +102,17 @@ export function isLive(event: RaceEvent, now: number): boolean {
   })
 }
 
+export function isOngoing(event: RaceEvent, now: number): boolean {
+  return isLive(event, now)
+}
+
+export function isUpcoming(event: RaceEvent, now: number): boolean {
+  if (!event.sessions || event.sessions.length === 0) return false
+  const first = event.sessions[0]
+  if (!first) return false
+  return now < new Date(first.utc).getTime()
+}
+
 /** 倒计时：返回天/时/分/秒，以及是否进行中/已过 */
 export function countdown(utc: string, now: number) {
   const diff = new Date(utc).getTime() - now
