@@ -2,26 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, Radio } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
-  BEIJING_TZ,
-  SERIES_META,
-  countdown,
-  formatDateTime,
-  formatTime,
-  firstSession,
-  isPast,
-  isUpcoming,
-  isOngoing,
-  mainSession,
-} from "@/lib/format"
+    BEIJING_TZ,
+    SERIES_META,
+    countdown,
+    formatDateTime,
+    formatTime,
+    firstSession,
+    isPast,
+    isLive,
+    mainSession,
+  } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
+import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -58,8 +58,8 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 }
 
 type SeriesFilter = "ALL" | Series
-type TimeFilter = "upcoming" | "ongoing" | "past" | "all"
-type ViewMode = "list" | "month"
+type TimeFilter = "upcoming" | "all" | "past"
+type ViewMode = "list" | "week" | "month"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -72,9 +72,8 @@ const SERIES_TABS: { key: SeriesFilter; label: string }[] = [
 
 const TIME_TABS: { key: TimeFilter; label: string }[] = [
   { key: "upcoming", label: "即将开始" },
-  { key: "ongoing", label: "进行中" },
-  { key: "past", label: "已结束" },
   { key: "all", label: "全部" },
+  { key: "past", label: "已结束" },
 ]
 
 /** 每秒刷新的当前时间戳 */
@@ -107,6 +106,7 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
   if (!first) return null
   const c = countdown(first.utc, now)
   const flag = countryCodeToFlag(event.countryCode)
+  const live = isLive(event, now)
 
   return (
     <section
@@ -115,24 +115,33 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
     >
       <div
         className="absolute inset-x-0 top-0 h-1"
-        style={{ backgroundColor: meta.color }}
+        style={{ backgroundColor: live ? "#ef4444" : meta.color }}
         aria-hidden
       />
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span
           className="rounded px-2 py-0.5 font-bold"
-          style={{ backgroundColor: meta.color, color: meta.textColor }}
+          style={{ backgroundColor: live ? "#ef4444" : meta.color, color: "#fff" }}
         >
-          {meta.label}
+          {live ? "LIVE" : meta.label}
         </span>
-        <span>{meta.full}</span>
+        <span>{live ? "进行中" : meta.full}</span>
         <span>·</span>
-        <span>下一场赛事</span>
+        <span>{live ? "当前赛事" : "下一场赛事"}</span>
       </div>
 
       <h2 className="mt-3 flex items-center gap-2 text-pretty text-2xl font-bold leading-tight sm:text-3xl">
         {flag ? <span aria-hidden>{flag}</span> : null}
         {event.name}
+        {live && (
+          <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+            </span>
+            LIVE
+          </span>
+        )}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {event.circuit} · {event.locality}，{event.country}
@@ -140,10 +149,18 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
 
       <div className="mt-5 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
         <div>
-          <div className="text-xs text-muted-foreground">距开赛</div>
+          <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
           <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
-            {c.past ? (
-              <span className="text-2xl text-primary">进行中 / 已结束</span>
+            {live ? (
+              <span className="flex items-center gap-2 text-2xl text-red-500">
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+                </span>
+                正在进行
+              </span>
+            ) : c.past ? (
+              <span className="text-2xl text-muted-foreground">已结束</span>
             ) : (
               <>
                 <TimeBlock value={c.days} unit="天" />
@@ -218,24 +235,10 @@ export function ScheduleView() {
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
 
-  const [hasAutoSwitched, setHasAutoSwitched] = useState(false)
-  useEffect(() => {
-    if (data?.events && !hasAutoSwitched) {
-      const ongoingEvents = data.events.filter((e) => isOngoing(e, now))
-      if (ongoingEvents.length >= 2) {
-        setTime("ongoing")
-      } else {
-        setTime("upcoming")
-      }
-      setHasAutoSwitched(true)
-    }
-  }, [data, hasAutoSwitched, now])
-
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
 
-  // Base list of events matching search, circuitType, and region filters
-  const baseFilteredList = useMemo(() => {
+  const filtered = useMemo(() => {
     let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
     if (search) {
       const query = search.toLowerCase()
@@ -246,94 +249,31 @@ export function ScheduleView() {
         e.circuit.toLowerCase().includes(query)
       )
     }
+    // 赛道类型筛选
     if (circuitType !== "all") {
       list = list.filter((e) => e.circuitType === circuitType)
     }
+    // 地区筛选
     if (region !== "all") {
       list = list.filter((e) => e.region === region)
     }
-    return list
-  }, [allEvents, series, search, circuitType, region])
-
-  // Count of events for each Time tab based on currently selected Series & Search criteria
-  const timeCounts = useMemo(() => {
-    let upcoming = 0
-    let ongoing = 0
-    let past = 0
-    baseFilteredList.forEach((e) => {
-      if (isUpcoming(e, now)) upcoming++
-      else if (isOngoing(e, now)) ongoing++
-      else if (isPast(e, now)) past++
-    })
-    return {
-      upcoming,
-      ongoing,
-      past,
-      all: baseFilteredList.length,
-    }
-  }, [baseFilteredList, now])
-
-  // Dynamic series counts matching active search query and advanced filters
-  const seriesCounts = useMemo(() => {
-    let f1 = 0
-    let wrc = 0
-    let fe = 0
-    let all = 0
-    allEvents.forEach((e) => {
-      let match = true
-      if (search) {
-        const query = search.toLowerCase()
-        match = match && (
-          e.name.toLowerCase().includes(query) ||
-          e.country.toLowerCase().includes(query) ||
-          e.locality.toLowerCase().includes(query) ||
-          e.circuit.toLowerCase().includes(query)
-        )
-      }
-      if (circuitType !== "all") {
-        match = match && e.circuitType === circuitType
-      }
-      if (region !== "all") {
-        match = match && e.region === region
-      }
-      if (match) {
-        all++
-        if (e.series === "F1") f1++
-        else if (e.series === "WRC") wrc++
-        else if (e.series === "FE") fe++
-      }
-    })
-    return { F1: f1, WRC: wrc, FE: fe, ALL: all }
-  }, [allEvents, search, circuitType, region])
-
-  const filtered = useMemo(() => {
-    let list = [...baseFilteredList]
     if (view === "list") {
-      if (time === "upcoming") list = list.filter((e) => isUpcoming(e, now))
-      else if (time === "ongoing") list = list.filter((e) => isOngoing(e, now))
+      if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
       else if (time === "past") list = list.filter((e) => isPast(e, now))
     }
-    return list.sort((a, b) => {
+    return [...list].sort((a, b) => {
       const am = mainSession(a)?.utc ?? ""
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [baseFilteredList, time, view, now])
+  }, [allEvents, series, time, view, now, search, circuitType, region])
 
-  const previewEvent = useMemo(() => {
-    const activeEvents = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
-    const ongoingList = activeEvents.filter((e) => isOngoing(e, now))
-
-    if (ongoingList.length >= 2) {
-      return null
-    }
-    if (ongoingList.length === 1) {
-      return ongoingList[0]
-    }
-    const upcomingList = activeEvents
-      .filter((e) => isUpcoming(e, now))
+  const nextUp = useMemo(() => {
+    const upcoming = allEvents
+      .filter((e) => (series === "ALL" ? true : e.series === series))
+      .filter((e) => !isPast(e, now))
       .sort((a, b) => (mainSession(a)?.utc ?? "").localeCompare(mainSession(b)?.utc ?? ""))
-    return upcomingList[0] || null
+    return upcoming[0]
   }, [allEvents, series, now])
 
   return (
@@ -373,34 +313,23 @@ export function ScheduleView() {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="赛事系列">
-            {SERIES_TABS.map((t) => {
-              const count = seriesCounts[t.key]
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={series === t.key}
-                  onClick={() => setSeries(t.key)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
-                    series === t.key
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <span>{t.label}</span>
-                  <span className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-colors",
-                    series === t.key
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
+            {SERIES_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={series === t.key}
+                onClick={() => setSeries(t.key)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+                  series === t.key
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
           {/* 视图切换 + 通知 */}
           <div className="flex items-center gap-2">
@@ -419,6 +348,21 @@ export function ScheduleView() {
               >
                 <List className="size-3.5" />
                 列表
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("week")}
+                aria-label="周视图"
+                aria-pressed={view === "week"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  view === "week"
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CalendarRange className="size-3.5" />
+                周
               </button>
               <button
                 type="button"
@@ -441,34 +385,23 @@ export function ScheduleView() {
         </div>
         {view === "list" ? (
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
-            {TIME_TABS.map((t) => {
-              const count = timeCounts[t.key]
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={time === t.key}
-                  onClick={() => setTime(t.key)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                    time === t.key
-                      ? "bg-secondary text-secondary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <span>{t.label}</span>
-                  <span className={cn(
-                    "rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors",
-                    time === t.key
-                      ? "bg-secondary-foreground/20 text-secondary-foreground"
-                      : "bg-muted/60 text-muted-foreground"
-                  )}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
+            {TIME_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={time === t.key}
+                onClick={() => setTime(t.key)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                  time === t.key
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         ) : null}
 
@@ -577,16 +510,21 @@ export function ScheduleView() {
       ) : null}
 
       {/* 上一站回顾 + 下一站预览（上下排列） */}
-      {!isLoading && !error && view === "list" && previewEvent && time !== "past" && series === "F1" ? (
+      {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
         <div className="flex flex-col gap-4">
           <LastRaceResults />
-          <NextRacePreview event={previewEvent} now={now} />
+          <NextRacePreview event={nextUp} />
         </div>
       ) : null}
 
       {/* 下一场高亮 */}
-      {!isLoading && !error && view === "list" && previewEvent && time !== "past" && series !== "F1" ? (
-        <NextRacePreview event={previewEvent} now={now} />
+      {!isLoading && !error && view === "list" && nextUp && time !== "past" && series !== "F1" ? (
+        <NextRacePreview event={nextUp} />
+      ) : null}
+
+      {/* 周视图 */}
+      {!isLoading && !error && view === "week" ? (
+        <WeekView events={filtered} now={now} />
       ) : null}
 
       {/* 月视图 */}
@@ -642,37 +580,17 @@ export function ScheduleView() {
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Sparkles className="size-3.5" />
-          v1.0.4 · 更新日志
+          v1.0.8 · 更新日志
         </Link>
       </div>
 
-      <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground space-y-4">
+      <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         <p>
           时间说明：F1 与 Formula E 场次时间来自官方公开接口并换算为北京时间（UTC+8）；WRC
           为官方公布赛历，各赛段具体发车时间以官方 itinerary 为准（标有
           <TriangleAlert className="mx-0.5 inline size-3" aria-hidden />
           的为估计时间）。转播信息仅供参考，请以对应平台节目单为准。
         </p>
-
-        {/* Developer Info Bottom Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-border/40 pt-4">
-          <div className="flex items-center gap-2.5">
-            <div className="relative size-6 overflow-hidden rounded-md bg-muted p-0.5 border border-border/60">
-              <img
-                src="/brand-logo.svg"
-                alt="Huo_sai Logo"
-                className="size-full object-contain"
-              />
-            </div>
-            <span className="font-semibold text-foreground/80 text-xs">Huo_sai</span>
-          </div>
-          <Link
-            href="/developer"
-            className="inline-flex items-center gap-1 rounded bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 self-start sm:self-auto"
-          >
-            了解更多
-          </Link>
-        </div>
       </footer>
     </div>
   )

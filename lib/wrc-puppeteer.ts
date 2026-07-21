@@ -4,24 +4,40 @@ import { buildWrcEvents } from "./wrc-data"
 
 // ============ 直接 fetch (主要方案) ============
 
-async function fetchDirect(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-      },
-    })
-    if (!res.ok) return null
-    return res.text()
-  } catch (e) {
-    console.error(`Direct fetch error for ${url}:`, e)
-    return null
+async function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate",
+          "Connection": "keep-alive",
+          "Upgrade-Insecure-Requests": "1",
+        },
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) {
+        if (res.status >= 500 && i < retries) {
+          console.log(`Direct fetch ${url} returned ${res.status}, retrying...`)
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+          continue
+        }
+        return null
+      }
+      return res.text()
+    } catch (e) {
+      if (i < retries) {
+        console.log(`Direct fetch error for ${url}, retrying...`, e)
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+        continue
+      }
+      console.error(`Direct fetch error for ${url}:`, e)
+      return null
+    }
   }
+  return null
 }
 
 // ============ PhantomJsCloud API (fallback) ============
@@ -95,6 +111,44 @@ function extractItineraryUrlFromCache(cacheData: Record<string, any>): string | 
     }
   }
   return null
+}
+
+/** 从 pageTabs 中提取 Results 页面 URL，用于构造 itinerary 的替代入口 */
+function extractResultsItineraryUrl(cacheData: Record<string, any>, eventSlug: string): string | null {
+  for (const key of Object.keys(cacheData)) {
+    if (key.includes("pageTabs")) {
+      const value = cacheData[key]
+      const tabs = value?.data?.data?.tabs
+      if (Array.isArray(tabs)) {
+        const resultsTab = tabs.find((t: any) => t.label === "Results")
+        if (resultsTab?.url) {
+          return `https://www.wrc.com${resultsTab.url}?page=results&tab=itinerary`
+        }
+      }
+    }
+  }
+
+  // Fallback：基于 eventSlug 推导 results URL
+  // e.g. wrc-delfi-rally-estonia-2026 → wrc-rally-estonia-results-2026
+  const resultsSlug = deriveResultsSlug(eventSlug)
+  if (resultsSlug) {
+    return `https://www.wrc.com/en/events/${eventSlug}/${resultsSlug}?page=results&tab=itinerary`
+  }
+
+  return null
+}
+
+/** 根据 eventSlug 推导 results 页面的 slug */
+function deriveResultsSlug(eventSlug: string): string | null {
+  // 尝试多种已知 pattern：
+  // wrc-delfi-rally-estonia-2026 → wrc-rally-estonia-results-2026
+  // wrc-secto-rally-finland-2026 → wrc-rally-finland-results-2026
+  // wrc-acropolis-rally-greece-2026 → wrc-acropolis-rally-greece-results-2026
+  const yearMatch = eventSlug.match(/-(\d{4})$/)
+  if (!yearMatch) return null
+  const year = yearMatch[1]
+  const base = eventSlug.replace(/-\d{4}$/, "")
+  return `${base}-results-${year}`
 }
 
 // ============ 日期解析 ============
@@ -490,6 +544,10 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
 
   // Step 2: Extract itinerary URL from pageTabs
   let itineraryUrl = extractItineraryUrlFromCache(homeCache)
+
+  // 也尝试从 pageTabs 中提取 Results 页面的 itinerary tab
+  const resultsItineraryUrl = extractResultsItineraryUrl(homeCache, eventSlug)
+
   if (!itineraryUrl) {
     itineraryUrl = `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`
     console.log(`WRC: pageTabs not found, trying fallback itinerary URL: ${itineraryUrl}`)
@@ -497,29 +555,44 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     console.log(`WRC: found itinerary URL: ${itineraryUrl}`)
   }
 
-  // Step 3: Fetch itinerary page
-  let itineraryHtml = await fetchDirect(itineraryUrl)
-  if (!itineraryHtml || !itineraryHtml.includes("rb3-prerender-data-cache")) {
-    console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${itineraryUrl}`)
-    itineraryHtml = await fetchRenderedHtml(itineraryUrl)
-  }
-  if (!itineraryHtml) {
-    console.error(`WRC: failed to fetch itinerary page for ${eventSlug}`)
-    return null
+  // Step 3: 尝试多个 URL 获取 itinerary 页面
+  const itineraryUrls = [itineraryUrl]
+  if (resultsItineraryUrl && resultsItineraryUrl !== itineraryUrl) {
+    itineraryUrls.push(resultsItineraryUrl)
   }
 
-  // Step 4: Parse FAQ data
-  const itineraryCache = extractPrerenderCache(itineraryHtml)
-  if (!itineraryCache) {
-    console.error(`WRC: no prerender cache in itinerary page for ${eventSlug}`)
-    return null
+  let days: ItineraryDay[] | null = null
+
+  for (const url of itineraryUrls) {
+    let html = await fetchDirect(url)
+    if (!html || !html.includes("rb3-prerender-data-cache")) {
+      console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${url}`)
+      html = await fetchRenderedHtml(url)
+    }
+    if (!html) {
+      if (url !== itineraryUrl) {
+        console.log(`WRC: results page itinerary also failed for ${eventSlug}`)
+      }
+      continue
+    }
+
+    // Step 4: Parse FAQ data
+    const cache = extractPrerenderCache(html)
+    let parsedDays: ItineraryDay[] | null = null
+    if (cache) {
+      parsedDays = parseItineraryFromCache(cache, startDate)
+    }
+    if (!parsedDays || parsedDays.length === 0) {
+      console.log(`WRC: no itinerary data in cache, trying HTML parsing for ${eventSlug}`)
+      parsedDays = parseItineraryFromHtml(html, startDate)
+    }
+    if (parsedDays && parsedDays.length > 0) {
+      days = parsedDays
+      break
+    }
+    console.log(`WRC: no itinerary data from ${url}, trying next URL...`)
   }
 
-  let days = parseItineraryFromCache(itineraryCache, startDate)
-  if (!days || days.length === 0) {
-    console.log(`WRC: no itinerary data in cache, trying HTML parsing for ${eventSlug}`)
-    days = parseItineraryFromHtml(itineraryHtml, startDate)
-  }
   if (!days || days.length === 0) {
     console.error(`WRC: no itinerary data parsed for ${eventSlug}`)
     return null
