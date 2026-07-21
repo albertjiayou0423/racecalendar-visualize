@@ -77,8 +77,8 @@ const TIME_TABS: { key: TimeFilter; label: string }[] = [
 ]
 
 /** 每秒刷新的当前时间戳 */
-function useNow() {
-  const [now, setNow] = useState<number | null>(null)
+function useNow(serverTime: number) {
+  const [now, setNow] = useState<number>(serverTime)
   useEffect(() => {
     setNow(Date.now())
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -223,8 +223,8 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
   )
 }
 
-export function ScheduleView() {
-  const now = useNow()
+export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
+  const now = useNow(serverTime)
   const { data, error, isLoading } = useSWR("/api/schedule", fetcher, {
     revalidateOnFocus: false,
   })
@@ -238,7 +238,6 @@ export function ScheduleView() {
 
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
-  const currentTime = now ?? Date.now()
 
   const filtered = useMemo(() => {
     let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
@@ -258,23 +257,23 @@ export function ScheduleView() {
       list = list.filter((e) => e.region === region)
     }
     if (view === "list") {
-      if (time === "upcoming") list = list.filter((e) => !isPast(e, currentTime))
-      else if (time === "past") list = list.filter((e) => isPast(e, currentTime))
+      if (time === "upcoming") list = list.filter((e) => !isPast(e, now))
+      else if (time === "past") list = list.filter((e) => isPast(e, now))
     }
     return [...list].sort((a, b) => {
       const am = mainSession(a)?.utc ?? ""
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, series, time, view, currentTime, search, circuitType, region])
+  }, [allEvents, series, time, view, now, search, circuitType, region])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
       .filter((e) => (series === "ALL" ? true : e.series === series))
-      .filter((e) => !isPast(e, currentTime))
+      .filter((e) => !isPast(e, now))
       .sort((a, b) => (mainSession(a)?.utc ?? "").localeCompare(mainSession(b)?.utc ?? ""))
     return upcoming[0]
-  }, [allEvents, series, currentTime])
+  }, [allEvents, series, now])
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:py-10">
@@ -287,7 +286,7 @@ export function ScheduleView() {
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <BeijingClock now={currentTime} />
+          <BeijingClock now={now} />
         </div>
         {data ? <SourceBar data={data} /> : null}
         {isOffline ? (
@@ -525,12 +524,12 @@ export function ScheduleView() {
       <div className="transition-all duration-300 ease-out animate-fade-in">
         {/* 周视图 */}
         {!isLoading && !error && view === "week" ? (
-          <WeekView events={filtered} now={currentTime} />
+          <WeekView events={filtered} now={now} />
         ) : null}
 
         {/* 月视图 */}
         {!isLoading && !error && view === "month" ? (
-          <MonthView events={filtered} now={currentTime} />
+          <MonthView events={filtered} now={now} />
         ) : null}
 
         {/* 列表 */}
@@ -559,7 +558,7 @@ export function ScheduleView() {
               ) : null}
             </div>
           ) : (
-            filtered.map((e) => <EventCard key={e.id} event={e} now={currentTime} />)
+            filtered.map((e) => <EventCard key={e.id} event={e} now={now} />)
           )}
         </section>
       ) : null}

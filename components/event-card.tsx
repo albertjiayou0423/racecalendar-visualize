@@ -185,7 +185,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {event.series === "F1" && event.circuitImageUrl && (
               <div className="mt-2">
                 <img
-                  src={event.circuitImageUrl}
+                  src={event.circuitImageUrl.startsWith("https://upload.wikimedia.org")
+                    ? `/api/image-proxy?url=${encodeURIComponent(event.circuitImageUrl)}`
+                    : event.circuitImageUrl}
                   alt={`${event.circuit} 赛道平面图`}
                   className="h-auto w-full max-h-[180px] rounded-lg object-contain"
                   loading="lazy"
@@ -441,7 +443,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 <div>
                   <h4 className="mb-2 text-sm font-semibold">赛道平面图</h4>
                   <img
-                    src={event.circuitImageUrl}
+                    src={event.circuitImageUrl.startsWith("https://upload.wikimedia.org")
+                      ? `/api/image-proxy?url=${encodeURIComponent(event.circuitImageUrl)}`
+                      : event.circuitImageUrl}
                     alt={`${event.circuit} 赛道平面图`}
                     className="h-auto w-full max-h-[240px] rounded-lg object-contain"
                     loading="lazy"

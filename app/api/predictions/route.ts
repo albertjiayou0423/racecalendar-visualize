@@ -82,16 +82,24 @@ export async function POST(request: Request) {
     const body: PredictionRequest = await request.json()
     const { eventId, series, eventName, circuit, driverCode } = body
 
-    if (!eventId || !series) {
+    if (!eventId) {
       return NextResponse.json(
-        { error: "Missing required fields: eventId, series" },
+        { error: "Missing required field: eventId" },
         { status: 400 }
       )
     }
 
-    // 投票不消耗 AI 配额
+    // 投票不消耗 AI 配额，也不需要 series
     if (driverCode) {
       return handleVote(eventId, driverCode)
+    }
+
+    // AI 预测需要 series
+    if (!series) {
+      return NextResponse.json(
+        { error: "Missing required field: series" },
+        { status: 400 }
+      )
     }
 
     // 检查 AI 配额
