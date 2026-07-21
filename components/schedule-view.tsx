@@ -238,14 +238,31 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const [filterStuck, setFilterStuck] = useState(false)
 
   useEffect(() => {
-    const sentinel = document.querySelector("[data-filter-sentinel]")
-    if (!sentinel) return
-    const observer = new IntersectionObserver(
-      ([entry]) => setFilterStuck(!entry.isIntersecting),
-      { threshold: 0, rootMargin: "-1px 0px 0px 0px" }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
+    let ticking = false
+    const thresholdUp = 80
+    const thresholdDown = 180
+
+    const updateFilter = () => {
+      const currentY = window.scrollY
+      setFilterStuck((prev) => {
+        if (prev) {
+          return currentY > thresholdUp
+        } else {
+          return currentY > thresholdDown
+        }
+      })
+      ticking = false
+    }
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateFilter)
+        ticking = true
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
   const allEvents = data?.events ?? []
@@ -309,9 +326,6 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           </div>
         ) : null}
       </header>
-
-      {/* 滚动哨兵 - 用于检测筛选栏是否吸顶 */}
-      <div data-filter-sentinel className="h-px w-full" aria-hidden />
 
       {/* 筛选 */}
       <div
