@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { EventCard } from "./event-card"
 
 const WEEKDAY_HEADERS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+const WEEKDAY_SHORT = ["一", "二", "三", "四", "五", "六", "日"]
 
 function dayKeyInBeijing(utc: string): string {
   const d = new Date(utc)
@@ -165,7 +166,7 @@ export function WeekView({ events, now }: WeekViewProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
         {weekDates.map((key, i) => {
           const daySessions = byDay.get(key) ?? []
           const [y, m, d] = key.split("-").map(Number)
@@ -176,7 +177,7 @@ export function WeekView({ events, now }: WeekViewProps) {
             <div
               key={key}
               className={cn(
-                "min-h-[180px] rounded-lg border bg-card p-2 transition-all",
+                "min-h-[100px] sm:min-h-[180px] rounded-lg border bg-card p-1 sm:p-2 transition-all",
                 isToday ? "border-primary ring-1 ring-primary/30" : "border-border",
                 selected && "ring-2 ring-primary"
               )}
@@ -187,10 +188,11 @@ export function WeekView({ events, now }: WeekViewProps) {
                 className="w-full text-left"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground">{WEEKDAY_HEADERS[i]}</span>
+                  <span className="text-[10px] text-muted-foreground sm:hidden">{WEEKDAY_SHORT[i]}</span>
+                  <span className="hidden text-[10px] text-muted-foreground sm:inline">{WEEKDAY_HEADERS[i]}</span>
                   <span
                     className={cn(
-                      "text-sm font-semibold tabular-nums",
+                      "text-xs sm:text-sm font-semibold tabular-nums",
                       isToday ? "text-primary" : "text-foreground"
                     )}
                   >
@@ -199,8 +201,8 @@ export function WeekView({ events, now }: WeekViewProps) {
                 </div>
               </button>
 
-              <div className="mt-2 flex flex-col gap-1 max-h-[140px] overflow-y-auto">
-                {daySessions.map(({ event: e, session: s, time }, idx) => {
+              <div className="mt-1 sm:mt-2 flex flex-col gap-0.5 sm:gap-1 max-h-[70px] sm:max-h-[140px] overflow-y-auto">
+                {daySessions.slice(0, 3).map(({ event: e, session: s, time }, idx) => {
                   const meta = SERIES_META[e.series]
                   const live = new Date(s.utc).getTime() <= now && now <= new Date(s.utc).getTime() + 2 * 60 * 60 * 1000
                   
@@ -210,7 +212,7 @@ export function WeekView({ events, now }: WeekViewProps) {
                       type="button"
                       onClick={() => setSelectedDay(key)}
                       className={cn(
-                        "flex items-start gap-1.5 rounded px-1.5 py-1 text-[10px] leading-tight text-left w-full transition-colors hover:bg-secondary/80"
+                        "flex items-center gap-1 rounded px-1 py-0.5 sm:py-1 text-[9px] sm:text-[10px] leading-tight text-left w-full transition-colors hover:bg-secondary/80"
                       )}
                       style={{
                         backgroundColor: live ? `${meta.color}33` : `${meta.color}15`,
@@ -218,31 +220,26 @@ export function WeekView({ events, now }: WeekViewProps) {
                       title={`${e.name} · ${s.name} · ${time} 北京时间`}
                     >
                       <span
-                        className="shrink-0 font-mono tabular-nums text-muted-foreground"
-                      >
-                        {time}
+                        className="size-1.5 sm:size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: meta.color }}
+                      />
+                      <span className="font-medium truncate" style={{ color: meta.color }}>
+                        {meta.label}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <span
-                          className="font-medium"
-                          style={{ color: meta.color }}
-                        >
-                          {meta.label}
-                        </span>
-                        <span className="text-muted-foreground/70">
-                          {s.isMain ? " · 正赛" : ""}
-                        </span>
-                        {live && (
-                          <span className="ml-1 rounded bg-red-500/20 px-0.5 text-[9px] text-red-500">
-                            LIVE
-                          </span>
-                        )}
-                      </div>
+                      {s.isMain && (
+                        <span className="text-[8px] text-muted-foreground hidden sm:inline">正赛</span>
+                      )}
+                      {live && (
+                        <span className="rounded bg-red-500/20 px-0.5 text-[8px] text-red-500">LIVE</span>
+                      )}
                     </button>
                   )
                 })}
+                {daySessions.length > 3 && (
+                  <span className="px-1 text-[9px] text-muted-foreground">+{daySessions.length - 3}</span>
+                )}
                 {daySessions.length === 0 ? (
-                  <span className="px-1.5 text-[10px] text-muted-foreground/50">-</span>
+                  <span className="px-1 text-[9px] text-muted-foreground/50 sm:text-[10px]">-</span>
                 ) : null}
               </div>
             </div>
