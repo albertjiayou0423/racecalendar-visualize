@@ -22,6 +22,14 @@ export interface DailyForecast {
   sunset: string
 }
 
+export interface WeatherAlert {
+  level: "info" | "warning" | "severe"
+  type: "rain" | "storm" | "snow" | "wind" | "extreme_temp" | "fog"
+  title: string
+  description: string
+  hour?: string
+}
+
 export interface WeatherResponse {
   location: string
   latitude: number
@@ -35,6 +43,7 @@ export interface WeatherResponse {
     windSpeed: number
     humidity: number
   }
+  alerts: WeatherAlert[]
   source: string
 }
 
@@ -88,6 +97,94 @@ async function fetchGeocode(city: string, country: string): Promise<{ lat: numbe
   }
 }
 
+function generateAlerts(hourly: HourlyForecast[]): WeatherAlert[] {
+  const alerts: WeatherAlert[] = []
+
+  for (const hour of hourly) {
+    // 暴雨预警
+    if (hour.precipitationProbability >= 70 && hour.precipitation >= 2) {
+      alerts.push({
+        level: hour.precipitation >= 5 ? "severe" : "warning",
+        type: "rain",
+        title: hour.precipitation >= 5 ? "暴雨预警" : "降雨预警",
+        description: `预计 ${hour.time.slice(11, 16)} 降水量 ${hour.precipitation}mm，降水概率 ${hour.precipitationProbability}%`,
+        hour: hour.time,
+      })
+    }
+
+    // 雷暴预警
+    if (hour.weatherCode >= 95) {
+      alerts.push({
+        level: hour.weatherCode >= 99 ? "severe" : "warning",
+        type: "storm",
+        title: "雷暴预警",
+        description: `预计 ${hour.time.slice(11, 16)} 有雷暴天气，可能影响比赛`,
+        hour: hour.time,
+      })
+    }
+
+    // 强风预警
+    if (hour.windSpeed >= 30) {
+      alerts.push({
+        level: hour.windSpeed >= 50 ? "severe" : "warning",
+        type: "wind",
+        title: "强风预警",
+        description: `预计 ${hour.time.slice(11, 16)} 风速 ${hour.windSpeed}km/h`,
+        hour: hour.time,
+      })
+    }
+
+    // 极端温度
+    if (hour.temperature >= 35 || hour.temperature <= 0) {
+      alerts.push({
+        level: hour.temperature >= 40 || hour.temperature <= -10 ? "severe" : "warning",
+        type: "extreme_temp",
+        title: hour.temperature >= 35 ? "高温预警" : "低温预警",
+        description: `预计 ${hour.time.slice(11, 16)} 温度 ${hour.temperature}°C`,
+        hour: hour.time,
+      })
+    }
+
+    // 降雪
+    if (hour.weatherCode >= 71 && hour.weatherCode <= 77) {
+      alerts.push({
+        level: hour.weatherCode >= 75 ? "severe" : "warning",
+        type: "snow",
+        title: "降雪预警",
+        description: `预计 ${hour.time.slice(11, 16)} 有降雪天气`,
+        hour: hour.time,
+      })
+    }
+
+    // 大雾
+    if (hour.weatherCode === 45 || hour.weatherCode === 48) {
+      alerts.push({
+        level: "warning",
+        type: "fog",
+        title: "大雾预警",
+        description: `预计 ${hour.time.slice(11, 16)} 有大雾，能见度较低`,
+        hour: hour.time,
+      })
+    }
+  }
+
+  // 合并同一类型相邻时段的预警，避免过多重复
+  const merged: WeatherAlert[] = []
+  for (const alert of alerts) {
+    const last = merged[merged.length - 1]
+    if (last && last.type === alert.type && last.level === alert.level) {
+      const lastHour = last.hour ? parseInt(last.hour.slice(11, 13)) : -1
+      const thisHour = alert.hour ? parseInt(alert.hour.slice(11, 13)) : -1
+      if (thisHour === lastHour + 1) {
+        continue
+      }
+    }
+    merged.push(alert)
+  }
+
+  return merged.slice(0, 5)
+}
+
 async function fetchWeather(lat: number, lon: number, date: string): Promise<WeatherResponse | null> {
   try {
     const params = new URLSearchParams({
@@ -135,6 +232,8 @@ async function fetchWeather(lat: number, lon: number, date: string): Promise<Wea
       }
     }
 
+    const alerts = generateAlerts(hourly)
+
     return {
       location: data.timezone || "Unknown",
       latitude: data.latitude,
@@ -150,6 +249,7 @@ async function fetchWeather(lat: number, lon: number, date: string): Promise<Wea
             humidity: 0,
           }
         : undefined,
+      alerts,
       source: "Open-Meteo",
     }
   } catch (err) {

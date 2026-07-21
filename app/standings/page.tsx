@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag } from "lucide-react"
+import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { FeDriverStandings } from "@/components/fe-driver-standings"
+import { StandingsChart } from "@/components/standings-chart"
 
 type StandingTab = "drivers" | "constructors" | "fe"
 
@@ -145,9 +146,31 @@ export default function StandingsPage() {
           数据加载失败，请稍后重试。
         </div>
       ) : tab === "drivers" ? (
-        <DriverStandingsList data={drivers} />
+        <>
+          <StandingsChart
+            title="F1 车手积分对比"
+            data={drivers.slice(0, 10).map((d) => ({
+              name: `${d.Driver.givenName} ${d.Driver.familyName}`,
+              shortName: d.Driver.code,
+              points: Number(d.points),
+              wins: Number(d.wins),
+            }))}
+          />
+          <DriverStandingsList data={drivers} />
+        </>
       ) : (
-        <ConstructorStandingsList data={constructors} />
+        <>
+          <StandingsChart
+            title="F1 车队积分对比"
+            data={constructors.slice(0, 10).map((c) => ({
+              name: c.Constructor.name,
+              shortName: c.Constructor.name.split(" ")[0],
+              points: Number(c.points),
+              wins: Number(c.wins),
+            }))}
+          />
+          <ConstructorStandingsList data={constructors} />
+        </>
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, Clock } from "lucide-react"
-import type { HourlyForecast, DailyForecast } from "@/app/api/weather/route"
+import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, Clock, AlertTriangle, CloudLightning, Snowflake, Waves } from "lucide-react"
+import type { HourlyForecast, DailyForecast, WeatherAlert } from "@/app/api/weather/route"
 import { getWeatherInfo } from "@/app/api/weather/route"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +20,8 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   const [error, setError] = useState<string | null>(null)
   const [hourly, setHourly] = useState<HourlyForecast[]>([])
   const [daily, setDaily] = useState<DailyForecast[]>([])
+  const [alerts, setAlerts] = useState<WeatherAlert[]>([])
+  const [showAlerts, setShowAlerts] = useState(true)
 
   const fetchWeather = useCallback(async () => {
     setLoading(true)
@@ -37,6 +39,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
         const data = await res.json()
         setHourly(data.hourly || [])
         setDaily(data.daily || [])
+        setAlerts(data.alerts || [])
       } else {
         const err = await res.json().catch(() => ({}))
         setError(err.error || "获取天气失败")
@@ -77,44 +80,91 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   }) || hourly[startHour] || hourly[0]
 
   const weatherInfo = raceHour ? getWeatherInfo(raceHour.weatherCode) : getWeatherInfo(0)
+  const severeAlerts = alerts.filter((a) => a.level === "severe")
+  const warningAlerts = alerts.filter((a) => a.level === "warning")
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-          {getWeatherIcon(raceHour?.weatherCode || 0)}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+            {getWeatherIcon(raceHour?.weatherCode || 0)}
+          </div>
+          <div>
+            <div className="flex items-center gap-1 text-sm font-medium">
+              <span>{weatherInfo.icon}</span>
+              <span>{weatherInfo.label}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {day.tempMin}° ~ {day.tempMax}°
+            </div>
+          </div>
         </div>
-        <div>
-          <div className="flex items-center gap-1 text-sm font-medium">
-            <span>{weatherInfo.icon}</span>
-            <span>{weatherInfo.label}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {day.tempMin}° ~ {day.tempMax}°
-          </div>
+
+        <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
+          {raceHour && (
+            <>
+              <div className="flex items-center gap-1">
+                <Thermometer className="size-3" />
+                <span>{raceHour.temperature}°C</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Droplets className="size-3" />
+                <span>{raceHour.precipitationProbability}%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Wind className="size-3" />
+                <span>{raceHour.windSpeed} km/h</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
-        {raceHour && (
-          <>
-            <div className="flex items-center gap-1">
-              <Thermometer className="size-3" />
-              <span>{raceHour.temperature}°C</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Droplets className="size-3" />
-              <span>{raceHour.precipitationProbability}%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Wind className="size-3" />
-              <span>{raceHour.windSpeed} km/h</span>
-            </div>
-          </>
-        )}
+      {alerts.length > 0 && showAlerts && (
+        <div className="space-y-2">
+          {severeAlerts.slice(0, 2).map((alert, idx) => (
+            <AlertItem key={`severe-${idx}`} alert={alert} />
+          ))}
+          {warningAlerts.slice(0, 2).map((alert, idx) => (
+            <AlertItem key={`warning-${idx}`} alert={alert} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AlertItem({ alert }: { alert: WeatherAlert }) {
+  const Icon = getAlertIcon(alert.type)
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 rounded-lg px-3 py-2 text-xs",
+        alert.level === "severe"
+          ? "border border-destructive/40 bg-destructive/10 text-destructive"
+          : "border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+      )}
+    >
+      <Icon className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="font-medium">{alert.title}</div>
+        <div className="text-muted-foreground">{alert.description}</div>
       </div>
     </div>
   )
+}
+
+function getAlertIcon(type: WeatherAlert["type"]) {
+  switch (type) {
+    case "rain": return CloudRain
+    case "storm": return CloudLightning
+    case "snow": return Snowflake
+    case "wind": return Wind
+    case "extreme_temp": return Thermometer
+    case "fog": return Waves
+    default: return AlertTriangle
+  }
 }
 
 function getWeatherIcon(code: number) {
