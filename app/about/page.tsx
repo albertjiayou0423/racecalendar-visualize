@@ -11,6 +11,20 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.0.9",
+    date: "2026-07-21",
+    items: [
+      { type: "feat", text: "历史赛果查询页面，支持 F1/FE 各赛季完整成绩" },
+      { type: "feat", text: "天气预警功能：暴雨/雷暴/强风/极端温度/降雪/大雾自动识别" },
+      { type: "feat", text: "积分榜图表可视化，支持积分/胜场切换，前三名金银铜色标识" },
+      { type: "feat", text: "赛事日历壁纸生成，支持手机 9:16 / 桌面 16:9 两种比例" },
+      { type: "feat", text: "AI 预测 API 每日 50 次用量限制" },
+      { type: "fix", text: "修复 Wikipedia 图片 OpaqueResponseBlocking 被阻止问题（通过服务端代理）" },
+      { type: "fix", text: "修复投票 POST 400 错误（投票不需要 series 字段）" },
+      { type: "fix", text: "修复 React hydration mismatch（传递 serverTime prop 确保 SSR/客户端一致）" },
+    ],
+  },
+  {
     version: "v1.0.8",
     date: "2026-07-16",
     items: [
@@ -148,7 +162,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.8</span>
+          <span className="text-3xl font-bold">v1.0.9</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">

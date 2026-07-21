@@ -7,13 +7,24 @@ const ALLOWED_ORIGINS = [
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const url = searchParams.get("url")
+  let url = searchParams.get("url")
 
   if (!url) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 })
   }
 
-  const parsedUrl = new URL(url)
+  try {
+    url = decodeURIComponent(url)
+  } catch {
+  }
+
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return NextResponse.json({ error: "Invalid URL" }, { status: 400 })
+  }
+
   if (!ALLOWED_ORIGINS.includes(parsedUrl.origin)) {
     return NextResponse.json({ error: "Origin not allowed" }, { status: 403 })
   }

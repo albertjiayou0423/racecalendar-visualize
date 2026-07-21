@@ -216,54 +216,77 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
                 )}
               </div>
             ) : (
-              // 桌面布局：月历网格
-              <div className="flex-1">
-                <div className="grid grid-cols-7 gap-1">
-                  {weekDays.map((d) => (
-                    <div key={d} className="py-1 text-center text-[10px] text-white/40 font-medium">
-                      {d}
-                    </div>
-                  ))}
-                  {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                    <div key={`empty-${i}`} />
-                  ))}
-                  {Array.from({ length: daysInMonth }).map((_, i) => {
-                    const day = i + 1
-                    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-                    const dayEvents = grouped[dateStr] || []
-                    return (
-                      <div
-                        key={day}
-                        className={cn(
-                          "aspect-square rounded-md p-1 text-[10px]",
-                          dayEvents.length > 0 ? "bg-white/5" : ""
-                        )}
-                      >
-                        <div className={cn("font-mono font-bold", dayEvents.length > 0 ? "text-white/80" : "text-white/30")}>
-                          {day}
-                        </div>
-                        <div className="mt-0.5 space-y-0.5">
-                          {dayEvents.map((event) => (
-                            <div
-                              key={event.id}
-                              className="h-1 rounded-full"
-                              style={{ backgroundColor: SERIES_COLORS[event.series] }}
-                              title={event.name}
-                            />
-                          ))}
-                        </div>
+              // 桌面布局：月历网格 + 赛事列表
+              <div className="flex-1 flex">
+                <div className="flex-1 mr-4">
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {weekDays.map((d) => (
+                      <div key={d} className="py-1.5 text-center text-xs text-white/40 font-medium">
+                        {d}
                       </div>
-                    )
-                  })}
+                    ))}
+                    {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                      <div key={`empty-${i}`} />
+                    ))}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                      const day = i + 1
+                      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                      const dayEvents = grouped[dateStr] || []
+                      return (
+                        <div
+                          key={day}
+                          className={cn(
+                            "aspect-square rounded-md p-1.5 text-xs",
+                            dayEvents.length > 0 ? "bg-white/5" : ""
+                          )}
+                        >
+                          <div className={cn("font-mono font-bold", dayEvents.length > 0 ? "text-white/80" : "text-white/30")}>
+                            {day}
+                          </div>
+                          <div className="mt-0.5 space-y-0.5">
+                            {dayEvents.slice(0, 3).map((event) => (
+                              <div
+                                key={event.id}
+                                className="h-1.5 rounded-full"
+                                style={{ backgroundColor: SERIES_COLORS[event.series] }}
+                                title={event.name}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-                {/* 图例 */}
-                <div className="mt-3 flex items-center justify-center gap-4">
-                  {Object.entries(SERIES_COLORS).map(([series, color]) => (
-                    <div key={series} className="flex items-center gap-1">
-                      <div className="h-1.5 w-4 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="text-[10px] text-white/40">{SERIES_LABELS[series]}</span>
-                    </div>
-                  ))}
+                {/* 右侧赛事列表 */}
+                <div className="w-48 border-l border-white/10 pl-4">
+                  <div className="text-xs font-medium text-white/50 mb-3">本月赛事</div>
+                  <div className="space-y-2 max-h-full overflow-y-auto">
+                    {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).slice(0, 10).map(([date, dateEvents]) => {
+                      const d = new Date(date)
+                      return (
+                        <div key={date}>
+                          <div className="text-[10px] text-white/40 font-mono">
+                            {d.getDate()}日 周{weekDays[d.getDay()]}
+                          </div>
+                          <div className="mt-0.5 space-y-0.5">
+                            {dateEvents.map((event) => (
+                              <div key={event.id} className="flex items-center gap-1.5">
+                                <div
+                                  className="h-1.5 w-1.5 rounded-full"
+                                  style={{ backgroundColor: SERIES_COLORS[event.series] }}
+                                />
+                                <span className="text-xs text-white/80 truncate">{event.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {Object.keys(grouped).length === 0 && (
+                      <div className="text-xs text-white/30">暂无赛事</div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

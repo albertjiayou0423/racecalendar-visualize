@@ -598,12 +598,12 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           赛道数据库
         </Link>
         <Link
-          href="/about"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-        >
-          <Sparkles className="size-3.5" />
-          v1.0.8 · 更新日志
-        </Link>
+            href="/about"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+          >
+            <Sparkles className="size-3.5" />
+            v1.0.9 · 更新日志
+          </Link>
         <Link
           href="/developer"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
