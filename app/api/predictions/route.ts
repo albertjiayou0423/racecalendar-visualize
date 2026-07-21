@@ -242,51 +242,63 @@ async function handleVote(eventId: string, driverCode: string) {
 
 function parsePredictions(content: string, series: string) {
   const predictions = []
+
   const lines = content.split("\n").filter((l: string) => l.trim())
 
-  for (let i = 0; i < Math.min(3, lines.length); i++) {
-    const line = lines[i]
+  for (const line of lines) {
+    const trimmed = line.trim()
 
-    const posMatch = line.match(/^(\d+)\./)
-    const position = posMatch ? parseInt(posMatch[1]) : i + 1
+    const posMatch = trimmed.match(/^(?:(\d+)\.|第([一二三])名|(?:冠军|亚军|季军))\s*/)
+    if (!posMatch) continue
 
-    const dashParts = line.split(/[-–—]/).map((p) => p.trim())
+    let position = 0
+    if (posMatch[1]) position = parseInt(posMatch[1])
+    else if (posMatch[2]) position = ["一", "二", "三"].indexOf(posMatch[2]) + 1
+    else if (trimmed.includes("冠军")) position = 1
+    else if (trimmed.includes("亚军")) position = 2
+    else if (trimmed.includes("季军")) position = 3
+
+    if (position < 1 || position > 3) continue
+
+    const remaining = trimmed.replace(/^(?:\d+\.|第[一二三]名|冠军|亚军|季军)\s*/, "")
+
+    const dashParts = remaining.split(/[-–—]/).map((p) => p.trim()).filter(Boolean)
+
     let driver = ""
     let team = ""
     let reason = ""
 
     if (dashParts.length >= 3) {
-      driver = dashParts[0].replace(/^\d+\.\s*/, "").replace(/^(冠军|亚军|季军|第[一二三]名)\s*[：:]\s*/, "")
+      driver = dashParts[0]
       team = dashParts[1]
       reason = dashParts.slice(2).join(" - ")
     } else if (dashParts.length === 2) {
-      driver = dashParts[0].replace(/^\d+\.\s*/, "").replace(/^(冠军|亚军|季军|第[一二三]名)\s*[：:]\s*/, "")
-      team = series
-      reason = dashParts[1]
+      driver = dashParts[0]
+      team = dashParts[1]
     } else {
-      driver = line.replace(/^\d+\.\s*/, "").replace(/^(冠军|亚军|季军|第[一二三]名)\s*[：:]\s*/, "").slice(0, 30)
+      driver = remaining.slice(0, 40).trim()
       team = series
-      reason = line.slice(0, 100)
     }
 
-    driver = driver.trim()
-    team = team.trim()
-    reason = reason.trim()
+    driver = driver.replace(/^[：:]\s*/, "").trim()
+    team = team.replace(/^[：:]\s*/, "").trim()
 
-    if (!driver || driver.length < 2) {
-      driver = `预测${position}`
-    }
+    if (!driver || driver.length < 2 || driver.length > 50) continue
 
     predictions.push({
       position,
       driver,
-      team,
+      team: team || series,
       confidence: Math.max(50, 85 - position * 10),
       reason: reason || "基于历史数据分析",
     })
   }
 
-  const sorted = [...predictions].sort((a, b) => a.position - b.position)
+  const uniquePredictions = predictions.filter(
+    (p, i, arr) => arr.findIndex((x) => x.position === p.position) === i
+  )
+
+  const sorted = [...uniquePredictions].sort((a, b) => a.position - b.position)
 
   for (let i = 0; i < sorted.length; i++) {
     sorted[i].position = i + 1

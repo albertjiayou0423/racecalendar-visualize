@@ -6,6 +6,7 @@ import Link from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
 import { WikipediaImage } from "./wikipedia-image"
+import { CircuitImage } from "./circuit-image"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -184,13 +185,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {/* F1 赛道平面图 */}
             {event.series === "F1" && event.circuitImageUrl && (
               <div className="mt-2">
-                <img
-                  src={event.circuitImageUrl.startsWith("https://upload.wikimedia.org")
-                    ? `/api/image-proxy?url=${encodeURIComponent(event.circuitImageUrl)}`
-                    : event.circuitImageUrl}
+                <CircuitImage
+                  src={event.circuitImageUrl}
                   alt={`${event.circuit} 赛道平面图`}
-                  className="h-auto w-full max-h-[180px] rounded-lg object-contain"
-                  loading="lazy"
                 />
               </div>
             )}
@@ -442,13 +439,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               {event.circuitImageUrl ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold">赛道平面图</h4>
-                  <img
-                    src={event.circuitImageUrl.startsWith("https://upload.wikimedia.org")
-                      ? `/api/image-proxy?url=${encodeURIComponent(event.circuitImageUrl)}`
-                      : event.circuitImageUrl}
+                  <CircuitImage
+                    src={event.circuitImageUrl}
                     alt={`${event.circuit} 赛道平面图`}
-                    className="h-auto w-full max-h-[240px] rounded-lg object-contain"
-                    loading="lazy"
                   />
                 </div>
               ) : (event.circuitWikipediaUrl || event.wikipediaUrl) ? (

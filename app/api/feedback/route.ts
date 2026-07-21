@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = request.cookies.get("admin-auth")
+    const auth = request.cookies.get("admin_auth")
     if (!auth || auth.value !== "authenticated") {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = request.cookies.get("admin-auth")
+    const auth = request.cookies.get("admin_auth")
     if (!auth || auth.value !== "authenticated") {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }

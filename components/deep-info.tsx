@@ -4,6 +4,7 @@ import { ChevronDown, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import type { RaceEvent } from "@/lib/types"
 import { WikipediaImage } from "./wikipedia-image"
+import { CircuitImage } from "./circuit-image"
 import { cn } from "@/lib/utils"
 
 interface DeepInfoProps {
@@ -43,12 +44,9 @@ export function DeepInfo({ event }: DeepInfoProps) {
           {event.circuitImageUrl ? (
             <div>
               <h3 className="text-xs font-medium text-muted-foreground mb-2">赛道平面图</h3>
-              <img
-                src={event.circuitImageUrl.startsWith("https://upload.wikimedia.org")
-                  ? `/api/image-proxy?url=${encodeURIComponent(event.circuitImageUrl)}`
-                  : event.circuitImageUrl}
+              <CircuitImage
+                src={event.circuitImageUrl}
                 alt={`${event.circuit} 赛道平面图`}
-                className="h-auto w-full max-h-[200px] rounded-lg object-contain"
               />
             </div>
           ) : event.circuitWikipediaUrl ? (
