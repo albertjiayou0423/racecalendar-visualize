@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { initFeedbackTable, saveFeedback, getFeedbacks, deleteFeedback } from "@/lib/crawl-store"
 
 interface FeedbackRequest {
   type: "bug" | "feature" | "suggestion" | "other"
@@ -11,6 +12,8 @@ interface FeedbackRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    await initFeedbackTable()
+
     const body: FeedbackRequest = await request.json()
 
     if (!body.type || !body.title || !body.description) {
@@ -20,14 +23,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const feedback = {
-      ...body,
-      createdAt: new Date().toISOString(),
-      ip: request.ip || "unknown",
-      userAgent: request.headers.get("user-agent") || "unknown",
-    }
-
-    console.log("收到反馈:", feedback)
+    await saveFeedback({
+      type: body.type,
+      title: body.title,
+      description: body.description,
+      email: body.email,
+      browser: body.browser,
+      system: body.system,
+      ip: request.ip || request.headers.get("x-forwarded-for") || "unknown",
+      userAgent: request.headers.get("user-agent") || undefined,
+    })
 
     return NextResponse.json({
       success: true,
@@ -39,5 +44,41 @@ export async function POST(request: NextRequest) {
       { error: "提交失败，请稍后重试" },
       { status: 500 }
     )
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = request.cookies.get("admin-auth")
+    if (!auth || auth.value !== "authenticated") {
+      return NextResponse.json({ error: "未授权" }, { status: 401 })
+    }
+
+    await initFeedbackTable()
+    const feedbacks = await getFeedbacks(100)
+    return NextResponse.json({ feedbacks })
+  } catch (error) {
+    console.error("获取反馈失败:", error)
+    return NextResponse.json({ error: "获取失败" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = request.cookies.get("admin-auth")
+    if (!auth || auth.value !== "authenticated") {
+      return NextResponse.json({ error: "未授权" }, { status: 401 })
+    }
+
+    const { id } = await request.json()
+    if (!id) {
+      return NextResponse.json({ error: "缺少 id" }, { status: 400 })
+    }
+
+    await deleteFeedback(Number(id))
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("删除反馈失败:", error)
+    return NextResponse.json({ error: "删除失败" }, { status: 500 })
   }
 }
