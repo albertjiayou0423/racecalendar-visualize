@@ -119,7 +119,7 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
       </div>
 
       {/* 壁纸预览 */}
-      <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-black/5 p-4">
+      <div className="flex justify-center overflow-x-auto rounded-xl border border-border bg-black/5 p-4">
         {aspectRatio === "phone" ? (
           <PhoneWallpaper
             ref={wallpaperRef}
