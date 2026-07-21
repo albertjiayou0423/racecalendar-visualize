@@ -228,7 +228,7 @@ const PhoneWallpaper = ({
   )
 }
 
-// 桌面壁纸组件 - 完全不同的布局
+// 桌面壁纸组件 - 改进版布局
 const DesktopWallpaper = ({
   ref,
   year,
@@ -247,89 +247,160 @@ const DesktopWallpaper = ({
   const weekDays = ["日", "一", "二", "三", "四", "五", "六"]
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfWeek = new Date(year, month, 1).getDay()
+  
+  const allEvents = Object.entries(grouped).flatMap(([date, events]) => 
+    events.map(e => ({ ...e, date }))
+  ).slice(0, 6)
 
   return (
     <div
       ref={ref}
-      className="relative w-[640px] overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
-      style={{ aspectRatio: "16/9", padding: "24px 32px" }}
+      className="relative w-[800px] overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
+      style={{ aspectRatio: "16/9", padding: "32px" }}
     >
-      {/* 背景 */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute -top-32 -right-32 h-80 w-80 rounded-full bg-red-500 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-blue-500 blur-3xl" />
+      {/* 背景装饰 */}
+      <div className="absolute inset-0 opacity-8">
+        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-red-600 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-blue-600 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-purple-600 blur-3xl" />
+      </div>
+
+      {/* 网格背景 */}
+      <div className="absolute inset-0 opacity-[0.03]">
+        <div className="h-full w-full" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
       </div>
 
       <div className="relative z-10 h-full flex flex-col">
         {/* 头部 */}
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-[10px] font-medium tracking-widest text-white/40 uppercase">Race Calendar</div>
-            <h2 className="mt-1 text-3xl font-bold">{year} {monthNames[month]}</h2>
+            <div className="text-[10px] font-bold tracking-[0.3em] text-white/30 uppercase">Race Calendar</div>
+            <h1 className="mt-2 text-4xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
+              {year} {monthNames[month]}
+            </h1>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-white/80">{totalEvents}</div>
-            <div className="text-xs text-white/40">场赛事</div>
+          <div className="flex items-end gap-2">
+            <div className="text-right">
+              <div className="text-4xl font-bold text-white">{totalEvents}</div>
+              <div className="text-xs text-white/40">Scheduled Events</div>
+            </div>
           </div>
         </div>
 
-        {/* 日历网格 */}
-        <div className="mt-4 flex-1">
-          <div className="grid grid-cols-7 gap-1">
-            {weekDays.map((d) => (
-              <div key={d} className="text-center text-xs text-white/30 font-medium py-1">
-                {d}
+        {/* 主体区域：左侧日历 + 右侧赛事列表 */}
+        <div className="mt-6 flex-1 flex gap-6">
+          {/* 左侧：日历网格 */}
+          <div className="flex-1">
+            <div className="grid grid-cols-7 gap-1.5">
+              {weekDays.map((d) => (
+                <div key={d} className="text-center text-xs font-semibold text-white/30 py-2">
+                  {d}
+                </div>
+              ))}
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                <div key={`empty-${i}`} className="aspect-square" />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1
+                const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                const dayEvents = grouped[dateStr] || []
+                const hasF1 = dayEvents.some(e => e.series === "F1")
+                const hasWRC = dayEvents.some(e => e.series === "WRC")
+                const hasFE = dayEvents.some(e => e.series === "FE")
+                
+                return (
+                  <div
+                    key={day}
+                    className={cn(
+                      "aspect-square rounded-lg flex flex-col items-center justify-center p-1 transition-all",
+                      dayEvents.length > 0 
+                        ? "bg-white/8 backdrop-blur-sm border border-white/10" 
+                        : ""
+                    )}
+                  >
+                    <div className={cn(
+                      "text-xs font-mono font-bold",
+                      dayEvents.length > 0 ? "text-white/90" : "text-white/20"
+                    )}>
+                      {day}
+                    </div>
+                    {dayEvents.length > 0 && (
+                      <div className="mt-1 flex gap-0.5">
+                        {hasF1 && <div className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" title="F1" />}
+                        {hasWRC && <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" title="WRC" />}
+                        {hasFE && <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" title="FE" />}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 右侧：赛事列表 */}
+          <div className="w-64">
+            <div className="text-xs font-semibold tracking-wider text-white/30 uppercase mb-3">
+              Featured Events
+            </div>
+            <div className="space-y-3">
+              {allEvents.length > 0 ? (
+                allEvents.map((event, index) => {
+                  const mainSession = getMainSession(event)
+                  const d = new Date(event.date)
+                  return (
+                    <div
+                      key={event.id}
+                      className="rounded-lg bg-white/5 backdrop-blur-sm border border-white/5 p-3 hover:bg-white/8 transition-colors"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div 
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: SERIES_COLORS[event.series] }}
+                        />
+                        <span className="text-[10px] font-mono text-white/50">
+                          {d.getDate()}日
+                        </span>
+                        <span className="text-[10px] text-white/30">
+                          {weekDays[d.getDay()]}
+                        </span>
+                      </div>
+                      <div className="text-sm font-medium text-white/90 truncate">
+                        {event.name}
+                      </div>
+                      <div className="text-[10px] text-white/40 truncate mt-0.5">
+                        {event.circuit}
+                      </div>
+                      {mainSession && (
+                        <div className="text-[10px] font-mono text-white/50 mt-1">
+                          {formatTime(mainSession.utc)}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="rounded-lg bg-white/5 p-4 text-center">
+                  <div className="text-sm text-white/40">本月暂无赛事</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 底部：图例 + 版权 */}
+        <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4">
+          <div className="flex items-center gap-6">
+            {Object.entries(SERIES_COLORS).map(([series, color]) => (
+              <div key={series} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-md" style={{ backgroundColor: color }} />
+                <span className="text-xs text-white/40 font-medium">{series}</span>
               </div>
             ))}
-            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`empty-${i}`} />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1
-              const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-              const dayEvents = grouped[dateStr] || []
-              return (
-                <div
-                  key={day}
-                  className={cn(
-                    "rounded p-1 text-xs",
-                    dayEvents.length > 0 ? "bg-white/5" : ""
-                  )}
-                >
-                  <div className={cn("font-mono font-bold", dayEvents.length > 0 ? "text-white/70" : "text-white/20")}>
-                    {day}
-                  </div>
-                  {dayEvents.length > 0 && (
-                    <div className="mt-0.5 flex gap-0.5 flex-wrap">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <div
-                          key={event.id}
-                          className="h-1 w-2 rounded-sm"
-                          style={{ backgroundColor: SERIES_COLORS[event.series] }}
-                          title={event.name}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
           </div>
-        </div>
-
-        {/* 图例 */}
-        <div className="mt-3 flex items-center justify-center gap-4">
-          {Object.entries(SERIES_COLORS).map(([series, color]) => (
-            <div key={series} className="flex items-center gap-1.5">
-              <div className="h-2 w-3 rounded-sm" style={{ backgroundColor: color }} />
-              <span className="text-[10px] text-white/40">{series}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* 底部 */}
-        <div className="mt-3 text-center">
-          <div className="text-[10px] text-white/20">racecalendar-visualize.vercel.app</div>
+          <div className="text-[10px] text-white/20 font-mono">
+            racecalendar.vercel.app
+          </div>
         </div>
       </div>
     </div>
