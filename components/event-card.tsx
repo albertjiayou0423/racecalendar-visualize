@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight } from "lucide-react"
+import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart } from "lucide-react"
 import Link from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
@@ -21,6 +21,7 @@ import {
 } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
+import { isEventFavorite, toggleFavorite } from "@/lib/favorites"
 
 interface DayGroup {
   date: string
@@ -265,10 +266,14 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
         {/* 详细场次时间表 */}
         {open ? (
           <div className="border-t border-border">
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="hidden sm:grid grid-cols-[1fr_auto_auto] items-center gap-x-4 px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
               <span>场次</span>
               <span className="text-right">当地时间 · {localOffset}</span>
               <span className="text-right">北京时间 · UTC+8</span>
+            </div>
+            <div className="sm:hidden grid grid-cols-[1fr_auto] items-center gap-x-4 px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+              <span>场次</span>
+              <span className="text-right">北京时间</span>
             </div>
             <div className="border-t border-border/60">
               {dayGroups.map((group) => {
@@ -292,25 +297,28 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                           <li
                             key={`${s.name}-${i}`}
                             className={cn(
-                              "grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-t border-border/40 px-4 py-2 text-sm",
+                              "border-t border-border/40 px-4 py-2",
                               s.isMain && "bg-primary/10",
                             )}
                           >
-                            <span className="flex items-center gap-1.5">
-                              {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
-                              <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
-                              {s.tentative ? (
-                                <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
-                              ) : null}
-                            </span>
-                            <span className="text-right font-mono tabular-nums">
-                              {s.tentative ? "约 " : ""}
-                              {formatTime(s.utc, event.tz)}
-                            </span>
-                            <span className="text-right font-mono font-medium tabular-nums text-foreground">
-                              {s.tentative ? "约 " : ""}
-                              {formatTime(s.utc, BEIJING_TZ)}
-                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-sm">
+                                {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
+                                <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
+                                {s.tentative ? (
+                                  <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
+                                ) : null}
+                              </span>
+                              <span className="text-right font-mono font-medium tabular-nums text-foreground text-sm">
+                                {s.tentative ? "约 " : ""}
+                                {formatTime(s.utc, BEIJING_TZ)}
+                              </span>
+                            </div>
+                            <div className="hidden sm:flex mt-0.5 justify-end">
+                              <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                                当地 {formatTime(s.utc, event.tz)}
+                              </span>
+                            </div>
                           </li>
                         ))}
                       </ul>
