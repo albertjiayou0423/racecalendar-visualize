@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
@@ -576,6 +576,13 @@ export function ScheduleView() {
         >
           <Trophy className="size-3.5" />
           F1 积分榜
+        </Link>
+        <Link
+          href="/circuits"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <Hash className="size-3.5" />
+          赛道数据库
         </Link>
         <Link
           href="/about"
