@@ -234,6 +234,50 @@ export function ScheduleView() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
+  const [filterStuck, setFilterStuck] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) {
+      setFilterStuck(false)
+      return
+    }
+
+    let ticking = false
+    const thresholdUp = 80
+    const thresholdDown = 180
+
+    const updateFilter = () => {
+      const currentY = window.scrollY
+      setFilterStuck((prev) => {
+        if (prev) {
+          return currentY > thresholdUp
+        } else {
+          return currentY > thresholdDown
+        }
+      })
+      ticking = false
+    }
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateFilter)
+        ticking = true
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [isMobile])
 
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
@@ -300,8 +344,9 @@ export function ScheduleView() {
       </header>
 
       {/* 筛选 */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50">
-        <div className="relative">
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all duration-300">
+        {/* 搜索框 - 移动端吸顶时隐藏 */}
+        <div className={cn("relative", filterStuck && isMobile ? "hidden" : "block")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             type="text"
@@ -331,8 +376,8 @@ export function ScheduleView() {
               </button>
             ))}
           </div>
-          {/* 视图切换 + 通知 */}
-          <div className="flex items-center gap-2">
+          {/* 视图切换 + 通知 - 移动端吸顶时隐藏 */}
+          <div className={cn("flex items-center gap-2", filterStuck && isMobile ? "hidden" : "flex")}>
             <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
               <button
                 type="button"
@@ -383,7 +428,8 @@ export function ScheduleView() {
             {data ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
-        {view === "list" ? (
+        {/* 时间范围 - 移动端吸顶时隐藏 */}
+        {view === "list" && !(filterStuck && isMobile) ? (
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
             {TIME_TABS.map((t) => (
               <button
@@ -405,73 +451,75 @@ export function ScheduleView() {
           </div>
         ) : null}
 
-        {/* 高级筛选 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowAdvancedFilters((v) => !v)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              showAdvancedFilters || circuitType !== "all" || region !== "all"
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Filter className="size-3.5" />
-            高级筛选
-            {(circuitType !== "all" || region !== "all") ? (
-              <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
-              </span>
-            ) : null}
-          </button>
-          {showAdvancedFilters ? (
-            <>
-              <div className="flex items-center gap-1.5">
-                <Building2 className="size-3 text-muted-foreground" />
-                <select
-                  value={circuitType}
-                  onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
-                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
-                >
-                  <option value="all">全部赛道</option>
-                  <option value="street">街道赛道</option>
-                  <option value="permanent">专用赛道</option>
-                  <option value="hybrid">混合赛道</option>
-                  <option value="rally">拉力赛</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Globe className="size-3 text-muted-foreground" />
-                <select
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value as RegionFilter)}
-                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
-                >
-                  <option value="all">全部地区</option>
-                  <option value="europe">欧洲</option>
-                  <option value="asia">亚洲</option>
-                  <option value="americas">美洲</option>
-                  <option value="middle-east">中东</option>
-                  <option value="africa">非洲</option>
-                  <option value="oceania">大洋洲</option>
-                </select>
-              </div>
-              {circuitType !== "all" || region !== "all" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCircuitType("all")
-                    setRegion("all")
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  清除筛选
-                </button>
+        {/* 高级筛选 - 移动端吸顶时隐藏 */}
+        {!(filterStuck && isMobile) ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                showAdvancedFilters || circuitType !== "all" || region !== "all"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Filter className="size-3.5" />
+              高级筛选
+              {(circuitType !== "all" || region !== "all") ? (
+                <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                  {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
+                </span>
               ) : null}
-            </>
-          ) : null}
-        </div>
+            </button>
+            {showAdvancedFilters ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="size-3 text-muted-foreground" />
+                  <select
+                    value={circuitType}
+                    onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
+                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                  >
+                    <option value="all">全部赛道</option>
+                    <option value="street">街道赛道</option>
+                    <option value="permanent">专用赛道</option>
+                    <option value="hybrid">混合赛道</option>
+                    <option value="rally">拉力赛</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Globe className="size-3 text-muted-foreground" />
+                  <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value as RegionFilter)}
+                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                  >
+                    <option value="all">全部地区</option>
+                    <option value="europe">欧洲</option>
+                    <option value="asia">亚洲</option>
+                    <option value="americas">美洲</option>
+                    <option value="middle-east">中东</option>
+                    <option value="africa">非洲</option>
+                    <option value="oceania">大洋洲</option>
+                  </select>
+                </div>
+                {circuitType !== "all" || region !== "all" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCircuitType("all")
+                      setRegion("all")
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    清除筛选
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* 加载 / 错误 */}
