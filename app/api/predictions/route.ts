@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
+import { getSqlOrFail, initDb, isDbAvailable } from "@/lib/db"
 
 const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY || "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"
 
 interface PredictionRequest {
   eventId: string
   series: string
-  eventName: string
-  circuit: string
+  eventName?: string
+  circuit?: string
+  driverCode?: string
 }
 
 interface PredictionResponse {
@@ -22,10 +24,62 @@ interface PredictionResponse {
   modelUsed: string
 }
 
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url)
+    const eventId = url.searchParams.get("eventId")
+
+    if (!eventId) {
+      return NextResponse.json(
+        { error: "Missing eventId" },
+        { status: 400 }
+      )
+    }
+
+    if (!isDbAvailable()) {
+      return NextResponse.json({
+        eventId,
+        results: [],
+        total: 0,
+        myVote: null,
+      })
+    }
+
+    await initDb()
+    const sql = await getSqlOrFail()
+
+    const results = await sql`
+      SELECT driver_code, COUNT(*) as count
+      FROM predictions
+      WHERE event_id = ${eventId}
+      GROUP BY driver_code
+      ORDER BY count DESC
+    `
+
+    const total = results.reduce((sum: number, r: any) => sum + Number(r.count), 0)
+
+    return NextResponse.json({
+      eventId,
+      results: results.map((r: any) => ({
+        driverCode: r.driver_code,
+        count: Number(r.count),
+      })),
+      total,
+      myVote: null,
+    })
+  } catch (error) {
+    console.error("GET predictions error:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch predictions" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body: PredictionRequest = await request.json()
-    const { eventId, series, eventName, circuit } = body
+    const { eventId, series, eventName, circuit, driverCode } = body
 
     if (!eventId || !series) {
       return NextResponse.json(
@@ -34,7 +88,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // 构建提示词
+    if (driverCode) {
+      return handleVote(eventId, driverCode)
+    }
+
     const prompt = `你是赛车运动分析师。请根据历史数据、车手表现、赛道特性预测 ${series} ${eventName} 的比赛结果。
 
 赛事信息：
@@ -49,7 +106,6 @@ export async function POST(request: Request) {
 
 注意：这是基于历史数据和赛道特性的分析预测，仅供参考。`
 
-    // 调用 Nvidia NIM API（使用 Llama 模型）
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -76,7 +132,6 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       console.error("NVIDIA NIM API error:", response.status, await response.text())
-      // 返回默认预测结果
       return NextResponse.json({
         eventId,
         predictions: generateDefaultPredictions(series),
@@ -89,7 +144,6 @@ export async function POST(request: Request) {
     const data = await response.json()
     const content = data.choices?.[0]?.message?.content || ""
 
-    // 解析AI返回的预测结果
     const predictions = parsePredictions(content, series)
 
     return NextResponse.json({
@@ -103,6 +157,54 @@ export async function POST(request: Request) {
     console.error("Prediction API error:", error)
     return NextResponse.json(
       { error: "Failed to generate predictions" },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleVote(eventId: string, driverCode: string) {
+  try {
+    if (!isDbAvailable()) {
+      return NextResponse.json({
+        success: true,
+        message: "预测已保存（演示模式）",
+      })
+    }
+
+    await initDb()
+    const sql = await getSqlOrFail()
+
+    const voterId = "anonymous-" + Math.random().toString(36).slice(2)
+
+    await sql`
+      INSERT INTO predictions (event_id, driver_code, voter_id)
+      VALUES (${eventId}, ${driverCode}, ${voterId})
+      ON CONFLICT (event_id, voter_id) DO UPDATE SET driver_code = ${driverCode}
+    `
+
+    const results = await sql`
+      SELECT driver_code, COUNT(*) as count
+      FROM predictions
+      WHERE event_id = ${eventId}
+      GROUP BY driver_code
+      ORDER BY count DESC
+    `
+
+    const total = results.reduce((sum: number, r: any) => sum + Number(r.count), 0)
+
+    return NextResponse.json({
+      success: true,
+      results: results.map((r: any) => ({
+        driverCode: r.driver_code,
+        count: Number(r.count),
+      })),
+      total,
+      myVote: driverCode,
+    })
+  } catch (error) {
+    console.error("Vote error:", error)
+    return NextResponse.json(
+      { error: "Failed to vote" },
       { status: 500 }
     )
   }
@@ -124,7 +226,6 @@ function parsePredictions(content: string, series: string) {
         reason: match[4].trim(),
       })
     } else {
-      // 简单解析
       predictions.push({
         position: i + 1,
         driver: `预测${i + 1}`,
