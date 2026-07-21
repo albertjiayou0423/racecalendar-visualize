@@ -246,27 +246,53 @@ function parsePredictions(content: string, series: string) {
 
   for (let i = 0; i < Math.min(3, lines.length); i++) {
     const line = lines[i]
-    const match = line.match(/(\d+)\.\s*(.+?)\s*[-–]\s*(.+?)\s*[-–]\s*(.+)/i)
-    if (match) {
-      predictions.push({
-        position: parseInt(match[1]) || i + 1,
-        driver: match[2].trim(),
-        team: match[3].trim(),
-        confidence: 85 - i * 10,
-        reason: match[4].trim(),
-      })
+
+    const posMatch = line.match(/^(\d+)\./)
+    const position = posMatch ? parseInt(posMatch[1]) : i + 1
+
+    const dashParts = line.split(/[-–—]/).map((p) => p.trim())
+    let driver = ""
+    let team = ""
+    let reason = ""
+
+    if (dashParts.length >= 3) {
+      driver = dashParts[0].replace(/^\d+\.\s*/, "").replace(/^(冠军|亚军|季军|第[一二三]名)\s*[：:]\s*/, "")
+      team = dashParts[1]
+      reason = dashParts.slice(2).join(" - ")
+    } else if (dashParts.length === 2) {
+      driver = dashParts[0].replace(/^\d+\.\s*/, "").replace(/^(冠军|亚军|季军|第[一二三]名)\s*[：:]\s*/, "")
+      team = series
+      reason = dashParts[1]
     } else {
-      predictions.push({
-        position: i + 1,
-        driver: `预测${i + 1}`,
-        team: series,
-        confidence: 80 - i * 15,
-        reason: line.slice(0, 100),
-      })
+      driver = line.replace(/^\d+\.\s*/, "").replace(/^(冠军|亚军|季军|第[一二三]名)\s*[：:]\s*/, "").slice(0, 30)
+      team = series
+      reason = line.slice(0, 100)
     }
+
+    driver = driver.trim()
+    team = team.trim()
+    reason = reason.trim()
+
+    if (!driver || driver.length < 2) {
+      driver = `预测${position}`
+    }
+
+    predictions.push({
+      position,
+      driver,
+      team,
+      confidence: Math.max(50, 85 - position * 10),
+      reason: reason || "基于历史数据分析",
+    })
   }
 
-  return predictions.length > 0 ? predictions : generateDefaultPredictions(series)
+  const sorted = [...predictions].sort((a, b) => a.position - b.position)
+
+  for (let i = 0; i < sorted.length; i++) {
+    sorted[i].position = i + 1
+  }
+
+  return sorted.length > 0 ? sorted : generateDefaultPredictions(series)
 }
 
 function generateDefaultPredictions(series: string) {
