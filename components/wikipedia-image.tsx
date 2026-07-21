@@ -40,9 +40,10 @@ export function WikipediaImage({ url, maxHeight = 200 }: WikipediaImageProps) {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: WikiSummary | null) => {
         if (data?.thumbnail?.source) {
-          setImageUrl(data.thumbnail.source.replace(/\/[^/]+$/, `/page-width-${Math.min(800, data.thumbnail.width)}`))
+          const rawUrl = data.thumbnail.source.replace(/\/[^/]+$/, `/page-width-${Math.min(800, data.thumbnail.width)}`)
+          setImageUrl(`/api/image-proxy?url=${encodeURIComponent(rawUrl)}`)
         } else if (data?.originalimage?.source) {
-          setImageUrl(data.originalimage.source)
+          setImageUrl(`/api/image-proxy?url=${encodeURIComponent(data.originalimage.source)}`)
         }
       })
       .catch(() => {})
