@@ -1,107 +1,168 @@
-import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { getSql, initDb, isDbAvailable } from "@/lib/db"
-import { randomUUID } from "crypto"
+import { NextResponse } from "next/server"
 
-async function ensureDb() {
-  if (!isDbAvailable()) return
-  await initDb()
+const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY || "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"
+
+interface PredictionRequest {
+  eventId: string
+  series: string
+  eventName: string
+  circuit: string
 }
 
-async function getVoterId(): Promise<string> {
-  const cookieStore = await cookies()
-  let voterId = cookieStore.get("voter_id")?.value
-  if (!voterId) {
-    voterId = randomUUID()
-    cookieStore.set("voter_id", voterId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365,
-      path: "/",
-    })
-  }
-  return voterId
+interface PredictionResponse {
+  eventId: string
+  predictions: {
+    position: number
+    driver: string
+    team: string
+    confidence: number
+    reason: string
+  }[]
+  generatedAt: string
+  modelUsed: string
 }
 
-export async function GET(request: NextRequest) {
-  await ensureDb()
-  
-  const sql = getSql()
-  if (!sql) {
-    return NextResponse.json({ results: [], myVote: null, total: 0 }, { status: 200 })
-  }
-
-  const searchParams = request.nextUrl.searchParams
-  const eventId = searchParams.get("eventId")
-
-  if (!eventId) {
-    return NextResponse.json({ error: "eventId is required" }, { status: 400 })
-  }
-
+export async function POST(request: Request) {
   try {
-    const results = await sql`
-      SELECT driver_code, COUNT(*) as count
-      FROM predictions
-      WHERE event_id = ${eventId}
-      GROUP BY driver_code
-      ORDER BY count DESC
-    `
+    const body: PredictionRequest = await request.json()
+    const { eventId, series, eventName, circuit } = body
 
-    const voterId = await getVoterId()
-    const myVote = await sql`
-      SELECT driver_code
-      FROM predictions
-      WHERE event_id = ${eventId} AND voter_id = ${voterId}
-      LIMIT 1
-    `
-
-    return NextResponse.json({
-      results: results.map((r: { driver_code: string; count: number }) => ({
-        driverCode: r.driver_code,
-        count: Number(r.count),
-      })),
-      myVote: myVote[0]?.driver_code ?? null,
-      total: results.reduce((sum: number, r: { count: number }) => sum + Number(r.count), 0),
-    })
-  } catch (err) {
-    console.error("Failed to get predictions:", err)
-    return NextResponse.json({ error: "Database error" }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  await ensureDb()
-  
-  const sql = getSql()
-  if (!sql) {
-    return NextResponse.json({ error: "Database not available" }, { status: 503 })
-  }
-
-  try {
-    const body = await request.json()
-    const { eventId, driverCode } = body
-
-    if (!eventId || !driverCode) {
+    if (!eventId || !series) {
       return NextResponse.json(
-        { error: "eventId and driverCode are required" },
+        { error: "Missing required fields: eventId, series" },
         { status: 400 }
       )
     }
 
-    const voterId = await getVoterId()
+    // 构建提示词
+    const prompt = `你是赛车运动分析师。请根据历史数据、车手表现、赛道特性预测 ${series} ${eventName} 的比赛结果。
 
-    await sql`
-      INSERT INTO predictions (event_id, driver_code, voter_id)
-      VALUES (${eventId}, ${driverCode}, ${voterId})
-      ON CONFLICT (event_id, voter_id)
-      DO UPDATE SET driver_code = ${driverCode}, created_at = NOW()
-    `
+赛事信息：
+- 系列：${series}
+- 赛事名称：${eventName}
+- 赛道：${circuit}
 
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error("Failed to save prediction:", err)
-    const msg = err instanceof Error ? err.message : "Database error"
-    return NextResponse.json({ error: msg }, { status: 500 })
+请预测前3名完赛者，并给出简要分析。格式要求：
+1. 冠军：[车手名] - [车队] - 获胜理由（1-2句话）
+2. 亚军：[车手名] - [车队] - 理由
+3. 季军：[车手名] - [车队] - 理由
+
+注意：这是基于历史数据和赛道特性的分析预测，仅供参考。`
+
+    // 调用 Nvidia NIM API（使用 Llama 模型）
+    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${NVIDIA_NIM_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "meta/llama-3.1-8b-instruct",
+        messages: [
+          {
+            role: "system",
+            content: "你是专业的赛车运动分析师，熟悉F1、WRC、Formula E等赛事。你的分析基于车手历史表现、车队实力、赛道特性和天气条件等因素。"
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        max_tokens: 512,
+        temperature: 0.7,
+        top_p: 0.9,
+      }),
+    })
+
+    if (!response.ok) {
+      console.error("NVIDIA NIM API error:", response.status, await response.text())
+      // 返回默认预测结果
+      return NextResponse.json({
+        eventId,
+        predictions: generateDefaultPredictions(series),
+        generatedAt: new Date().toISOString(),
+        modelUsed: "fallback",
+        error: "AI service unavailable, using fallback predictions"
+      })
+    }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content || ""
+
+    // 解析AI返回的预测结果
+    const predictions = parsePredictions(content, series)
+
+    return NextResponse.json({
+      eventId,
+      predictions,
+      generatedAt: new Date().toISOString(),
+      modelUsed: "nvidia-nim/llama-3.1-8b-instruct",
+      rawAnalysis: content,
+    })
+  } catch (error) {
+    console.error("Prediction API error:", error)
+    return NextResponse.json(
+      { error: "Failed to generate predictions" },
+      { status: 500 }
+    )
   }
+}
+
+function parsePredictions(content: string, series: string) {
+  const predictions = []
+  const lines = content.split("\n").filter((l: string) => l.trim())
+
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const line = lines[i]
+    const match = line.match(/(\d+)\.\s*(.+?)\s*[-–]\s*(.+?)\s*[-–]\s*(.+)/i)
+    if (match) {
+      predictions.push({
+        position: parseInt(match[1]) || i + 1,
+        driver: match[2].trim(),
+        team: match[3].trim(),
+        confidence: 85 - i * 10,
+        reason: match[4].trim(),
+      })
+    } else {
+      // 简单解析
+      predictions.push({
+        position: i + 1,
+        driver: `预测${i + 1}`,
+        team: series,
+        confidence: 80 - i * 15,
+        reason: line.slice(0, 100),
+      })
+    }
+  }
+
+  return predictions.length > 0 ? predictions : generateDefaultPredictions(series)
+}
+
+function generateDefaultPredictions(series: string) {
+  const defaults: Record<string, { driver: string; team: string }[]> = {
+    F1: [
+      { driver: "Max Verstappen", team: "Red Bull Racing" },
+      { driver: "Lando Norris", team: "McLaren" },
+      { driver: "Charles Leclerc", team: "Ferrari" },
+    ],
+    WRC: [
+      { driver: "Kalle Rovanperä", team: "Toyota Gazoo Racing" },
+      { driver: "Sébastien Ogier", team: "Toyota Gazoo Racing" },
+      { driver: "Thierry Neuville", team: "Hyundai Shell Mobis" },
+    ],
+    FE: [
+      { driver: "Mitch Evans", team: "Jaguar TCS Racing" },
+      { driver: "Nick Cassidy", team: "Jaguar TCS Racing" },
+      { driver: "Pascal Wehrlein", team: "TAG Heuer Porsche" },
+    ],
+  }
+
+  const drivers = defaults[series] || defaults.F1
+  return drivers.map((d, i) => ({
+    position: i + 1,
+    driver: d.driver,
+    team: d.team,
+    confidence: 75 - i * 10,
+    reason: "基于赛季表现和历史数据分析",
+  }))
 }
