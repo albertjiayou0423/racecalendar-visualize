@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
-import { getSqlOrFail, initDb, isDbAvailable } from "@/lib/db"
+import { getSqlOrFail, initDb, isDbAvailable, checkAiQuota, incrementAiUsage } from "@/lib/db"
 
 const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY || "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"
+const AI_DAILY_LIMIT = 50
 
 interface PredictionRequest {
   eventId: string
@@ -88,8 +89,24 @@ export async function POST(request: Request) {
       )
     }
 
+    // 投票不消耗 AI 配额
     if (driverCode) {
       return handleVote(eventId, driverCode)
+    }
+
+    // 检查 AI 配额
+    await initDb()
+    const quota = await checkAiQuota()
+    if (!quota.allowed) {
+      return NextResponse.json({
+        eventId,
+        predictions: generateDefaultPredictions(series),
+        generatedAt: new Date().toISOString(),
+        modelUsed: "fallback",
+        quotaExceeded: true,
+        quotaRemaining: 0,
+        error: `今日 AI 预测次数已用完（${AI_DAILY_LIMIT}次/天），使用默认预测`
+      })
     }
 
     const prompt = `你是赛车运动分析师。请根据历史数据、车手表现、赛道特性预测 ${series} ${eventName} 的比赛结果。
@@ -146,12 +163,17 @@ export async function POST(request: Request) {
 
     const predictions = parsePredictions(content, series)
 
+    // AI 调用成功，增加使用计数
+    await incrementAiUsage()
+    const newQuota = await checkAiQuota()
+
     return NextResponse.json({
       eventId,
       predictions,
       generatedAt: new Date().toISOString(),
       modelUsed: "nvidia-nim/llama-3.1-8b-instruct",
       rawAnalysis: content,
+      quotaRemaining: newQuota.remaining,
     })
   } catch (error) {
     console.error("Prediction API error:", error)
