@@ -235,6 +235,18 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
+  const [filterStuck, setFilterStuck] = useState(false)
+
+  useEffect(() => {
+    const sentinel = document.querySelector("[data-filter-sentinel]")
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setFilterStuck(!entry.isIntersecting),
+      { threshold: 0, rootMargin: "-1px 0px 0px 0px" }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [])
 
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
@@ -298,10 +310,19 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         ) : null}
       </header>
 
+      {/* 滚动哨兵 - 用于检测筛选栏是否吸顶 */}
+      <div data-filter-sentinel className="h-px w-full" aria-hidden />
+
       {/* 筛选 */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50">
-        {/* 搜索框 - 桌面端 */}
-        <div className="hidden sm:block relative">
+      <div
+        data-filter-bar
+        className={cn(
+          "sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
+          filterStuck && "py-2 gap-0"
+        )}
+      >
+        {/* 搜索框 - 吸顶时隐藏 */}
+        <div className={cn("relative transition-all", filterStuck && "hidden")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             type="text"
@@ -311,6 +332,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
+        {/* 赛事系列 - 始终显示，吸顶时只保留这一行 */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="赛事系列">
             {SERIES_TABS.map((t) => (
@@ -331,8 +353,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               </button>
             ))}
           </div>
-          {/* 视图切换 + 通知 - 桌面端 */}
-          <div className="hidden sm:flex items-center gap-2">
+          {/* 视图切换 + 通知 */}
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
               <button
                 type="button"
@@ -383,8 +405,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             {data ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
-        {/* 时间范围和高级筛选 - 桌面端 */}
-        <div className="hidden sm:block">
+        {/* 时间范围和高级筛选 - 吸顶时隐藏 */}
+        <div className={cn("flex flex-col gap-2 transition-all", filterStuck && "hidden")}>
           {view === "list" ? (
             <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
               {TIME_TABS.map((t) => (
