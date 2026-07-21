@@ -60,11 +60,12 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
     )
   }
   const soon = c.days === 0
+  const urgent = c.days === 0 && c.hours === 0 && c.minutes < 30
   return (
     <span
       className={cn(
         "rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums",
-        soon ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
+        urgent ? "bg-red-500 text-white animate-pulse" : soon ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
       )}
     >
       {c.days > 0 ? `${c.days}天 ` : ""}

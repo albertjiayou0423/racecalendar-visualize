@@ -522,19 +522,20 @@ export function ScheduleView() {
         <NextRacePreview event={nextUp} />
       ) : null}
 
-      {/* 周视图 */}
-      {!isLoading && !error && view === "week" ? (
-        <WeekView events={filtered} now={now} />
-      ) : null}
+      <div className="transition-all duration-300 ease-out animate-fade-in">
+        {/* 周视图 */}
+        {!isLoading && !error && view === "week" ? (
+          <WeekView events={filtered} now={now} />
+        ) : null}
 
-      {/* 月视图 */}
-      {!isLoading && !error && view === "month" ? (
-        <MonthView events={filtered} now={now} />
-      ) : null}
+        {/* 月视图 */}
+        {!isLoading && !error && view === "month" ? (
+          <MonthView events={filtered} now={now} />
+        ) : null}
 
-      {/* 列表 */}
-      {!isLoading && !error && view === "list" ? (
-        <section className="flex flex-col gap-3" aria-label="赛程列表">
+        {/* 列表 */}
+        {!isLoading && !error && view === "list" ? (
+          <section className="flex flex-col gap-3" aria-label="赛程列表">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="size-4" aria-hidden />
             共 {filtered.length} 场赛事
@@ -562,6 +563,7 @@ export function ScheduleView() {
           )}
         </section>
       ) : null}
+      </div>
 
       <div className="flex justify-center">
         <FeedbackButton />

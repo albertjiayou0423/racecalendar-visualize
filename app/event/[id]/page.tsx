@@ -12,6 +12,7 @@ import { OfficialLiveTiming } from "@/components/official-live-timing"
 import { EventNotificationManager } from "@/components/event-notification-manager"
 import { EventHeader } from "@/components/event-header"
 import { SessionTimeline } from "@/components/session-timeline"
+import { PageTransition } from "@/components/page-transition"
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -123,20 +124,22 @@ export default function EventDetailPage() {
       </header>
 
       <main className="mx-auto max-w-2xl p-4">
-        <EventHeader
-          event={event}
-          now={now}
-          onSetNotification={() => setNotificationManager(true)}
-        />
-        <SessionTimeline event={event} now={now} />
-        <WatchInfo event={event} />
-        <Highlights event={event} />
-        <DeepInfo event={event} />
-        {event.liveTimingUrl && (
-          <div className="mt-4">
-            <OfficialLiveTiming url={event.liveTimingUrl} eventName={event.name} />
-          </div>
-        )}
+        <PageTransition>
+          <EventHeader
+            event={event}
+            now={now}
+            onSetNotification={() => setNotificationManager(true)}
+          />
+          <SessionTimeline event={event} now={now} />
+          <WatchInfo event={event} />
+          <Highlights event={event} />
+          <DeepInfo event={event} />
+          {event.liveTimingUrl && (
+            <div className="mt-4">
+              <OfficialLiveTiming url={event.liveTimingUrl} eventName={event.name} />
+            </div>
+          )}
+        </PageTransition>
       </main>
 
       {notificationManager && (

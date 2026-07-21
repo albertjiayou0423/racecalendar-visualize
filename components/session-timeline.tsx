@@ -1,8 +1,8 @@
 "use client"
 
-import { Clock } from "lucide-react"
+import { Clock, Play } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { BEIJING_TZ, countdown, formatDateTime } from "@/lib/format"
+import { BEIJING_TZ, countdown, formatDateTime, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface SessionTimelineProps {
@@ -11,10 +11,58 @@ interface SessionTimelineProps {
 }
 
 export function SessionTimeline({ event, now }: SessionTimelineProps) {
+  const firstSessionStart = event.sessions.length > 0 ? new Date(event.sessions[0].utc).getTime() : 0
+  const lastSessionEnd = event.sessions.length > 0
+    ? new Date(event.sessions[event.sessions.length - 1].utc).getTime() + 2 * 60 * 60 * 1000
+    : 0
+  const totalDuration = lastSessionEnd - firstSessionStart
+  const progress = totalDuration > 0 ? Math.max(0, Math.min(100, ((now - firstSessionStart) / totalDuration) * 100)) : 0
+  const isBefore = now < firstSessionStart
+  const isAfter = now > lastSessionEnd
+  const currentSessionIndex = event.sessions.findIndex((s) => {
+    const start = new Date(s.utc).getTime()
+    const end = start + 2 * 60 * 60 * 1000
+    return now >= start && now <= end
+  })
+
   return (
     <section className="mt-4 rounded-xl border border-border bg-card p-5">
-      <h2 className="text-sm font-semibold">赛程时间线</h2>
-      <div className="mt-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">赛程时间线</h2>
+        {!isBefore && !isAfter && (
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {Math.round(progress)}%
+          </span>
+        )}
+      </div>
+      
+      <div className="mt-3 relative">
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-500",
+              currentSessionIndex >= 0 ? "bg-red-500" : isAfter ? "bg-muted-foreground" : "bg-primary"
+            )}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {currentSessionIndex >= 0 && (
+          <div
+            className="absolute top-0 -translate-x-1/2"
+            style={{ left: `${progress}%` }}
+          >
+            <div className="relative -top-1">
+              <Play className="size-4 text-red-500" fill="currentColor" />
+            </div>
+          </div>
+        )}
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+          <span>{event.sessions.length > 0 ? formatDate(event.sessions[0].utc, BEIJING_TZ) : ""}</span>
+          <span>{event.sessions.length > 0 ? formatDate(event.sessions[event.sessions.length - 1].utc, BEIJING_TZ) : ""}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
         {event.sessions.map((s, i) => {
           const sessionStart = new Date(s.utc).getTime()
           const sessionEnd = sessionStart + 2 * 60 * 60 * 1000
