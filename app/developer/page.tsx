@@ -74,6 +74,23 @@ export default function DeveloperPage() {
               赛程首页
             </Link>
           </div>
+
+          {/* Patreon Support Card */}
+          <a
+            href="https://www.patreon.com/cw/huo_sai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mt-6 block rounded-xl border border-border overflow-hidden shadow-sm transition-all hover:shadow-md hover:scale-[1.01]"
+          >
+            <Image
+              src="/patreon/card.png"
+              alt="Patreon Support Card"
+              width={1200}
+              height={630}
+              className="w-full h-auto object-cover"
+              priority
+            />
+          </a>
         </section>
 
         {/* Project Description */}

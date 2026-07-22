@@ -11,6 +11,27 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.0.1",
+    date: "2026-07-22",
+    items: [
+      { type: "fix", text: "修复开发者页面 Patreon 名片图片无法显示的问题" },
+      { type: "ui", text: "Patreon 卡片改用本地静态图片资源，提升加载稳定性" },
+    ],
+  },
+  {
+    version: "v2.0.0",
+    date: "2026-07-22",
+    items: [
+      { type: "feat", text: "WRC 动态赛历发现：爬虫先从官网 Event Series API 获取全年14场完整赛历，再逐个爬取，不再受60天日期限制" },
+      { type: "feat", text: "WRC v2 爬虫方案：并行尝试多种 itinerary slug 调用 Feed API，绕过 Akamai WAF，提升爬取成功率" },
+      { type: "feat", text: "天气图表重构：使用 ECharts 将天气卡片改为交互式每日气温折线图与降水柱状图" },
+      { type: "feat", text: "数据库持久化优化：修复 DATABASE_URL 缺失导致快照/配额完全失效的问题" },
+      { type: "fix", text: "修正3个 WRC 错误 slug（葡萄牙/日本/希腊缺少赞助商前缀）" },
+      { type: "fix", text: "移除 WRC 爬虫每日10次 API 配额限制，始终尝试爬取官网数据" },
+      { type: "ui", text: "添加 Patreon 赞助入口到开发者页面" },
+    ],
+  },
+  {
     version: "v1.0.10",
     date: "2026-07-21",
     items: [
@@ -174,8 +195,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.10</span>
-          <span className="text-sm text-muted-foreground">当前版本</span>
+          <span className="text-3xl font-bold">v2.0.1</span>
+          <span className="text-sm text-muted-foreground">修复更新</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -207,7 +228,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.10" && (
+                {entry.version === "v2.0.1" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
