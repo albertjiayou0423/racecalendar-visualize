@@ -1,18 +1,36 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
 import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+} from "echarts/components"
+import { CanvasRenderer } from "echarts/renderers"
+import {
+  Thermometer,
+  Droplets,
   Sun,
   Cloud,
   CloudRain,
   CloudSnow,
   CloudLightning,
-  Droplets,
-  Thermometer,
   RefreshCw,
 } from "lucide-react"
 import type { DailyForecast } from "@/app/api/weather/route"
 import { cn } from "@/lib/utils"
+
+echarts.use([
+  LineChart,
+  BarChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  CanvasRenderer,
+])
 
 interface WeatherCardProps {
   city: string
@@ -27,6 +45,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [daily, setDaily] = useState<DailyForecast[]>([])
+  const chartRef = useRef<ReactEChartsCore>(null)
 
   const fetchWeather = useCallback(async () => {
     setLoading(true)
@@ -95,12 +114,12 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
           )}
         </div>
       )}
-      <WeekWeatherChart daily={daily} raceDate={date} />
+      <WeatherChart daily={daily} raceDate={date} />
     </div>
   )
 }
 
-function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: string }) {
+function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: string }) {
   const days = useMemo(() => {
     return daily.slice(0, 7).map((d) => ({
       ...d,
@@ -111,180 +130,197 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
 
   if (days.length === 0) return null
 
-  const allTemps = days.flatMap((d) => [d.tempMax, d.tempMin])
-  const maxT = Math.max(...allTemps)
-  const minT = Math.min(...allTemps)
-  const pad = Math.max((maxT - minT) * 0.2, 4)
-  const yMax = Math.ceil(maxT + pad)
-  const yMin = Math.floor(minT - pad)
-  const yRange = Math.max(yMax - yMin, 1)
+  const option = useMemo(() => {
+    const labels = days.map((d) => d.label)
+    const raceIndex = days.findIndex((d) => d.isRace)
 
-  const W = 700
-  const H = 160
-  const padL = 32
-  const padR = 16
-  const padT = 8
-  const padB = 36
-  const chartH = H - padT - padB
-  const chartW = W - padL - padR
-  const colW = chartW / days.length
-
-  const yScale = (t: number) => padT + ((t - yMin) / yRange) * chartH
-  const xCenter = (i: number) => padL + colW * i + colW / 2
-
-  const maxPath = days
-    .map((d, i) => `${i === 0 ? "M" : "L"} ${xCenter(i)} ${yScale(d.tempMax)}`)
-    .join(" ")
-  const minPath = days
-    .map((d, i) => `${i === 0 ? "M" : "L"} ${xCenter(i)} ${yScale(d.tempMin)}`)
-    .join(" ")
-
-  const areaPath =
-    maxPath +
-    " " +
-    days
-      .map((d, i) => `L ${xCenter(days.length - 1 - i)} ${yScale(days[days.length - 1 - i].tempMin)}`)
-      .join(" ") +
-    " Z"
-
-  const rainMax = Math.max(...days.map((d) => d.precipitationProbability), 1)
+    return {
+      backgroundColor: "transparent",
+      grid: {
+        left: "8%",
+        right: "4%",
+        top: "12%",
+        bottom: "25%",
+        containLabel: true,
+      },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        borderColor: "#e5e7eb",
+        borderWidth: 1,
+        textStyle: {
+          color: "#374151",
+        },
+        axisPointer: {
+          type: "cross",
+          lineStyle: {
+            color: "#9ca3af",
+            width: 1,
+            type: "dashed",
+          },
+        },
+        formatter: (params: any) => {
+          const day = days[params[0].dataIndex]
+          let html = `<div class="font-medium mb-1">${day.label}</div>`
+          params.forEach((item: any) => {
+            const value = item.seriesName.includes("降水") ? `${item.value}%` : `${Math.round(item.value)}°`
+            html += `<div class="flex items-center gap-2 text-sm">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${item.color}"></span>
+              <span>${item.seriesName}: ${value}</span>
+            </div>`
+          })
+          return html
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisLine: {
+          lineStyle: {
+            color: "#e5e7eb",
+          },
+        },
+        axisTick: {
+          show: false,
+        },
+        axisLabel: {
+          color: raceIndex >= 0 ? (value: string, index: number) => 
+            index === raceIndex ? "#f59e0b" : "#9ca3af" : "#9ca3af",
+          fontSize: 11,
+          fontWeight: raceIndex >= 0 ? (value: string, index: number) => 
+            index === raceIndex ? 600 : 400 : 400,
+        },
+      },
+      yAxis: [
+        {
+          type: "value",
+          name: "°C",
+          nameTextStyle: {
+            color: "#9ca3af",
+            fontSize: 10,
+            padding: [0, 0, 0, -20],
+          },
+          axisLine: {
+            show: false,
+          },
+          axisTick: {
+            show: false,
+          },
+          axisLabel: {
+            color: "#9ca3af",
+            fontSize: 10,
+            formatter: "{value}°",
+          },
+          splitLine: {
+            lineStyle: {
+              color: "#f3f4f6",
+              type: "dashed",
+            },
+          },
+        },
+        {
+          type: "value",
+          name: "%",
+          nameTextStyle: {
+            color: "#9ca3af",
+            fontSize: 10,
+            padding: [0, -20, 0, 0],
+          },
+          axisLine: {
+            show: false,
+          },
+          axisTick: {
+            show: false,
+          },
+          axisLabel: {
+            color: "#9ca3af",
+            fontSize: 10,
+            formatter: "{value}%",
+          },
+          splitLine: {
+            show: false,
+          },
+          max: 100,
+        },
+      ],
+      series: [
+        {
+          name: "高温",
+          type: "line",
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: {
+            color: "#f59e0b",
+            width: 2.5,
+          },
+          itemStyle: {
+            color: "#f59e0b",
+            borderWidth: 2,
+            borderColor: "#fff",
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: "rgba(245, 158, 11, 0.15)" },
+              { offset: 0.5, color: "rgba(245, 158, 11, 0.08)" },
+              { offset: 1, color: "rgba(245, 158, 11, 0.02)" },
+            ]),
+          },
+          data: days.map((d) => d.tempMax),
+        },
+        {
+          name: "低温",
+          type: "line",
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 5,
+          lineStyle: {
+            color: "#94a3b8",
+            width: 1.5,
+          },
+          itemStyle: {
+            color: "#94a3b8",
+            borderWidth: 1.5,
+            borderColor: "#fff",
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: "rgba(148, 163, 184, 0.08)" },
+              { offset: 1, color: "rgba(148, 163, 184, 0.02)" },
+            ]),
+          },
+          data: days.map((d) => d.tempMin),
+        },
+        {
+          name: "降水",
+          type: "bar",
+          yAxisIndex: 1,
+          barWidth: "30%",
+          itemStyle: {
+            color: (params: any) => {
+              const val = params.value
+              return val > 50 
+                ? "rgba(96, 165, 250, 0.6)" 
+                : "rgba(147, 197, 253, 0.5)"
+            },
+            borderRadius: [4, 4, 0, 0],
+          },
+          data: days.map((d) => d.precipitationProbability),
+        },
+      ],
+    }
+  }, [days])
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[300px]">
-        <defs>
-          <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.08" />
-          </linearGradient>
-          <linearGradient id="raceGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-
-        {days.map((d, i) =>
-          d.isRace ? (
-            <rect
-              key={`race-${i}`}
-              x={padL + colW * i + 4}
-              y={padT - 4}
-              width={colW - 8}
-              height={chartH + padB + 4}
-              rx={10}
-              fill="url(#raceGradient)"
-              stroke="#f59e0b"
-              strokeOpacity={0.2}
-              strokeWidth={1}
-            />
-          ) : null
-        )}
-
-        <path d={areaPath} fill="url(#tempGradient)" />
-
-        <path
-          d={minPath}
-          fill="none"
-          stroke="#94a3b8"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      <div className="min-w-[300px]">
+        <ReactEChartsCore
+          echarts={echarts}
+          option={option}
+          style={{ height: "180px", width: "100%" }}
+          opts={{ renderer: "canvas" }}
         />
-        <path
-          d={maxPath}
-          fill="none"
-          stroke="#f59e0b"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {days.map((d, i) => {
-          const cx = xCenter(i)
-          return (
-            <g key={`dots-${i}`}>
-              <circle cx={cx} cy={yScale(d.tempMax)} r={3.5} fill="#f59e0b" />
-              <circle cx={cx} cy={yScale(d.tempMax)} r={1.5} fill="white" />
-              <circle cx={cx} cy={yScale(d.tempMin)} r={3} fill="#cbd5e1" />
-              <circle cx={cx} cy={yScale(d.tempMin)} r={1.2} fill="white" />
-            </g>
-          )
-        })}
-
-        {days.map((d, i) => {
-          const cx = xCenter(i)
-          const barW = Math.min(colW * 0.4, 24)
-          const barH = (d.precipitationProbability / rainMax) * 18
-          const barY = padT + chartH - barH
-          return (
-            <rect
-              key={`rain-${i}`}
-              x={cx - barW / 2}
-              y={barY}
-              width={barW}
-              height={barH}
-              rx={barW / 2}
-              fill={d.precipitationProbability > 50 ? "#60a5fa" : "#93c5fd"}
-              opacity={0.6 + (d.precipitationProbability / 100) * 0.4}
-            />
-          )
-        })}
-
-        {days.map((d, i) => {
-          const cx = xCenter(i)
-          return (
-            <foreignObject
-              key={`icon-${i}`}
-              x={cx - 12}
-              y={padT + chartH + 4}
-              width={24}
-              height={24}
-            >
-              <div className="flex items-center justify-center">
-                <WeatherIcon code={d.weatherCode} size={20} />
-              </div>
-            </foreignObject>
-          )
-        })}
-
-        {days.map((d, i) => {
-          const cx = xCenter(i)
-          return (
-            <text
-              key={`label-${i}`}
-              x={cx}
-              y={H - 6}
-              textAnchor="middle"
-              className={cn(
-                "fill-muted-foreground",
-                d.isRace && "fill-primary font-medium"
-              )}
-              style={{ fontSize: "11px", letterSpacing: "0.2px" }}
-            >
-              {d.label}
-            </text>
-          )
-        })}
-
-        <g transform={`translate(${padL}, ${padT - 6})`}>
-          <rect x={0} y={4} width={20} height={2} rx={1} fill="#f59e0b" />
-          <text x={26} y={8} className="fill-muted-foreground" style={{ fontSize: "9px" }}>
-            高
-          </text>
-        </g>
-        <g transform={`translate(${padL + 40}, ${padT - 6})`}>
-          <rect x={0} y={4} width={20} height={2} rx={1} fill="#94a3b8" />
-          <text x={26} y={8} className="fill-muted-foreground" style={{ fontSize: "9px" }}>
-            低
-          </text>
-        </g>
-        <g transform={`translate(${padL + 80}, ${padT - 6})`}>
-          <rect x={4} y={4} width={8} height={8} rx={2} fill="#60a5fa" opacity={0.5} />
-          <text x={18} y={10} className="fill-muted-foreground" style={{ fontSize: "9px" }}>
-            降水
-          </text>
-        </g>
-      </svg>
+      </div>
     </div>
   )
 }
@@ -302,16 +338,4 @@ function formatDayLabel(dateStr: string, raceDate: string): string {
 
   const weekdays = ["日", "一", "二", "三", "四", "五", "六"]
   return weekdays[d.getDay()]
-}
-
-function WeatherIcon({ code, size }: { code: number; size: number }) {
-  const props = { size, strokeWidth: 1.5 }
-  if (code === 0) return <Sun {...props} className="text-amber-500" />
-  if (code <= 3) return <Cloud {...props} className="text-slate-400" />
-  if (code <= 49) return <Cloud {...props} className="text-slate-500" />
-  if (code <= 59) return <Droplets {...props} className="text-blue-400" />
-  if (code <= 69) return <CloudRain {...props} className="text-blue-500" />
-  if (code <= 79) return <CloudSnow {...props} className="text-cyan-400" />
-  if (code <= 99) return <CloudLightning {...props} className="text-purple-500" />
-  return <Cloud {...props} className="text-slate-400" />
 }
