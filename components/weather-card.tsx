@@ -193,28 +193,6 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
           lineHeight: 24,
         },
         extraCssText: "z-index: 99999;",
-        position: function (point: number[], params: any[], dom: HTMLElement, rect: any, size: any) {
-          const tooltipHeight = dom.offsetHeight || 80
-          const tooltipWidth = dom.offsetWidth || 180
-          const chartLeft = rect.left || 0
-          const chartTop = rect.top || 0
-          const viewHeight = size.viewSize[1]
-          const viewWidth = size.viewSize[0]
-          let x = chartLeft + point[0]
-          let y = chartTop + point[1]
-
-          if (x + tooltipWidth > window.innerWidth - 10) {
-            x = window.innerWidth - tooltipWidth - 10
-          }
-          if (x < 10) x = 10
-
-          if (y - tooltipHeight > 20) {
-            y = y - tooltipHeight - 10
-          } else {
-            y = y + 20
-          }
-          return [x, y]
-        },
         formatter: function (params: any[]) {
           const date = params[0].axisValue
           let html = `<div style="font-weight:600; font-size:15px; margin-bottom:6px; color:rgba(255,255,255,0.9);">${date}</div>`
