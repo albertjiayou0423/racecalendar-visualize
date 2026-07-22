@@ -6,6 +6,7 @@ import * as echarts from "echarts/core"
 import { LineChart, BarChart } from "echarts/charts"
 import {
   GridComponent,
+  TooltipComponent,
 } from "echarts/components"
 import { CanvasRenderer } from "echarts/renderers"
 import {
@@ -19,6 +20,7 @@ echarts.use([
   LineChart,
   BarChart,
   GridComponent,
+  TooltipComponent,
   CanvasRenderer,
 ])
 
@@ -83,20 +85,20 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
       {raceDayData && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-50 to-orange-50">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-900/50 to-orange-900/50">
               <Thermometer className="size-4 text-amber-500" />
             </div>
             <div>
-              <div className="text-base font-medium text-foreground">
+              <div className="text-base font-medium text-amber-500">
                 {Math.round(raceDayData.tempMax)}°
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-sky-400">
                 {Math.round(raceDayData.tempMin)}°
               </div>
             </div>
           </div>
           {raceDayData.precipitationProbability > 30 && (
-            <div className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-500">
+            <div className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2 py-1 text-xs text-blue-400">
               <Droplets className="size-3" />
               {raceDayData.precipitationProbability}%
             </div>
@@ -125,143 +127,244 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
 
     return {
       backgroundColor: "transparent",
+      tooltip: {
+        show: true,
+        trigger: "axis",
+        triggerOn: "mousemove|click",
+        hideDelay: 50,
+        alwaysShowContent: false,
+        enterable: false,
+        axisPointer: {
+          type: "cross",
+          crossStyle: {
+            color: "rgba(255,255,255,0.15)",
+            type: "dashed",
+            width: 1,
+          },
+          label: {
+            backgroundColor: "rgba(20,23,28,0.8)",
+            color: "rgba(255,255,255,0.6)",
+            fontSize: 12,
+            borderRadius: 0,
+            padding: [4, 8],
+            margin: 6,
+          },
+        },
+        backgroundColor: "rgba(20, 23, 28, 0.92)",
+        borderColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        borderRadius: 0,
+        padding: [12, 16],
+        shadowBlur: 24,
+        shadowColor: "rgba(0,0,0,0.6)",
+        textStyle: {
+          color: "rgba(255,255,255,0.85)",
+          fontSize: 13,
+          lineHeight: 24,
+        },
+        position: function (point: number[], params: any[], dom: HTMLElement, rect: any, size: any) {
+          const tooltipHeight = dom.offsetHeight || 80
+          const tooltipWidth = dom.offsetWidth || 180
+          const viewHeight = size.viewSize[1]
+          const viewWidth = size.viewSize[0]
+          let x = point[0]
+          let y = point[1]
+
+          if (x + tooltipWidth > viewWidth - 10) {
+            x = viewWidth - tooltipWidth - 10
+          }
+          if (x < 10) x = 10
+
+          if (y - tooltipHeight > 20) {
+            y = y - tooltipHeight - 10
+          } else {
+            y = y + 20
+          }
+          return [x, y]
+        },
+        formatter: function (params: any[]) {
+          const date = params[0].axisValue
+          let html = `<div style="font-weight:600; font-size:15px; margin-bottom:6px; color:rgba(255,255,255,0.9);">${date}</div>`
+          params.forEach((p) => {
+            if (p.seriesName === "最高温") {
+              html += `<div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:10px; height:10px; background:#f6ad55; border-radius:50%;"></span>
+                <span style="font-weight:400;">最高温</span>
+                <span style="font-weight:600; color:#f6ad55; margin-left:auto;">${Math.round(p.value)}°</span>
+              </div>`
+            } else if (p.seriesName === "最低温") {
+              html += `<div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:10px; height:10px; background:#6fc3df; border-radius:50%;"></span>
+                <span style="font-weight:400;">最低温</span>
+                <span style="font-weight:600; color:#6fc3df; margin-left:auto;">${Math.round(p.value)}°</span>
+              </div>`
+            } else if (p.seriesName === "降水") {
+              html += `<div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:10px; height:10px; background:#4facfe; border-radius:50%;"></span>
+                <span style="font-weight:400;">降水概率</span>
+                <span style="font-weight:600; color:#4facfe; margin-left:auto;">${p.value}%</span>
+              </div>`
+            }
+          })
+          return html
+        },
+      },
       grid: {
-        left: "4%",
-        right: "4%",
-        top: "8%",
-        bottom: "18%",
-        containLabel: true,
+        left: "6%",
+        right: "6%",
+        bottom: "14%",
+        top: "12%",
+        containLabel: false,
+        borderWidth: 0,
       },
       xAxis: {
         type: "category",
         data: labels,
-        axisLine: {
-          show: false,
-        },
-        axisTick: {
-          show: false,
-        },
+        axisLine: { show: false },
+        axisTick: { show: false },
         axisLabel: {
           color: raceIndex >= 0 ? (value: string, index: number) => 
-            index === raceIndex ? "#f59e0b" : "#94a3b8" : "#94a3b8",
-          fontSize: 11,
-          fontWeight: raceIndex >= 0 ? (value: string, index: number) => 
-            index === raceIndex ? 600 : 400 : 400,
+            index === raceIndex ? "#f6ad55" : "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.4)",
+          fontSize: 12,
+          fontWeight: 600,
+          margin: 12,
         },
+        splitLine: { show: false },
       },
       yAxis: [
         {
           type: "value",
-          axisLine: {
-            show: false,
-          },
-          axisTick: {
-            show: false,
-          },
-          axisLabel: {
-            show: false,
-          },
           splitLine: {
-            show: false,
+            show: true,
+            lineStyle: {
+              color: "rgba(255,255,255,0.06)",
+              type: "dashed",
+              width: 1,
+            },
+          },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            color: "rgba(255,255,255,0.3)",
+            fontSize: 11,
+            fontWeight: 400,
+            margin: 6,
+            formatter: "{value}°",
           },
         },
         {
           type: "value",
-          axisLine: {
-            show: false,
-          },
-          axisTick: {
-            show: false,
-          },
-          axisLabel: {
-            show: false,
-          },
-          splitLine: {
-            show: false,
-          },
+          min: 0,
           max: 100,
+          splitLine: { show: false },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            color: "rgba(255,255,255,0.3)",
+            fontSize: 11,
+            fontWeight: 400,
+            margin: 6,
+            formatter: "{value}%",
+          },
         },
       ],
       series: [
         {
-          name: "高温",
+          name: "最高温",
           type: "line",
-          smooth: true,
+          smooth: false,
           symbol: "circle",
-          symbolSize: 6,
+          symbolSize: 8,
+          showSymbol: true,
           lineStyle: {
-            color: "#f59e0b",
-            width: 2.5,
+            width: 3,
+            color: "#f6ad55",
+            shadowBlur: 12,
+            shadowColor: "rgba(246, 173, 85, 0.3)",
+            shadowOffsetY: 4,
           },
           itemStyle: {
-            color: "#f59e0b",
+            color: "#f6ad55",
+            borderColor: "#14171c",
             borderWidth: 2,
-            borderColor: "#ffffff",
-          },
-          label: {
-            show: true,
-            position: "top",
-            color: "#f59e0b",
-            fontSize: 10,
-            fontWeight: 500,
-            formatter: (params: any) => `${Math.round(params.value)}°`,
+            shadowBlur: 8,
+            shadowColor: "rgba(246, 173, 85, 0.4)",
           },
           areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: "rgba(245, 158, 11, 0.12)" },
-              { offset: 1, color: "rgba(245, 158, 11, 0)" },
-            ]),
+            color: {
+              type: "linear",
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(246, 173, 85, 0.25)" },
+                { offset: 1, color: "rgba(246, 173, 85, 0.01)" },
+              ],
+            },
           },
           data: days.map((d) => d.tempMax),
+          yAxisIndex: 0,
+          z: 2,
         },
         {
-          name: "低温",
+          name: "最低温",
           type: "line",
-          smooth: true,
-          symbol: "circle",
-          symbolSize: 4,
+          smooth: false,
+          symbol: "diamond",
+          symbolSize: 8,
+          showSymbol: true,
           lineStyle: {
-            color: "#64748b",
-            width: 1.5,
+            width: 3,
+            color: "#6fc3df",
+            shadowBlur: 10,
+            shadowColor: "rgba(111, 195, 223, 0.25)",
+            shadowOffsetY: 3,
           },
           itemStyle: {
-            color: "#64748b",
-            borderWidth: 1.5,
-            borderColor: "#ffffff",
-          },
-          label: {
-            show: true,
-            position: "bottom",
-            color: "#64748b",
-            fontSize: 9,
-            fontWeight: 400,
-            formatter: (params: any) => `${Math.round(params.value)}°`,
+            color: "#6fc3df",
+            borderColor: "#14171c",
+            borderWidth: 2,
+            shadowBlur: 6,
+            shadowColor: "rgba(111, 195, 223, 0.3)",
           },
           areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: "rgba(100, 116, 139, 0.06)" },
-              { offset: 1, color: "rgba(100, 116, 139, 0)" },
-            ]),
+            color: {
+              type: "linear",
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(111, 195, 223, 0.15)" },
+                { offset: 1, color: "rgba(111, 195, 223, 0.01)" },
+              ],
+            },
           },
           data: days.map((d) => d.tempMin),
+          yAxisIndex: 0,
+          z: 1,
         },
         {
           name: "降水",
           type: "bar",
-          yAxisIndex: 1,
-          barWidth: "20%",
-          itemStyle: {
-            color: (params: any) => {
-              const val = params.value
-              return val > 50 
-                ? "rgba(96, 165, 250, 0.5)" 
-                : "rgba(147, 197, 253, 0.4)"
-            },
-            borderRadius: [4, 4, 0, 0],
-          },
+          barGap: "0%",
+          barCategoryGap: "0%",
+          barWidth: "100%",
           data: days.map((d) => d.precipitationProbability),
+          yAxisIndex: 1,
+          itemStyle: {
+            color: {
+              type: "linear",
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(79, 172, 254, 0.7)" },
+                { offset: 1, color: "rgba(79, 172, 254, 0.2)" },
+              ],
+            },
+            borderWidth: 0,
+            shadowBlur: 10,
+            shadowColor: "rgba(79, 172, 254, 0.15)",
+          },
+          emphasis: { itemStyle: { color: "rgba(79, 172, 254, 0.9)" } },
+          z: 0,
         },
       ],
+      legend: { show: false },
     }
   }, [days])
 
@@ -271,7 +374,7 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
         <ReactEChartsCore
           echarts={echarts}
           option={option}
-          style={{ height: "140px", width: "100%" }}
+          style={{ height: "160px", width: "100%" }}
           opts={{ renderer: "canvas" }}
         />
       </div>
@@ -292,78 +395,4 @@ function formatDayLabel(dateStr: string, raceDate: string): string {
 
   const weekdays = ["日", "一", "二", "三", "四", "五", "六"]
   return weekdays[d.getDay()]
-}"use client"use client"
-
-import { useState, useEffect, useCallback"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts-for-react/lib/core"
-import * as echarts from "echarts/core"
-import {"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts-for-react/lib/core"
-import * as echarts from "echarts/core"
-import { LineChart, BarChart } from "echarts/charts"
-import {
-  GridComponent"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts-for-react/lib/core"
-import * as echarts from "echarts/core"
-import { LineChart, BarChart } from "echarts/charts"
-import {
-  GridComponent,
-  TooltipComponent,
-} from "echarts/components"
-import { CanvasRenderer"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts-for-react/lib/core"
-import * as echarts from "echarts/core"
-import { LineChart, BarChart } from "echarts/charts"
-import {
-  GridComponent,
-  TooltipComponent,
-} from "echarts/components"
-import { CanvasRenderer } from "echarts/renderers"
-import {
-  Thermometer,
-  Drop"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts-for-react/lib/core"
-import * as echarts from "echarts/core"
-import { LineChart, BarChart } from "echarts/charts"
-import {
-  GridComponent,
-  TooltipComponent,
-} from "echarts/components"
-import { CanvasRenderer } from "echarts/renderers"
-import {
-  Thermometer,
-  Droplets,
-  RefreshCw,
-} from "lucide-react"
-import type {"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import ReactEChartsCore from "echarts-for-react/lib/core"
-import * as echarts from "echarts/core"
-import { LineChart, BarChart } from "echarts/charts"
-import {
-  GridComponent,
-  TooltipComponent,
-} from "echarts/components"
-import { CanvasRenderer } from "echarts/renderers"
-import {
-  Thermometer,
-  Droplets,
-  RefreshCw,
-} from "lucide-react"
-import type { DailyForecast } from "@/app/api/weather/route"
-
-echarts.use([
+}
