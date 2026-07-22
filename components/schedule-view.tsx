@@ -236,8 +236,23 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
   const [filterStuck, setFilterStuck] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) {
+      setFilterStuck(false)
+      return
+    }
+
     let ticking = false
     const thresholdUp = 80
     const thresholdDown = 180
@@ -263,7 +278,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
 
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
-  }, [])
+  }, [isMobile])
 
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
@@ -332,11 +347,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         data-filter-bar
         className={cn(
           "sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
-          filterStuck && "py-2 gap-0"
+          filterStuck && isMobile && "py-2 gap-0"
         )}
       >
-        {/* 搜索框 - 吸顶时隐藏 */}
-        <div className={cn("relative transition-all", filterStuck && "hidden")}>
+        {/* 搜索框 - 移动端吸顶时隐藏 */}
+        <div className={cn("relative transition-all", filterStuck && isMobile && "hidden")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             type="text"
@@ -367,8 +382,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               </button>
             ))}
           </div>
-          {/* 视图切换 + 通知 */}
-          <div className="flex items-center gap-2">
+          {/* 视图切换 + 通知 - 移动端吸顶时隐藏 */}
+          <div className={cn("flex items-center gap-2", filterStuck && isMobile && "hidden")}>
             <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
               <button
                 type="button"
@@ -419,8 +434,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             {data ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
-        {/* 时间范围和高级筛选 - 吸顶时隐藏 */}
-        <div className={cn("flex flex-col gap-2 transition-all", filterStuck && "hidden")}>
+        {/* 时间范围和高级筛选 - 移动端吸顶时隐藏 */}
+        <div className={cn("flex flex-col gap-2 transition-all", filterStuck && isMobile && "hidden")}>
           {view === "list" ? (
             <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
               {TIME_TABS.map((t) => (
