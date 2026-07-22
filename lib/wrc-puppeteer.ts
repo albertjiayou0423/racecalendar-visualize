@@ -797,7 +797,8 @@ const WRC_RALLIES: WrcRally[] = [
 
 // ============ 主函数 ============
 
-export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+  const allowApiFallback = options?.allowApiFallback ?? true
   const fallbackEvents = buildWrcEvents()
   const events: RaceEvent[] = [...fallbackEvents]
   let successCount = 0
@@ -815,10 +816,10 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
 
   const rallies = relevantRallies.length > 0 ? relevantRallies : WRC_RALLIES.slice(0, 3)
 
-  console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
+  console.log(`WRC: scraping ${rallies.length} rallies (filtered by date), allowApiFallback=${allowApiFallback}`)
 
-  const ocblacktopRallies = OCBLACKTOP_API_KEY ? await fetchOcblacktopRallies() : null
-  if (OCBLACKTOP_API_KEY) {
+  const ocblacktopRallies = (OCBLACKTOP_API_KEY && allowApiFallback) ? await fetchOcblacktopRallies() : null
+  if (OCBLACKTOP_API_KEY && allowApiFallback) {
     console.log(`ocblacktop: ${ocblacktopRallies ? ocblacktopRallies.length : 0} rallies indexed`)
   }
 

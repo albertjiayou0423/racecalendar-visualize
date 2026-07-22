@@ -16,17 +16,22 @@ export async function GET() {
   await initCrawlTables()
 
   // 检查今日爬取配额
+  // 注意：WRC 不做前置阻止，但只有配额充足时才允许使用 ocblacktop API fallback
+  // 官网爬虫（feed API）始终允许，不消耗配额
   const quotaChecks = await Promise.all([
     canCrawlToday("F1"),
     canCrawlToday("FE"),
     canCrawlToday("WRC"),
   ])
 
+  const wrcAllowApi = quotaChecks[2]
+
   // 根据配额决定是否实际爬取，还是使用快照
+  // WRC 始终尝试爬取（官网爬虫不消耗配额），仅在配额充足时启用 API fallback
   const [f1Result, feResult, wrcResult] = await Promise.all([
     quotaChecks[0] ? fetchAndSave("F1", fetchF1) : loadFromSnapshot("F1"),
     quotaChecks[1] ? fetchAndSave("FE", fetchFe) : loadFromSnapshot("FE"),
-    quotaChecks[2] ? fetchAndSave("WRC", fetchWrc) : loadFromSnapshot("WRC"),
+    fetchAndSave("WRC", () => fetchWrc({ allowApiFallback: wrcAllowApi })),
   ])
 
   const f1 = f1Result.result
