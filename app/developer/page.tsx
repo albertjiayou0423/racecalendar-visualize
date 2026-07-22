@@ -74,6 +74,36 @@ export default function DeveloperPage() {
               赛程首页
             </Link>
           </div>
+
+          {/* Patreon Support Card */}
+          <div className="mt-6 rounded-xl border border-border bg-gradient-to-br from-emerald-900/20 via-zinc-900/50 to-teal-900/20 p-4">
+            <a
+              href="https://www.patreon.com/cw/huo_sai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-4"
+            >
+              <div className="relative flex-shrink-0 overflow-hidden rounded-lg border-2 border-emerald-500/30 bg-zinc-900/80">
+                <Image
+                  src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=pixel%20art%20avatar%20of%20a%20cool%20racing%20driver%20with%20black%20hair%20wearing%20dark%20glasses%20and%20black%20racing%20suit%20with%20white%20stripes%2C%20cyan%20background%2C%208-bit%20style%2C%20portrait&image_size=square"
+                  alt="Patreon Avatar"
+                  width={64}
+                  height={64}
+                  className="opacity-90 transition-opacity group-hover:opacity-100"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <Heart className="size-4 text-emerald-400 fill-emerald-400" />
+                  <span className="text-sm font-semibold text-foreground">支持开发者</span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">订阅 Patreon 获取更多独家内容</p>
+              </div>
+              <div className="flex-shrink-0 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-[10px] font-medium text-emerald-400 transition-all group-hover:bg-emerald-500/20">
+                赞助
+              </div>
+            </a>
+          </div>
         </section>
 
         {/* Project Description */}
