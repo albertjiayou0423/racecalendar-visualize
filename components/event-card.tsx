@@ -347,17 +347,14 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {/* 天气预报 */}
             {main && (
               <div className="border-t border-border/50 px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">当地天气预报</span>
-                  <WeatherCard
-                    city={event.locality}
-                    country={event.country}
-                    date={new Date(main.utc).toISOString().split("T")[0]}
-                    startTime={formatTime(main.utc, event.tz)}
-                    lat={event.lat}
-                    lon={event.lon}
-                  />
-                </div>
+                <WeatherCard
+                  city={event.locality}
+                  country={event.country}
+                  date={new Date(main.utc).toISOString().split("T")[0]}
+                  startTime={formatTime(main.utc, event.tz)}
+                  lat={event.lat}
+                  lon={event.lon}
+                />
               </div>
             )}
 
@@ -453,11 +450,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
               {/* 天气预报 */}
               {main && (
-                <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">当地天气预报</h4>
-                    <span className="text-[10px] text-muted-foreground">{new Date(main.utc).toISOString().split("T")[0]}</span>
-                  </div>
+                <div className="rounded-xl border border-border/30 bg-background/50 p-4">
                   <WeatherCard
                     city={event.locality}
                     country={event.country}

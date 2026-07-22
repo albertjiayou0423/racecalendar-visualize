@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import ReactEChartsCore from "echarts-for-react/lib/core"
 import * as echarts from "echarts/core"
 import { LineChart, BarChart } from "echarts/charts"
 import {
   GridComponent,
   TooltipComponent,
-  LegendComponent,
 } from "echarts/components"
 import { CanvasRenderer } from "echarts/renderers"
 import {
@@ -21,14 +20,12 @@ import {
   RefreshCw,
 } from "lucide-react"
 import type { DailyForecast } from "@/app/api/weather/route"
-import { cn } from "@/lib/utils"
 
 echarts.use([
   LineChart,
   BarChart,
   GridComponent,
   TooltipComponent,
-  LegendComponent,
   CanvasRenderer,
 ])
 
@@ -45,7 +42,6 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [daily, setDaily] = useState<DailyForecast[]>([])
-  const chartRef = useRef<ReactEChartsCore>(null)
 
   const fetchWeather = useCallback(async () => {
     setLoading(true)
@@ -80,7 +76,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
 
   if (loading) {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <RefreshCw className="size-3 animate-spin" />
         <Thermometer className="size-3" />
       </div>
@@ -90,24 +86,24 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   if (error || !daily.length) return null
 
   return (
-    <div className="rounded-xl border border-border/40 bg-background/60 backdrop-blur-sm p-3 shadow-sm">
+    <div className="space-y-2">
       {raceDayData && (
-        <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Thermometer className="size-5 text-primary" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-50 to-orange-50">
+              <Thermometer className="size-4 text-amber-500" />
             </div>
             <div>
-              <div className="text-lg font-semibold text-foreground">
+              <div className="text-base font-medium text-foreground">
                 {Math.round(raceDayData.tempMax)}°
               </div>
               <div className="text-xs text-muted-foreground">
-                最低 {Math.round(raceDayData.tempMin)}°
+                {Math.round(raceDayData.tempMin)}°
               </div>
             </div>
           </div>
           {raceDayData.precipitationProbability > 30 && (
-            <div className="flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-500">
+            <div className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-500">
               <Droplets className="size-3" />
               {raceDayData.precipitationProbability}%
             </div>
@@ -137,36 +133,43 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
     return {
       backgroundColor: "transparent",
       grid: {
-        left: "8%",
+        left: "6%",
         right: "4%",
-        top: "12%",
-        bottom: "25%",
+        top: "10%",
+        bottom: "22%",
         containLabel: true,
       },
       tooltip: {
         trigger: "axis",
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderColor: "#e5e7eb",
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "#f1f5f9",
         borderWidth: 1,
+        borderRadius: 10,
+        padding: [12, 16],
         textStyle: {
-          color: "#374151",
+          color: "#334155",
+          fontSize: 12,
         },
         axisPointer: {
           type: "cross",
           lineStyle: {
-            color: "#9ca3af",
+            color: "#cbd5e1",
             width: 1,
             type: "dashed",
           },
         },
         formatter: (params: any) => {
           const day = days[params[0].dataIndex]
-          let html = `<div class="font-medium mb-1">${day.label}</div>`
+          const weatherIcon = getWeatherIcon(day.weatherCode)
+          let html = `<div class="flex items-center gap-2 mb-2">
+            <span>${weatherIcon}</span>
+            <span class="font-semibold">${day.label}</span>
+          </div>`
           params.forEach((item: any) => {
             const value = item.seriesName.includes("降水") ? `${item.value}%` : `${Math.round(item.value)}°`
-            html += `<div class="flex items-center gap-2 text-sm">
-              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${item.color}"></span>
-              <span>${item.seriesName}: ${value}</span>
+            html += `<div class="flex items-center justify-between gap-8 py-1">
+              <span class="text-muted-foreground">${item.seriesName}</span>
+              <span class="font-medium">${value}</span>
             </div>`
           })
           return html
@@ -176,16 +179,14 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
         type: "category",
         data: labels,
         axisLine: {
-          lineStyle: {
-            color: "#e5e7eb",
-          },
+          show: false,
         },
         axisTick: {
           show: false,
         },
         axisLabel: {
           color: raceIndex >= 0 ? (value: string, index: number) => 
-            index === raceIndex ? "#f59e0b" : "#9ca3af" : "#9ca3af",
+            index === raceIndex ? "#f59e0b" : "#94a3b8" : "#94a3b8",
           fontSize: 11,
           fontWeight: raceIndex >= 0 ? (value: string, index: number) => 
             index === raceIndex ? 600 : 400 : 400,
@@ -194,12 +195,6 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
       yAxis: [
         {
           type: "value",
-          name: "°C",
-          nameTextStyle: {
-            color: "#9ca3af",
-            fontSize: 10,
-            padding: [0, 0, 0, -20],
-          },
           axisLine: {
             show: false,
           },
@@ -207,25 +202,19 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
             show: false,
           },
           axisLabel: {
-            color: "#9ca3af",
-            fontSize: 10,
+            color: "#94a3b8",
+            fontSize: 9,
             formatter: "{value}°",
           },
           splitLine: {
             lineStyle: {
-              color: "#f3f4f6",
-              type: "dashed",
+              color: "#f8fafc",
+              width: 1,
             },
           },
         },
         {
           type: "value",
-          name: "%",
-          nameTextStyle: {
-            color: "#9ca3af",
-            fontSize: 10,
-            padding: [0, -20, 0, 0],
-          },
           axisLine: {
             show: false,
           },
@@ -233,9 +222,7 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
             show: false,
           },
           axisLabel: {
-            color: "#9ca3af",
-            fontSize: 10,
-            formatter: "{value}%",
+            show: false,
           },
           splitLine: {
             show: false,
@@ -249,7 +236,7 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
           type: "line",
           smooth: true,
           symbol: "circle",
-          symbolSize: 6,
+          symbolSize: 5,
           lineStyle: {
             color: "#f59e0b",
             width: 2.5,
@@ -257,13 +244,14 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
           itemStyle: {
             color: "#f59e0b",
             borderWidth: 2,
-            borderColor: "#fff",
+            borderColor: "#ffffff",
+            shadowColor: "rgba(245, 158, 11, 0.3)",
+            shadowBlur: 4,
           },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: "rgba(245, 158, 11, 0.15)" },
-              { offset: 0.5, color: "rgba(245, 158, 11, 0.08)" },
-              { offset: 1, color: "rgba(245, 158, 11, 0.02)" },
+              { offset: 0, color: "rgba(245, 158, 11, 0.12)" },
+              { offset: 1, color: "rgba(245, 158, 11, 0)" },
             ]),
           },
           data: days.map((d) => d.tempMax),
@@ -273,20 +261,20 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
           type: "line",
           smooth: true,
           symbol: "circle",
-          symbolSize: 5,
+          symbolSize: 4,
           lineStyle: {
-            color: "#94a3b8",
+            color: "#64748b",
             width: 1.5,
           },
           itemStyle: {
-            color: "#94a3b8",
+            color: "#64748b",
             borderWidth: 1.5,
-            borderColor: "#fff",
+            borderColor: "#ffffff",
           },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: "rgba(148, 163, 184, 0.08)" },
-              { offset: 1, color: "rgba(148, 163, 184, 0.02)" },
+              { offset: 0, color: "rgba(100, 116, 139, 0.06)" },
+              { offset: 1, color: "rgba(100, 116, 139, 0)" },
             ]),
           },
           data: days.map((d) => d.tempMin),
@@ -295,13 +283,13 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
           name: "降水",
           type: "bar",
           yAxisIndex: 1,
-          barWidth: "30%",
+          barWidth: "25%",
           itemStyle: {
             color: (params: any) => {
               const val = params.value
               return val > 50 
-                ? "rgba(96, 165, 250, 0.6)" 
-                : "rgba(147, 197, 253, 0.5)"
+                ? "rgba(96, 165, 250, 0.5)" 
+                : "rgba(147, 197, 253, 0.4)"
             },
             borderRadius: [4, 4, 0, 0],
           },
@@ -313,11 +301,11 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
 
   return (
     <div className="w-full overflow-x-auto">
-      <div className="min-w-[300px]">
+      <div className="min-w-[280px]">
         <ReactEChartsCore
           echarts={echarts}
           option={option}
-          style={{ height: "180px", width: "100%" }}
+          style={{ height: "160px", width: "100%" }}
           opts={{ renderer: "canvas" }}
         />
       </div>
@@ -338,4 +326,38 @@ function formatDayLabel(dateStr: string, raceDate: string): string {
 
   const weekdays = ["日", "一", "二", "三", "四", "五", "六"]
   return weekdays[d.getDay()]
+}
+
+function getWeatherIcon(code: number): string {
+  const iconMap: Record<number, string> = {
+    0: "☀️",
+    1: "🌤️",
+    2: "⛅",
+    3: "☁️",
+    45: "🌫️",
+    48: "🌫️",
+    51: "🌧️",
+    53: "🌧️",
+    55: "🌧️",
+    56: "🌧️",
+    57: "🌧️",
+    61: "🌧️",
+    63: "🌧️",
+    65: "⛈️",
+    66: "🌧️",
+    67: "⛈️",
+    71: "❄️",
+    73: "❄️",
+    75: "❄️",
+    77: "❄️",
+    80: "🌦️",
+    81: "🌧️",
+    82: "⛈️",
+    85: "🌨️",
+    86: "❄️",
+    95: "⛈️",
+    96: "⛈️",
+    99: "⛈️",
+  }
+  return iconMap[code] || "☁️"
 }
