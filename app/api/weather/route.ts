@@ -49,10 +49,37 @@ function isDateInRange(dateStr: string): { valid: boolean; message?: string } {
   return { valid: true }
 }
 
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries: number = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) {
+        if (res.status >= 500 && i < retries) {
+          console.log(`Weather API ${url} returned ${res.status}, retrying...`)
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+          continue
+        }
+      }
+      return res
+    } catch (e) {
+      if (i < retries) {
+        console.log(`Weather API error for ${url}, retrying...`, e)
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+        continue
+      }
+      throw e
+    }
+  }
+  throw new Error("Max retries exceeded")
+}
+
 async function fetchGeocode(city: string, country: string): Promise<{ lat: number; lon: number; name: string } | null> {
   try {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=zh&format=json`
-    const res = await fetch(url, { next: { revalidate: 86400 } })
+    const res = await fetchWithRetry(url, { next: { revalidate: 86400 } })
     if (!res.ok) return null
     const data = await res.json()
     if (!data.results || data.results.length === 0) return null
@@ -148,7 +175,7 @@ export async function GET(request: NextRequest) {
       end_date: endDate,
     })
 
-    const res = await fetch(`${OPEN_METEO_BASE}?${params.toString()}`, { next: { revalidate: 3600 } })
+    const res = await fetchWithRetry(`${OPEN_METEO_BASE}?${params.toString()}`, { next: { revalidate: 3600 } })
     
     if (!res.ok) {
       console.error(`Open-Meteo API error: ${res.status}`)

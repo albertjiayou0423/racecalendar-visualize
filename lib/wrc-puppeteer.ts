@@ -652,7 +652,7 @@ const WRC_RALLIES: WrcRally[] = [
 
 // ============ 主函数 ============
 
-export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
+export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
   const fallbackEvents = buildWrcEvents()
   const events: RaceEvent[] = [...fallbackEvents]
   let successCount = 0
@@ -672,7 +672,6 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
 
-  // 预取 ocblacktop rally 列表，作为第四层 fallback 的名称索引
   const ocblacktopRallies = OCBLACKTOP_API_KEY ? await fetchOcblacktopRallies() : null
   if (OCBLACKTOP_API_KEY) {
     console.log(`ocblacktop: ${ocblacktopRallies ? ocblacktopRallies.length : 0} rallies indexed`)
@@ -680,11 +679,9 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
 
   const results = await Promise.allSettled(
     rallies.map(async (rally) => {
-      // 第一层：直接 fetch WRC 官网
       let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
       let source = "wrc-official"
 
-      // 第四层 fallback：ocblacktop API
       if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
         sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
         if (sessions && sessions.length > 0) source = "ocblacktop"
@@ -725,11 +722,19 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   }
 
   const ok = successCount > 0 || ocblacktopCount > 0
+  
+  let dataSource: "scraped" | "api" | "mixed" = "scraped"
+  if (ocblacktopCount > 0 && successCount === 0) {
+    dataSource = "api"
+  } else if (ocblacktopCount > 0 && successCount > 0) {
+    dataSource = "mixed"
+  }
+
   const parts: string[] = []
   if (successCount > 0) parts.push(`${successCount} 场官网爬取成功`)
-  if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop fallback`)
+  if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop API`)
   if (errors.length > 0) parts.push(`${errors.length} 场使用估计数据（${errors.join(", ")}）`)
   const note = parts.length > 0 ? parts.join("，") : "所有爬取的赛事均获取成功"
 
-  return { events, ok, note }
+  return { events, ok, note, dataSource }
 }
