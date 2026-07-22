@@ -85,9 +85,10 @@ export default function DeveloperPage() {
             <Image
               src="/patreon/card.png"
               alt="Patreon Support Card"
-              width={800}
-              height={600}
+              width={1200}
+              height={630}
               className="w-full h-auto object-cover"
+              priority
             />
           </a>
         </section>
