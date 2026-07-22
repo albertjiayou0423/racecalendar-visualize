@@ -2,32 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast"
 
-export interface HourlyForecast {
-  time: string
-  temperature: number
-  precipitation: number
-  precipitationProbability: number
-  weatherCode: number
-  windSpeed: number
-  humidity: number
-}
-
 export interface DailyForecast {
   date: string
   tempMax: number
   tempMin: number
   precipitationSum: number
   precipitationProbability: number
+  weatherCode: number
   sunrise: string
   sunset: string
-}
-
-export interface WeatherAlert {
-  level: "info" | "warning" | "severe"
-  type: "rain" | "storm" | "snow" | "wind" | "extreme_temp" | "fog"
-  title: string
-  description: string
-  hour?: string
 }
 
 export interface WeatherResponse {
@@ -35,53 +18,68 @@ export interface WeatherResponse {
   latitude: number
   longitude: number
   timezone: string
-  hourly: HourlyForecast[]
   daily: DailyForecast[]
-  current?: {
-    temperature: number
-    weatherCode: number
-    windSpeed: number
-    humidity: number
-  }
-  alerts: WeatherAlert[]
   source: string
 }
 
-const WEATHER_CODES: Record<number, { label: string; icon: string }> = {
-  0: { label: "晴朗", icon: "☀️" },
-  1: { label: "晴", icon: "🌤️" },
-  2: { label: "多云", icon: "⛅" },
-  3: { label: "阴", icon: "☁️" },
-  45: { label: "雾", icon: "🌫️" },
-  48: { label: "雾凇", icon: "❄️" },
-  51: { label: "毛毛雨", icon: "🌧️" },
-  53: { label: "小雨", icon: "🌧️" },
-  55: { label: "中雨", icon: "🌧️" },
-  61: { label: "阵雨", icon: "🌧️" },
-  63: { label: "中阵雨", icon: "🌧️" },
-  65: { label: "大阵雨", icon: "⛈️" },
-  71: { label: "小雪", icon: "❄️" },
-  73: { label: "中雪", icon: "❄️" },
-  75: { label: "大雪", icon: "❄️" },
-  77: { label: "雪粒", icon: "❄️" },
-  80: { label: "阵雨", icon: "🌦️" },
-  81: { label: "强阵雨", icon: "🌧️" },
-  82: { label: "猛烈阵雨", icon: "⛈️" },
-  85: { label: "阵雪", icon: "🌨️" },
-  86: { label: "强阵雪", icon: "❄️" },
-  95: { label: "雷暴", icon: "⛈️" },
-  96: { label: "雷暴伴冰雹", icon: "⛈️" },
-  99: { label: "强雷暴伴冰雹", icon: "⛈️" },
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z")
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
 }
 
-export function getWeatherInfo(code: number): { label: string; icon: string } {
-  return WEATHER_CODES[code] || { label: "未知", icon: "❓" }
+function isValidDate(dateStr: string): boolean {
+  const d = new Date(dateStr)
+  return !isNaN(d.getTime())
+}
+
+function isDateInRange(dateStr: string): { valid: boolean; message?: string } {
+  const d = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const diffDays = Math.round((d.getTime() - today.getTime()) / 86400000)
+  
+  if (diffDays < -7) {
+    return { valid: false, message: "日期不能早于7天前" }
+  }
+  if (diffDays > 14) {
+    return { valid: false, message: "天气预测只支持未来14天" }
+  }
+  return { valid: true }
+}
+
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries: number = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) {
+        if (res.status >= 500 && i < retries) {
+          console.log(`Weather API ${url} returned ${res.status}, retrying...`)
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+          continue
+        }
+      }
+      return res
+    } catch (e) {
+      if (i < retries) {
+        console.log(`Weather API error for ${url}, retrying...`, e)
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
+        continue
+      }
+      throw e
+    }
+  }
+  throw new Error("Max retries exceeded")
 }
 
 async function fetchGeocode(city: string, country: string): Promise<{ lat: number; lon: number; name: string } | null> {
   try {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=zh&format=json`
-    const res = await fetch(url, { next: { revalidate: 86400 } })
+    const res = await fetchWithRetry(url, { next: { revalidate: 86400 } })
     if (!res.ok) return null
     const data = await res.json()
     if (!data.results || data.results.length === 0) return null
@@ -97,165 +95,31 @@ async function fetchGeocode(city: string, country: string): Promise<{ lat: numbe
   }
 }
 
-function generateAlerts(hourly: HourlyForecast[]): WeatherAlert[] {
-  const alerts: WeatherAlert[] = []
-
-  for (const hour of hourly) {
-    // 暴雨预警
-    if (hour.precipitationProbability >= 70 && hour.precipitation >= 2) {
-      alerts.push({
-        level: hour.precipitation >= 5 ? "severe" : "warning",
-        type: "rain",
-        title: hour.precipitation >= 5 ? "暴雨预警" : "降雨预警",
-        description: `预计 ${hour.time.slice(11, 16)} 降水量 ${hour.precipitation}mm，降水概率 ${hour.precipitationProbability}%`,
-        hour: hour.time,
-      })
-    }
-
-    // 雷暴预警
-    if (hour.weatherCode >= 95) {
-      alerts.push({
-        level: hour.weatherCode >= 99 ? "severe" : "warning",
-        type: "storm",
-        title: "雷暴预警",
-        description: `预计 ${hour.time.slice(11, 16)} 有雷暴天气，可能影响比赛`,
-        hour: hour.time,
-      })
-    }
-
-    // 强风预警
-    if (hour.windSpeed >= 30) {
-      alerts.push({
-        level: hour.windSpeed >= 50 ? "severe" : "warning",
-        type: "wind",
-        title: "强风预警",
-        description: `预计 ${hour.time.slice(11, 16)} 风速 ${hour.windSpeed}km/h`,
-        hour: hour.time,
-      })
-    }
-
-    // 极端温度
-    if (hour.temperature >= 35 || hour.temperature <= 0) {
-      alerts.push({
-        level: hour.temperature >= 40 || hour.temperature <= -10 ? "severe" : "warning",
-        type: "extreme_temp",
-        title: hour.temperature >= 35 ? "高温预警" : "低温预警",
-        description: `预计 ${hour.time.slice(11, 16)} 温度 ${hour.temperature}°C`,
-        hour: hour.time,
-      })
-    }
-
-    // 降雪
-    if (hour.weatherCode >= 71 && hour.weatherCode <= 77) {
-      alerts.push({
-        level: hour.weatherCode >= 75 ? "severe" : "warning",
-        type: "snow",
-        title: "降雪预警",
-        description: `预计 ${hour.time.slice(11, 16)} 有降雪天气`,
-        hour: hour.time,
-      })
-    }
-
-    // 大雾
-    if (hour.weatherCode === 45 || hour.weatherCode === 48) {
-      alerts.push({
-        level: "warning",
-        type: "fog",
-        title: "大雾预警",
-        description: `预计 ${hour.time.slice(11, 16)} 有大雾，能见度较低`,
-        hour: hour.time,
-      })
-    }
-  }
-
-  // 合并同一类型相邻时段的预警，避免过多重复
-  const merged: WeatherAlert[] = []
-  for (const alert of alerts) {
-    const last = merged[merged.length - 1]
-    if (last && last.type === alert.type && last.level === alert.level) {
-      const lastHour = last.hour ? parseInt(last.hour.slice(11, 13)) : -1
-      const thisHour = alert.hour ? parseInt(alert.hour.slice(11, 13)) : -1
-      if (thisHour === lastHour + 1) {
-        continue
-      }
-    }
-    merged.push(alert)
-  }
-
-  return merged.slice(0, 5)
-}
-
-async function fetchWeather(lat: number, lon: number, date: string): Promise<WeatherResponse | null> {
-  try {
-    const params = new URLSearchParams({
-      latitude: lat.toString(),
-      longitude: lon.toString(),
-      hourly: "temperature_2m,precipitation_probability,precipitation,weathercode,wind_speed_10m,relative_humidity_2m",
-      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset",
-      current_weather: "true",
-      timezone: "auto",
-      start_date: date,
-      end_date: date,
-    })
-
-    const res = await fetch(`${OPEN_METEO_BASE}?${params.toString()}`, { next: { revalidate: 3600 } })
-    if (!res.ok) return null
-    const data = await res.json()
-
-    const hourly: HourlyForecast[] = []
-    if (data.hourly) {
-      for (let i = 0; i < data.hourly.time.length; i++) {
-        hourly.push({
-          time: data.hourly.time[i],
-          temperature: data.hourly.temperature_2m[i],
-          precipitation: data.hourly.precipitation[i],
-          precipitationProbability: data.hourly.precipitation_probability[i],
-          weatherCode: data.hourly.weathercode[i],
-          windSpeed: data.hourly.wind_speed_10m[i],
-          humidity: data.hourly.relative_humidity_2m[i],
-        })
-      }
-    }
-
-    const daily: DailyForecast[] = []
-    if (data.daily) {
-      for (let i = 0; i < data.daily.time.length; i++) {
-        daily.push({
-          date: data.daily.time[i],
-          tempMax: data.daily.temperature_2m_max[i],
-          tempMin: data.daily.temperature_2m_min[i],
-          precipitationSum: data.daily.precipitation_sum[i],
-          precipitationProbability: data.daily.precipitation_probability_max[i],
-          sunrise: data.daily.sunrise[i],
-          sunset: data.daily.sunset[i],
-        })
-      }
-    }
-
-    const alerts = generateAlerts(hourly)
-
-    return {
-      location: data.timezone || "Unknown",
-      latitude: data.latitude,
-      longitude: data.longitude,
-      timezone: data.timezone,
-      hourly,
-      daily,
-      current: data.current_weather
-        ? {
-            temperature: data.current_weather.temperature,
-            weatherCode: data.current_weather.weathercode,
-            windSpeed: data.current_weather.windspeed,
-            humidity: 0,
-          }
-        : undefined,
-      alerts,
-      source: "Open-Meteo",
-    }
-  } catch (err) {
-    console.error("Weather fetch error:", err)
-    return null
-  }
+const FALLBACK_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  london: { lat: 51.5074, lon: -0.1278 },
+  paris: { lat: 48.8566, lon: 2.3522 },
+  monaco: { lat: 43.7325, lon: 7.4213 },
+  barcelona: { lat: 41.3874, lon: 2.1686 },
+  silverstone: { lat: 52.0786, lon: -1.0169 },
+  spa: { lat: 50.4372, lon: 5.9714 },
+  hungaroring: { lat: 47.5789, lon: 19.2486 },
+  zandvoort: { lat: 52.4688, lon: 4.5412 },
+  monza: { lat: 45.6167, lon: 9.2833 },
+  marina: { lat: 25.3176, lon: 55.5167 },
+  baku: { lat: 40.3772, lon: 49.8510 },
+  interlagos: { lat: -23.7036, lon: -46.6997 },
+  melbourne: { lat: -37.8136, lon: 144.9631 },
+  suzuka: { lat: 34.8317, lon: 136.5464 },
+  bahrain: { lat: 26.0325, lon: 50.5106 },
+  jeddah: { lat: 21.6319, lon: 39.1042 },
+  miami: { lat: 25.9581, lon: -80.2389 },
+  imola: { lat: 44.3439, lon: 11.7167 },
+  portimao: { lat: 37.2303, lon: -8.6658 },
+  canada: { lat: 45.5017, lon: -73.5673 },
+  austin: { lat: 30.1328, lon: -97.6411 },
+  mexico: { lat: 19.4326, lon: -99.1332 },
+  brazil: { lat: -23.7036, lon: -46.6997 },
+  lasvegas: { lat: 36.1147, lon: -115.1728 },
 }
 
 export async function GET(request: NextRequest) {
@@ -270,6 +134,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "date is required" }, { status: 400 })
   }
 
+  if (!isValidDate(date)) {
+    return NextResponse.json({ error: "Invalid date format" }, { status: 400 })
+  }
+
+  const rangeCheck = isDateInRange(date)
+  if (!rangeCheck.valid) {
+    return NextResponse.json({ error: rangeCheck.message }, { status: 400 })
+  }
+
   try {
     let coordinates: { lat: number; lon: number; name: string } | null = null
 
@@ -277,19 +150,66 @@ export async function GET(request: NextRequest) {
       coordinates = { lat: parseFloat(lat), lon: parseFloat(lon), name: "" }
     } else if (city) {
       coordinates = await fetchGeocode(city, country || "")
+      
+      if (!coordinates) {
+        const fallback = FALLBACK_COORDINATES[city.toLowerCase()]
+        if (fallback) {
+          coordinates = { ...fallback, name: city }
+        }
+      }
     }
 
     if (!coordinates) {
       return NextResponse.json({ error: "Could not find location" }, { status: 404 })
     }
 
-    const weather = await fetchWeather(coordinates.lat, coordinates.lon, date)
+    const startDate = addDays(date, -3)
+    const endDate = addDays(date, 3)
 
-    if (!weather) {
-      return NextResponse.json({ error: "Failed to fetch weather" }, { status: 500 })
+    const params = new URLSearchParams({
+      latitude: coordinates.lat.toString(),
+      longitude: coordinates.lon.toString(),
+      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,weathercode",
+      timezone: "auto",
+      start_date: startDate,
+      end_date: endDate,
+    })
+
+    const res = await fetchWithRetry(`${OPEN_METEO_BASE}?${params.toString()}`, { next: { revalidate: 3600 } })
+    
+    if (!res.ok) {
+      console.error(`Open-Meteo API error: ${res.status}`)
+      return NextResponse.json({ error: "Weather service unavailable" }, { status: 503 })
     }
 
-    return NextResponse.json(weather)
+    const data = await res.json()
+
+    if (!data.daily || !data.daily.time || data.daily.time.length === 0) {
+      return NextResponse.json({ error: "No weather data available" }, { status: 404 })
+    }
+
+    const daily: DailyForecast[] = []
+    for (let i = 0; i < data.daily.time.length; i++) {
+      daily.push({
+        date: data.daily.time[i],
+        tempMax: data.daily.temperature_2m_max[i],
+        tempMin: data.daily.temperature_2m_min[i],
+        precipitationSum: data.daily.precipitation_sum[i],
+        precipitationProbability: data.daily.precipitation_probability_max[i],
+        weatherCode: data.daily.weathercode[i] ?? 0,
+        sunrise: data.daily.sunrise[i],
+        sunset: data.daily.sunset[i],
+      })
+    }
+
+    return NextResponse.json({
+      location: coordinates.name || data.timezone || "Unknown",
+      latitude: data.latitude,
+      longitude: data.longitude,
+      timezone: data.timezone,
+      daily,
+      source: "Open-Meteo",
+    })
   } catch (err) {
     console.error("Weather API error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

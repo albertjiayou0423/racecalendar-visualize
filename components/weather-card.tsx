@@ -1,10 +1,28 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, CloudLightning, Snowflake, AlertTriangle } from "lucide-react"
-import type { HourlyForecast, WeatherAlert } from "@/app/api/weather/route"
-import { getWeatherInfo } from "@/app/api/weather/route"
-import { cn } from "@/lib/utils"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
+import {
+  GridComponent,
+  TooltipComponent,
+} from "echarts/components"
+import { CanvasRenderer } from "echarts/renderers"
+import {
+  Thermometer,
+  Droplets,
+  RefreshCw,
+} from "lucide-react"
+import type { DailyForecast } from "@/app/api/weather/route"
+
+echarts.use([
+  LineChart,
+  BarChart,
+  GridComponent,
+  TooltipComponent,
+  CanvasRenderer,
+])
 
 interface WeatherCardProps {
   city: string
@@ -13,13 +31,13 @@ interface WeatherCardProps {
   startTime: string
   lat?: number
   lon?: number
+  compact?: boolean
 }
 
-export function WeatherCard({ city, country, date, startTime, lat, lon }: WeatherCardProps) {
+export function WeatherCard({ city, country, date, startTime, lat, lon, compact = false }: WeatherCardProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [hourly, setHourly] = useState<HourlyForecast[]>([])
-  const [alerts, setAlerts] = useState<WeatherAlert[]>([])
+  const [daily, setDaily] = useState<DailyForecast[]>([])
 
   const fetchWeather = useCallback(async () => {
     setLoading(true)
@@ -30,9 +48,8 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
       if (lon !== undefined) params.set("lon", lon.toString())
       const res = await fetch(`/api/weather?${params.toString()}`)
       if (res.ok) {
-        const data = await res.json()
-        setHourly(data.hourly || [])
-        setAlerts(data.alerts || [])
+        const json = await res.json()
+        setDaily(json.daily || [])
       } else {
         const err = await res.json().catch(() => ({}))
         setError(err.error || "获取天气失败")
@@ -48,114 +65,345 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
     fetchWeather()
   }, [fetchWeather])
 
+  const raceDayData = useMemo(() => {
+    if (!daily.length) return null
+    return daily.find((d) => d.date === date) || daily[3] || null
+  }, [daily, date])
+
   if (loading) {
-    return <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><RefreshCw className="size-3 animate-spin" />天气</div>
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <RefreshCw className="size-3 animate-spin" />
+        <Thermometer className="size-3" />
+      </div>
+    )
   }
 
-  if (error || hourly.length === 0) return null
+  if (error || !daily.length) return null
 
-  // 取比赛当天的天气
-  const startHour = parseInt(startTime.split(":")[0]) || 14
-  const raceHour = hourly.find((h) => {
-    const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
-    return Math.abs(hh - startHour) <= 2
-  }) || hourly[Math.min(startHour, hourly.length - 1)]
-
-  const weatherInfo = raceHour ? getWeatherInfo(raceHour.weatherCode) : getWeatherInfo(0)
-
-  // 取一周天气数据（每天取中午12点）
-  const weekData: { day: string; temp: number; rain: number; code: number }[] = []
-  const seenDays = new Set<string>()
-  for (const h of hourly) {
-    const d = new Date(h.time)
-    const dayKey = d.toISOString().slice(0, 10)
-    if (seenDays.has(dayKey)) continue
-    seenDays.add(dayKey)
-    const hour = d.getHours()
-    // 取最接近12点的数据
-    const dayHours = hourly.filter(x => x.time.startsWith(dayKey))
-    const midDay = dayHours.find(x => Math.abs(parseInt(x.time.split("T")[1]?.split(":")[0] || "0") - 12) <= 3) || dayHours[0]
-    if (midDay) {
-      weekData.push({
-        day: ["日", "一", "二", "三", "四", "五", "六"][d.getDay()],
-        temp: midDay.temperature,
-        rain: midDay.precipitationProbability,
-        code: midDay.weatherCode,
-      })
-    }
+  if (compact || !raceDayData) {
+    return <CompactWeather data={raceDayData} />
   }
-
-  const maxTemp = Math.max(...weekData.map(d => d.temp))
-  const minTemp = Math.min(...weekData.map(d => d.temp))
-  const tempRange = Math.max(maxTemp - minTemp, 1)
 
   return (
-    <div className="space-y-2">
-      {/* 当前天气摘要 */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 shrink-0">
-          {getWeatherIcon(raceHour?.weatherCode || 0)}
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-sm">
-            <span>{weatherInfo.icon}</span>
-            <span className="font-medium truncate">{raceHour?.temperature}°C</span>
-            <span className="text-muted-foreground text-xs">{raceHour?.precipitationProbability}%雨</span>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-900/50 to-orange-900/50">
+            <Thermometer className="size-4 text-amber-500" />
+          </div>
+          <div>
+            <div className="text-base font-medium text-amber-500">
+              {Math.round(raceDayData.tempMax)}°
+            </div>
+            <div className="text-xs text-sky-400">
+              {Math.round(raceDayData.tempMin)}°
+            </div>
           </div>
         </div>
+        {raceDayData.precipitationProbability > 30 && (
+          <div className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2 py-1 text-xs text-blue-400">
+            <Droplets className="size-3" />
+            {raceDayData.precipitationProbability}%
+          </div>
+        )}
       </div>
+      <WeatherChart daily={daily} raceDate={date} />
+    </div>
+  )
+}
 
-      {/* 一周气温折线图 */}
-      {weekData.length > 1 && (
-        <div className="flex items-end gap-1 h-12 px-1">
-          {weekData.slice(0, 7).map((d, i) => {
-            const heightPercent = ((d.temp - minTemp) / tempRange) * 100
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                <div className="relative w-full flex justify-center" style={{ height: "28px" }}>
-                  <div
-                    className="w-1 rounded-full bg-gradient-to-t from-blue-500 to-orange-400"
-                    style={{ height: `${Math.max(heightPercent, 20)}%`, minHeight: "4px" }}
-                    title={`${d.temp}°C`}
-                  />
-                </div>
-                <span className="text-[9px] text-muted-foreground">{d.day}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+function CompactWeather({ data }: { data: DailyForecast | null }) {
+  if (!data) return null
 
-      {/* 预警条 */}
-      {alerts.length > 0 && (
-        <div className="space-y-1">
-          {alerts.slice(0, 2).map((alert, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                "flex items-center gap-1.5 rounded px-2 py-1 text-[10px]",
-                alert.level === "severe"
-                  ? "bg-red-500/10 text-red-500"
-                  : "bg-amber-500/10 text-amber-500"
-              )}
-            >
-              <AlertTriangle className="size-2.5" />
-              <span className="truncate">{alert.title}</span>
-            </div>
-          ))}
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        <Thermometer className="size-3.5 text-amber-500" />
+        <span className="text-sm text-amber-500 font-medium">
+          {Math.round(data.tempMax)}°
+        </span>
+        <span className="text-xs text-sky-400">
+          {Math.round(data.tempMin)}°
+        </span>
+      </div>
+      {data.precipitationProbability > 30 && (
+        <div className="flex items-center gap-1">
+          <Droplets className="size-3 text-blue-400" />
+          <span className="text-xs text-blue-400">
+            {data.precipitationProbability}%
+          </span>
         </div>
       )}
     </div>
   )
 }
 
-function getWeatherIcon(code: number) {
-  if (code === 0) return <Sun className="size-3.5 text-amber-500" />
-  if (code <= 3) return <Cloud className="size-3.5 text-gray-400" />
-  if (code <= 49) return <Cloud className="size-3.5 text-gray-500" />
-  if (code <= 59) return <Droplets className="size-3.5 text-blue-400" />
-  if (code <= 69) return <CloudRain className="size-3.5 text-blue-500" />
-  if (code <= 79) return <CloudSnow className="size-3.5 text-cyan-400" />
-  if (code <= 99) return <CloudLightning className="size-3.5 text-purple-500" />
-  return <Cloud className="size-3.5 text-gray-400" />
+function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: string }) {
+  const days = useMemo(() => {
+    return daily.slice(0, 7).map((d) => ({
+      ...d,
+      label: formatDayLabel(d.date, raceDate),
+      isRace: d.date === raceDate,
+    }))
+  }, [daily, raceDate])
+
+  if (days.length === 0) return null
+
+  const option = useMemo(() => {
+    const labels = days.map((d) => d.label)
+    const raceIndex = days.findIndex((d) => d.isRace)
+
+    return {
+      backgroundColor: "transparent",
+      tooltip: {
+        show: true,
+        trigger: "axis",
+        triggerOn: "mousemove|click",
+        hideDelay: 50,
+        alwaysShowContent: false,
+        enterable: false,
+        appendToBody: true,
+        axisPointer: {
+          type: "cross",
+          crossStyle: {
+            color: "rgba(255,255,255,0.15)",
+            type: "dashed",
+            width: 1,
+          },
+          label: {
+            backgroundColor: "rgba(20,23,28,0.8)",
+            color: "rgba(255,255,255,0.6)",
+            fontSize: 12,
+            borderRadius: 0,
+            padding: [4, 8],
+            margin: 6,
+          },
+        },
+        backgroundColor: "rgba(20, 23, 28, 0.92)",
+        borderColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        borderRadius: 0,
+        padding: [12, 16],
+        shadowBlur: 24,
+        shadowColor: "rgba(0,0,0,0.6)",
+        textStyle: {
+          color: "rgba(255,255,255,0.85)",
+          fontSize: 13,
+          lineHeight: 24,
+        },
+        extraCssText: "z-index: 99999;",
+        formatter: function (params: any[]) {
+          const date = params[0].axisValue
+          let html = `<div style="font-weight:600; font-size:15px; margin-bottom:6px; color:rgba(255,255,255,0.9);">${date}</div>`
+          params.forEach((p) => {
+            if (p.seriesName === "最高温") {
+              html += `<div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:10px; height:10px; background:#f6ad55; border-radius:50%;"></span>
+                <span style="font-weight:400;">最高温</span>
+                <span style="font-weight:600; color:#f6ad55; margin-left:auto;">${Math.round(p.value)}°</span>
+              </div>`
+            } else if (p.seriesName === "最低温") {
+              html += `<div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:10px; height:10px; background:#6fc3df; border-radius:50%;"></span>
+                <span style="font-weight:400;">最低温</span>
+                <span style="font-weight:600; color:#6fc3df; margin-left:auto;">${Math.round(p.value)}°</span>
+              </div>`
+            } else if (p.seriesName === "降水") {
+              html += `<div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:10px; height:10px; background:#4facfe; border-radius:50%;"></span>
+                <span style="font-weight:400;">降水概率</span>
+                <span style="font-weight:600; color:#4facfe; margin-left:auto;">${p.value}%</span>
+              </div>`
+            }
+          })
+          return html
+        },
+      },
+      grid: {
+        left: "6%",
+        right: "6%",
+        bottom: "14%",
+        top: "12%",
+        containLabel: false,
+        borderWidth: 0,
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          color: raceIndex >= 0 ? (value: string, index: number) => 
+            index === raceIndex ? "#f6ad55" : "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.4)",
+          fontSize: 12,
+          fontWeight: 600,
+          margin: 12,
+        },
+        splitLine: { show: false },
+      },
+      yAxis: [
+        {
+          type: "value",
+          splitLine: {
+            show: true,
+            lineStyle: {
+              color: "rgba(255,255,255,0.06)",
+              type: "dashed",
+              width: 1,
+            },
+          },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            color: "rgba(255,255,255,0.3)",
+            fontSize: 11,
+            fontWeight: 400,
+            margin: 6,
+            formatter: "{value}°",
+          },
+        },
+        {
+          type: "value",
+          min: 0,
+          max: 100,
+          splitLine: { show: false },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            color: "rgba(255,255,255,0.3)",
+            fontSize: 11,
+            fontWeight: 400,
+            margin: 6,
+            formatter: "{value}%",
+          },
+        },
+      ],
+      series: [
+        {
+          name: "最高温",
+          type: "line",
+          smooth: false,
+          symbol: "circle",
+          symbolSize: 8,
+          showSymbol: true,
+          lineStyle: {
+            width: 3,
+            color: "#f6ad55",
+            shadowBlur: 12,
+            shadowColor: "rgba(246, 173, 85, 0.3)",
+            shadowOffsetY: 4,
+          },
+          itemStyle: {
+            color: "#f6ad55",
+            borderColor: "#14171c",
+            borderWidth: 2,
+            shadowBlur: 8,
+            shadowColor: "rgba(246, 173, 85, 0.4)",
+          },
+          areaStyle: {
+            color: {
+              type: "linear",
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(246, 173, 85, 0.25)" },
+                { offset: 1, color: "rgba(246, 173, 85, 0.01)" },
+              ],
+            },
+          },
+          data: days.map((d) => d.tempMax),
+          yAxisIndex: 0,
+          z: 2,
+        },
+        {
+          name: "最低温",
+          type: "line",
+          smooth: false,
+          symbol: "diamond",
+          symbolSize: 8,
+          showSymbol: true,
+          lineStyle: {
+            width: 3,
+            color: "#6fc3df",
+            shadowBlur: 10,
+            shadowColor: "rgba(111, 195, 223, 0.25)",
+            shadowOffsetY: 3,
+          },
+          itemStyle: {
+            color: "#6fc3df",
+            borderColor: "#14171c",
+            borderWidth: 2,
+            shadowBlur: 6,
+            shadowColor: "rgba(111, 195, 223, 0.3)",
+          },
+          areaStyle: {
+            color: {
+              type: "linear",
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(111, 195, 223, 0.15)" },
+                { offset: 1, color: "rgba(111, 195, 223, 0.01)" },
+              ],
+            },
+          },
+          data: days.map((d) => d.tempMin),
+          yAxisIndex: 0,
+          z: 1,
+        },
+        {
+          name: "降水",
+          type: "bar",
+          barGap: "0%",
+          barCategoryGap: "0%",
+          barWidth: "100%",
+          data: days.map((d) => d.precipitationProbability),
+          yAxisIndex: 1,
+          itemStyle: {
+            color: {
+              type: "linear",
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(79, 172, 254, 0.7)" },
+                { offset: 1, color: "rgba(79, 172, 254, 0.2)" },
+              ],
+            },
+            borderWidth: 0,
+            shadowBlur: 10,
+            shadowColor: "rgba(79, 172, 254, 0.15)",
+          },
+          emphasis: { itemStyle: { color: "rgba(79, 172, 254, 0.9)" } },
+          z: 0,
+        },
+      ],
+      legend: { show: false },
+    }
+  }, [days])
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <div className="min-w-[280px]">
+        <ReactEChartsCore
+          echarts={echarts}
+          option={option}
+          style={{ height: "160px", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function formatDayLabel(dateStr: string, raceDate: string): string {
+  const d = new Date(dateStr + "T00:00:00")
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+
+  if (dateStr === raceDate) return "赛日"
+  if (diff === 0) return "今天"
+  if (diff === 1) return "明天"
+  if (diff === -1) return "昨天"
+
+  const weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+  return weekdays[d.getDay()]
 }

@@ -16,17 +16,22 @@ export async function GET() {
   await initCrawlTables()
 
   // 检查今日爬取配额
+  // 注意：WRC 不做前置阻止，但只有配额充足时才允许使用 ocblacktop API fallback
+  // 官网爬虫（feed API）始终允许，不消耗配额
   const quotaChecks = await Promise.all([
     canCrawlToday("F1"),
     canCrawlToday("FE"),
     canCrawlToday("WRC"),
   ])
 
+  const wrcAllowApi = quotaChecks[2]
+
   // 根据配额决定是否实际爬取，还是使用快照
+  // WRC 始终尝试爬取（官网爬虫不消耗配额），仅在配额充足时启用 API fallback
   const [f1Result, feResult, wrcResult] = await Promise.all([
     quotaChecks[0] ? fetchAndSave("F1", fetchF1) : loadFromSnapshot("F1"),
     quotaChecks[1] ? fetchAndSave("FE", fetchFe) : loadFromSnapshot("FE"),
-    quotaChecks[2] ? fetchAndSave("WRC", fetchWrc) : loadFromSnapshot("WRC"),
+    fetchAndSave("WRC", () => fetchWrc({ allowApiFallback: wrcAllowApi })),
   ])
 
   const f1 = f1Result.result
@@ -89,18 +94,29 @@ async function canCrawlToday(series: Series): Promise<boolean> {
 /** 爬取并保存快照 */
 async function fetchAndSave(
   series: Series,
-  fetcher: () => Promise<{ events: RaceEvent[]; ok: boolean; note?: string }>
+  fetcher: () => Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource?: "scraped" | "api" | "mixed" }>
 ): Promise<{ result: { events: RaceEvent[]; ok: boolean; note?: string }; fromCache: boolean }> {
   try {
     const result = await fetcher()
     if (result.ok && result.events.length > 0) {
-      // 爬取成功，递增配额并保存快照
-      await incrementCrawlCount(series)
       await saveCrawlSnapshot(series, result, "schedule-api")
+      
+      if (series === "WRC") {
+        if (result.dataSource === "api") {
+          await incrementCrawlCount(series)
+          console.log(`WRC: 使用 ocblacktop API，消耗配额`)
+        } else if (result.dataSource === "mixed") {
+          await incrementCrawlCount(series)
+          console.log(`WRC: 混合数据（含 API），消耗配额`)
+        } else {
+          console.log(`WRC: 使用官网爬虫数据，不消耗配额`)
+        }
+      } else {
+        await incrementCrawlCount(series)
+      }
     }
     return { result, fromCache: false }
   } catch (err) {
-    // 爬取失败，尝试加载快照
     const cached = await loadFromSnapshot(series)
     if (cached.result.ok) {
       return cached
