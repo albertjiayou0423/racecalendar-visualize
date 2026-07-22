@@ -163,6 +163,7 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
         hideDelay: 50,
         alwaysShowContent: false,
         enterable: false,
+        appendToBody: true,
         axisPointer: {
           type: "cross",
           crossStyle: {
@@ -191,16 +192,19 @@ function WeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDate: s
           fontSize: 13,
           lineHeight: 24,
         },
+        extraCssText: "z-index: 99999;",
         position: function (point: number[], params: any[], dom: HTMLElement, rect: any, size: any) {
           const tooltipHeight = dom.offsetHeight || 80
           const tooltipWidth = dom.offsetWidth || 180
+          const chartLeft = rect.left || 0
+          const chartTop = rect.top || 0
           const viewHeight = size.viewSize[1]
           const viewWidth = size.viewSize[0]
-          let x = point[0]
-          let y = point[1]
+          let x = chartLeft + point[0]
+          let y = chartTop + point[1]
 
-          if (x + tooltipWidth > viewWidth - 10) {
-            x = viewWidth - tooltipWidth - 10
+          if (x + tooltipWidth > window.innerWidth - 10) {
+            x = window.innerWidth - tooltipWidth - 10
           }
           if (x < 10) x = 10
 
