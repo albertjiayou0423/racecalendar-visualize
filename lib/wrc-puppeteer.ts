@@ -519,16 +519,128 @@ async function tryOcblacktopFallback(
   return sessions
 }
 
+// ============ 直接调用 WRC Feed API (最可靠的方案) ============
+
+async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
+  const feedUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${uriSlug}&page[limit]=1&rb3Locale=en&rb3Schema=v1:inlineContent`
+  console.log(`WRC: calling feed API: ${feedUrl.substring(0, 120)}...`)
+
+  try {
+    const res = await fetch(feedUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    })
+
+    if (!res.ok) {
+      console.error(`WRC feed API returned ${res.status}`)
+      return null
+    }
+
+    const json = await res.json()
+    const items = json?.data?.items
+    if (!Array.isArray(items)) {
+      console.error("WRC feed API: no items in response")
+      return null
+    }
+
+    // 查找 FAQ item
+    for (const item of items) {
+      if (item.type !== "faq") continue
+
+      const title = item.title || ""
+      if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
+
+      const elements = item.elements
+      if (!Array.isArray(elements)) continue
+
+      const days: ItineraryDay[] = []
+
+      for (const element of elements) {
+        const question = element.question
+        const answer = element.answer
+
+        if (!Array.isArray(question) || !Array.isArray(answer)) continue
+
+        const dateText = question.find((q: any) => q.variant === "text")?.text || ""
+        const date = parseDateText(dateText, startDate)
+
+        const stages: { time: string; name: string; isPowerStage: boolean }[] = []
+
+        for (const ans of answer) {
+          if (ans.type !== "list" || !Array.isArray(ans.items)) continue
+
+          for (const listItem of ans.items) {
+            if (!listItem.elements) continue
+            for (const el of listItem.elements) {
+              if (el.variant !== "text") continue
+              const text = el.text || ""
+
+              const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
+              if (!stageMatch) continue
+
+              const time = stageMatch[1].padStart(5, "0")
+              const name = stageMatch[2].trim()
+              const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+
+              stages.push({ time, name, isPowerStage })
+            }
+          }
+        }
+
+        if (stages.length > 0) {
+          days.push({ date, stages })
+        }
+      }
+
+      if (days.length > 0) {
+        console.log(`WRC feed API: parsed ${days.length} days from FAQ`)
+        return days
+      }
+    }
+
+    console.error("WRC feed API: no itinerary FAQ found")
+    return null
+  } catch (e) {
+    console.error(`WRC feed API error:`, e)
+    return null
+  }
+}
+
+/** 从 prerender cache 中提取 itinerary tab 的 uriSlug */
+function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): string | null {
+  for (const key of Object.keys(cacheData)) {
+    if (key.includes("pageTabs")) {
+      const value = cacheData[key]
+      const tabs = value?.data?.data?.tabs
+      if (Array.isArray(tabs)) {
+        const itTab = tabs.find((t: any) => t.label?.includes("Itinerary"))
+        if (itTab?.url) {
+          const parts = itTab.url.split("/").filter(Boolean)
+          return parts[parts.length - 1] || null
+        }
+      }
+    }
+  }
+  return null
+}
+
 // ============ 主爬取函数 ============
 
 async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
   const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
   console.log(`WRC: fetching ${homeUrl}`)
 
-  // Step 1: Fetch homepage to get itinerary URL
+  // Step 1: Fetch homepage (try direct, then with _escaped_fragment_ for SSR)
   let homeHtml = await fetchDirect(homeUrl)
   if (!homeHtml || !homeHtml.includes("rb3-prerender-data-cache")) {
-    console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${homeUrl}`)
+    console.log(`WRC: direct fetch no cache, trying _escaped_fragment_ for ${homeUrl}`)
+    homeHtml = await fetchDirect(`${homeUrl}?_escaped_fragment_=`)
+  }
+  if (!homeHtml || !homeHtml.includes("rb3-prerender-data-cache")) {
+    console.log(`WRC: still no cache, trying PhantomJsCloud for ${homeUrl}`)
     homeHtml = await fetchRenderedHtml(homeUrl)
   }
   if (!homeHtml) {
@@ -537,60 +649,89 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
   }
 
   const homeCache = extractPrerenderCache(homeHtml)
-  if (!homeCache) {
-    console.error(`WRC: no prerender cache in homepage for ${eventSlug}`)
+
+  // Step 2: 提取 itinerary uriSlug
+  let itineraryUriSlug: string | null = null
+  if (homeCache) {
+    itineraryUriSlug = extractItineraryUriSlugFromCache(homeCache)
+  }
+
+  // Fallback: 尝试常见的 slug 模式
+  if (!itineraryUriSlug) {
+    const slugNoYear = eventSlug.replace(/-\d{4}$/, "")
+    itineraryUriSlug = `itinerary-${eventSlug}`
+    console.log(`WRC: pageTabs not found, trying fallback uriSlug: ${itineraryUriSlug}`)
+    // 也尝试其他模式
+    const altSlugs = [
+      `itinerary-stages-${slugNoYear}`,
+      `itinerary-${slugNoYear}`,
+      `itinerary-stages-${eventSlug}`,
+    ]
+    // 先用第一个尝试，后面会 fallback
+    for (const alt of altSlugs) {
+      const testDays = await fetchItineraryFromFeedApi(alt, startDate)
+      if (testDays && testDays.length > 0) {
+        return convertDaysToSessions(testDays, tz, eventSlug)
+      }
+    }
+  } else {
+    console.log(`WRC: found itinerary uriSlug: ${itineraryUriSlug}`)
+  }
+
+  if (!itineraryUriSlug) {
+    console.error(`WRC: no itinerary uriSlug for ${eventSlug}`)
     return null
   }
 
-  // Step 2: Extract itinerary URL from pageTabs
-  let itineraryUrl = extractItineraryUrlFromCache(homeCache)
+  // Step 3: 直接调用 WRC Feed API（最可靠）
+  let days = await fetchItineraryFromFeedApi(itineraryUriSlug, startDate)
 
-  // 也尝试从 pageTabs 中提取 Results 页面的 itinerary tab
-  const resultsItineraryUrl = extractResultsItineraryUrl(homeCache, eventSlug)
-
-  if (!itineraryUrl) {
-    itineraryUrl = `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`
-    console.log(`WRC: pageTabs not found, trying fallback itinerary URL: ${itineraryUrl}`)
-  } else {
-    console.log(`WRC: found itinerary URL: ${itineraryUrl}`)
-  }
-
-  // Step 3: 尝试多个 URL 获取 itinerary 页面
-  const itineraryUrls = [itineraryUrl]
-  if (resultsItineraryUrl && resultsItineraryUrl !== itineraryUrl) {
-    itineraryUrls.push(resultsItineraryUrl)
-  }
-
-  let days: ItineraryDay[] | null = null
-
-  for (const url of itineraryUrls) {
-    let html = await fetchDirect(url)
-    if (!html || !html.includes("rb3-prerender-data-cache")) {
-      console.log(`WRC: direct fetch failed, trying PhantomJsCloud for ${url}`)
-      html = await fetchRenderedHtml(url)
-    }
-    if (!html) {
-      if (url !== itineraryUrl) {
-        console.log(`WRC: results page itinerary also failed for ${eventSlug}`)
+  // Step 4: 如果 Feed API 失败，尝试用 _escaped_fragment_ 获取 SSR 页面
+  if (!days || days.length === 0) {
+    console.log(`WRC: feed API failed, trying SSR itinerary page`)
+    const ssrUrl = `https://www.wrc.com/en/events/${eventSlug}/${itineraryUriSlug}?_escaped_fragment_=`
+    const ssrHtml = await fetchDirect(ssrUrl)
+    if (ssrHtml && ssrHtml.includes("rb3-prerender-data-cache")) {
+      const ssrCache = extractPrerenderCache(ssrHtml)
+      if (ssrCache) {
+        days = parseItineraryFromCache(ssrCache, startDate)
       }
-      continue
+      if (!days || days.length === 0) {
+        days = parseItineraryFromHtml(ssrHtml, startDate)
+      }
     }
+  }
 
-    // Step 4: Parse FAQ data
-    const cache = extractPrerenderCache(html)
-    let parsedDays: ItineraryDay[] | null = null
-    if (cache) {
-      parsedDays = parseItineraryFromCache(cache, startDate)
+  // Step 5: 如果还是失败，尝试旧方案（PhantomJsCloud 渲染 itinerary 页面）
+  if ((!days || days.length === 0) && homeCache) {
+    console.log(`WRC: SSR failed, trying old approach with itinerary page`)
+    const itineraryUrl = extractItineraryUrlFromCache(homeCache)
+    const resultsItineraryUrl = extractResultsItineraryUrl(homeCache, eventSlug)
+    const urls = [
+      itineraryUrl || `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`,
+      ...(resultsItineraryUrl ? [resultsItineraryUrl] : []),
+    ]
+
+    for (const url of urls) {
+      let html = await fetchDirect(url)
+      if (!html || !html.includes("rb3-prerender-data-cache")) {
+        html = await fetchRenderedHtml(url)
+      }
+      if (!html) continue
+
+      const cache = extractPrerenderCache(html)
+      let parsedDays: ItineraryDay[] | null = null
+      if (cache) {
+        parsedDays = parseItineraryFromCache(cache, startDate)
+      }
+      if (!parsedDays || parsedDays.length === 0) {
+        parsedDays = parseItineraryFromHtml(html, startDate)
+      }
+      if (parsedDays && parsedDays.length > 0) {
+        days = parsedDays
+        break
+      }
     }
-    if (!parsedDays || parsedDays.length === 0) {
-      console.log(`WRC: no itinerary data in cache, trying HTML parsing for ${eventSlug}`)
-      parsedDays = parseItineraryFromHtml(html, startDate)
-    }
-    if (parsedDays && parsedDays.length > 0) {
-      days = parsedDays
-      break
-    }
-    console.log(`WRC: no itinerary data from ${url}, trying next URL...`)
   }
 
   if (!days || days.length === 0) {
@@ -598,7 +739,11 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     return null
   }
 
-  // Step 5: Convert to RaceSession
+  return convertDaysToSessions(days, tz, eventSlug)
+}
+
+/** 将 ItineraryDay[] 转换为 RaceSession[] */
+function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: string): RaceSession[] {
   const sessions: RaceSession[] = []
 
   for (const day of days) {
@@ -677,7 +822,8 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
     console.log(`ocblacktop: ${ocblacktopRallies ? ocblacktopRallies.length : 0} rallies indexed`)
   }
 
-  const results = await Promise.allSettled(
+  // 第一轮：尝试爬取所有 rally
+  const firstResults = await Promise.allSettled(
     rallies.map(async (rally) => {
       let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
       let source = "wrc-official"
@@ -691,33 +837,75 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
     })
   )
 
-  for (const result of results) {
+  // 收集第一轮结果，记录失败的 rally
+  const failedRallies: { rally: WrcRally; idx: number }[] = []
+  const resultMap = new Map<number, { rally: WrcRally; sessions: RaceSession[] | null; source: string }>()
+
+  for (let i = 0; i < firstResults.length; i++) {
+    const result = firstResults[i]
     if (result.status === "fulfilled") {
       const { rally, sessions, source } = result.value
-      if (sessions && sessions.length > 0) {
-        const index = events.findIndex((e) => e.round === rally.round)
-        if (index !== -1) {
-          events[index] = {
-            ...events[index],
-            sessions,
-            url: source === "ocblacktop"
-              ? `https://ocblacktop.com`
-              : `https://www.wrc.com/en/events/${rally.eventSlug}`,
-            tentative: source === "ocblacktop",
-          }
-        }
-        if (source === "ocblacktop") {
-          ocblacktopCount++
-        } else {
-          successCount++
-        }
-        console.log(`WRC success (${source}): ${rally.name} (${sessions.length} sessions)`)
-      } else {
-        errors.push(rally.name)
-        console.log(`WRC failed: ${rally.name} (using fallback)`)
+      resultMap.set(i, { rally, sessions, source })
+      if (!sessions || sessions.length === 0) {
+        failedRallies.push({ rally, idx: i })
       }
     } else {
       console.error(`WRC error: ${result.reason}`)
+      const rally = rallies[i]
+      resultMap.set(i, { rally, sessions: null, source: "wrc-official" })
+      failedRallies.push({ rally, idx: i })
+    }
+  }
+
+  // 第二轮：对失败的 rally 再试一次（特别是最近的2场）
+  if (failedRallies.length > 0) {
+    const nowMs = Date.now()
+    const twoWeeks = 14 * 24 * 60 * 60 * 1000
+    // 优先重试最近2场（在2周窗口内的）
+    const recentFailed = failedRallies.filter(f => {
+      const rallyTime = new Date(f.rally.startDate).getTime()
+      return Math.abs(rallyTime - nowMs) < twoWeeks
+    })
+    const toRetry = recentFailed.length > 0 ? recentFailed : failedRallies.slice(0, 2)
+    console.log(`WRC: retrying ${toRetry.length} failed rallies`)
+
+    for (const { rally, idx } of toRetry) {
+      console.log(`WRC: retry ${rally.name} (${rally.eventSlug})`)
+      let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
+      let source = "wrc-official"
+
+      if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
+        sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
+        if (sessions && sessions.length > 0) source = "ocblacktop"
+      }
+
+      resultMap.set(idx, { rally, sessions, source })
+    }
+  }
+
+  // 应用结果
+  for (const [_, { rally, sessions, source }] of resultMap) {
+    if (sessions && sessions.length > 0) {
+      const index = events.findIndex((e) => e.round === rally.round)
+      if (index !== -1) {
+        events[index] = {
+          ...events[index],
+          sessions,
+          url: source === "ocblacktop"
+            ? `https://ocblacktop.com`
+            : `https://www.wrc.com/en/events/${rally.eventSlug}`,
+          tentative: source === "ocblacktop",
+        }
+      }
+      if (source === "ocblacktop") {
+        ocblacktopCount++
+      } else {
+        successCount++
+      }
+      console.log(`WRC success (${source}): ${rally.name} (${sessions.length} sessions)`)
+    } else {
+      errors.push(rally.name)
+      console.log(`WRC failed: ${rally.name} (using fallback)`)
     }
   }
 
