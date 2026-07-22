@@ -2,17 +2,18 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
+  Sun,
   Cloud,
   CloudRain,
   CloudSnow,
-  Droplets,
-  Sun,
-  RefreshCw,
   CloudLightning,
-  AlertTriangle,
+  Droplets,
+  Wind,
+  Eye,
+  RefreshCw,
   Thermometer,
 } from "lucide-react"
-import type { DailyForecast, WeatherAlert } from "@/app/api/weather/route"
+import type { DailyForecast } from "@/app/api/weather/route"
 import { cn } from "@/lib/utils"
 
 interface WeatherCardProps {
@@ -24,15 +25,10 @@ interface WeatherCardProps {
   lon?: number
 }
 
-interface WeatherData {
-  daily: DailyForecast[]
-  alerts: WeatherAlert[]
-}
-
 export function WeatherCard({ city, country, date, startTime, lat, lon }: WeatherCardProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [data, setData] = useState<WeatherData | null>(null)
+  const [daily, setDaily] = useState<DailyForecast[]>([])
 
   const fetchWeather = useCallback(async () => {
     setLoading(true)
@@ -44,7 +40,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
       const res = await fetch(`/api/weather?${params.toString()}`)
       if (res.ok) {
         const json = await res.json()
-        setData({ daily: json.daily || [], alerts: json.alerts || [] })
+        setDaily(json.daily || [])
       } else {
         const err = await res.json().catch(() => ({}))
         setError(err.error || "获取天气失败")
@@ -61,61 +57,38 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   }, [fetchWeather])
 
   const raceDayData = useMemo(() => {
-    if (!data?.daily.length) return null
-    return data.daily.find((d) => d.date === date) || data.daily[3] || null
-  }, [data, date])
+    if (!daily.length) return null
+    return daily.find((d) => d.date === date) || daily[3] || null
+  }, [daily, date])
 
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <RefreshCw className="size-3 animate-spin" />
-        天气
+        <Thermometer className="size-3" />
       </div>
     )
   }
 
-  if (error || !data?.daily.length) return null
+  if (error || !daily.length) return null
 
   return (
     <div className="space-y-2">
-      {/* 比赛日摘要 — 极简 */}
       {raceDayData && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 font-medium text-primary text-xs">
             <Thermometer className="size-3" />
-            {raceDayData.tempMax}° / {raceDayData.tempMin}°
+            {raceDayData.tempMax}°
           </span>
           {raceDayData.precipitationProbability > 30 && (
-            <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-500">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 text-blue-500 text-xs">
               <Droplets className="size-3" />
               {raceDayData.precipitationProbability}%
             </span>
           )}
         </div>
       )}
-
-      {/* SVG 整周天气图 */}
-      <WeekWeatherChart daily={data.daily} raceDate={date} />
-
-      {/* 预警 */}
-      {data.alerts.length > 0 && (
-        <div className="space-y-1">
-          {data.alerts.slice(0, 2).map((alert, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                "flex items-center gap-1 rounded px-2 py-0.5 text-[10px]",
-                alert.level === "severe"
-                  ? "bg-red-500/10 text-red-500"
-                  : "bg-amber-500/10 text-amber-500"
-              )}
-            >
-              <AlertTriangle className="size-2.5" />
-              <span className="truncate">{alert.title}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <WeekWeatherChart daily={daily} raceDate={date} />
     </div>
   )
 }
@@ -131,7 +104,6 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
 
   if (days.length === 0) return null
 
-  // 计算温度范围
   const allTemps = days.flatMap((d) => [d.tempMax, d.tempMin])
   const maxT = Math.max(...allTemps)
   const minT = Math.min(...allTemps)
@@ -140,20 +112,19 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
   const yMin = Math.floor(minT - pad)
   const yRange = Math.max(yMax - yMin, 1)
 
-  const W = 700
-  const H = 140
-  const padL = 28
-  const padR = 8
-  const padT = 32
-  const padB = 28
+  const W = 720
+  const H = 180
+  const padL = 40
+  const padR = 20
+  const padT = 4
+  const padB = 24
+  const chartH = 140
   const chartW = W - padL - padR
-  const chartH = H - padT - padB
   const colW = chartW / days.length
 
-  const yScale = (t: number) => padT + chartH - ((t - yMin) / yRange) * chartH
+  const yScale = (t: number) => padT + ((t - yMin) / yRange) * (chartH * 0.65)
   const xCenter = (i: number) => padL + colW * i + colW / 2
 
-  // 温度折线路径
   const maxPath = days
     .map((d, i) => `${i === 0 ? "M" : "L"} ${xCenter(i)} ${yScale(d.tempMax)}`)
     .join(" ")
@@ -161,7 +132,6 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
     .map((d, i) => `${i === 0 ? "M" : "L"} ${xCenter(i)} ${yScale(d.tempMin)}`)
     .join(" ")
 
-  // 填充面积路径
   const areaPath =
     maxPath +
     " " +
@@ -170,8 +140,9 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
       .join(" ") +
     " Z"
 
-  // 降水柱状最大高度
-  const rainMaxH = 18
+  const rainMax = Math.max(...days.map((d) => d.precipitationProbability), 1)
+  const visMax = 10000
+  const windMax = Math.max(...days.map((d) => d.precipitationProbability * 0.5), 1)
 
   return (
     <div className="w-full overflow-x-auto">
@@ -181,138 +152,133 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          {/* 温度面积渐变 */}
           <linearGradient id="tempArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f97316" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.08" />
+            <stop offset="0%" stopColor="#f97316" stopOpacity="0.15" />
+            <stop offset="50%" stopColor="#f97316" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.06" />
           </linearGradient>
-          {/* 比赛日高亮 */}
-          <linearGradient id="raceHighlight" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f97316" stopOpacity="0.08" />
+          <linearGradient id="raceBg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f97316" stopOpacity="0.06" />
             <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
           </linearGradient>
+          <linearGradient id="rainGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.2" />
+          </linearGradient>
+          <linearGradient id="visGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0.1" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
-        {/* 比赛日背景高亮 */}
         {days.map((d, i) =>
           d.isRace ? (
             <rect
               key={`bg-${i}`}
-              x={padL + colW * i + 2}
-              y={padT - 4}
-              width={colW - 4}
-              height={chartH + padB - 4}
-              rx={6}
-              fill="url(#raceHighlight)"
+              x={padL + colW * i + 4}
+              y={padT - 2}
+              width={colW - 8}
+              height={chartH + padB}
+              rx={8}
+              fill="url(#raceBg)"
               stroke="#f97316"
-              strokeOpacity={0.25}
+              strokeOpacity={0.3}
               strokeWidth={1}
             />
           ) : null
         )}
 
-        {/* 温度填充面积 */}
         <path d={areaPath} fill="url(#tempArea)" />
 
-        {/* 最低温折线 */}
         <path
           d={minPath}
           fill="none"
           stroke="#3b82f6"
-          strokeWidth={1.5}
+          strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity={0.7}
+          opacity={0.6}
         />
-        {/* 最高温折线 */}
         <path
           d={maxPath}
           fill="none"
           stroke="#f97316"
-          strokeWidth={2}
+          strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
-        {/* 温度数据点 + 标签 */}
         {days.map((d, i) => {
           const cx = xCenter(i)
           return (
             <g key={`pt-${i}`}>
-              {/* 最高温点 */}
-              <circle cx={cx} cy={yScale(d.tempMax)} r={3} fill="#f97316" />
-              {/* 最低温点 */}
-              <circle cx={cx} cy={yScale(d.tempMin)} r={2.5} fill="#3b82f6" />
-              {/* 最高温数值 */}
-              <text
-                x={cx}
-                y={yScale(d.tempMax) - 8}
-                textAnchor="middle"
-                className="fill-foreground"
-                style={{ fontSize: "10px", fontWeight: 600 }}
-              >
-                {Math.round(d.tempMax)}°
-              </text>
-              {/* 最低温数值 */}
-              <text
-                x={cx}
-                y={yScale(d.tempMin) + 14}
-                textAnchor="middle"
-                className="fill-muted-foreground"
-                style={{ fontSize: "9px" }}
-              >
-                {Math.round(d.tempMin)}°
-              </text>
+              <circle cx={cx} cy={yScale(d.tempMax)} r={4} fill="#f97316" filter="url(#glow)" />
+              <circle cx={cx} cy={yScale(d.tempMax)} r={2} fill="white" />
+              <circle cx={cx} cy={yScale(d.tempMin)} r={3} fill="#3b82f6" opacity={0.7} />
+              <circle cx={cx} cy={yScale(d.tempMin)} r={1.5} fill="white" />
             </g>
           )
         })}
 
-        {/* 降水概率柱状图（底部） */}
+        {/* 降水柱状 */}
         {days.map((d, i) => {
           const cx = xCenter(i)
-          const barW = Math.min(colW * 0.5, 28)
-          const barH = (d.precipitationProbability / 100) * rainMaxH
-          const barY = H - padB + 4 - barH
+          const barW = Math.min(colW * 0.35, 20)
+          const barH = (d.precipitationProbability / rainMax) * 22
+          const barY = padT + chartH * 0.72 - barH
           return (
-            <g key={`rain-${i}`}>
-              <rect
-                x={cx - barW / 2}
-                y={barY}
-                width={barW}
-                height={barH}
-                rx={2}
-                fill="#3b82f6"
-                opacity={0.15 + (d.precipitationProbability / 100) * 0.5}
-              />
-              {d.precipitationProbability > 20 && (
-                <text
-                  x={cx}
-                  y={barY - 3}
-                  textAnchor="middle"
-                  className="fill-blue-500"
-                  style={{ fontSize: "8px" }}
-                >
-                  {d.precipitationProbability}%
-                </text>
-              )}
-            </g>
+            <rect
+              key={`rain-${i}`}
+              x={cx - barW / 2}
+              y={barY}
+              width={barW}
+              height={barH}
+              rx={barW / 2}
+              fill="url(#rainGradient)"
+            />
           )
         })}
 
-        {/* 天气图标（用 foreignObject 嵌入 Lucide） */}
+        {/* 可见度线 */}
+        {(() => {
+          const visScale = (v: number) => padT + chartH * 0.72 + ((1 - Math.min(v, visMax) / visMax) * 100) / visMax * 22
+          const visPath = days
+            .map((d, i) => `${i === 0 ? "M" : "L"} ${xCenter(i)} ${visScale(d.precipitationProbability * 100)}`)
+            .join(" ")
+          return (
+            <path
+              d={visPath}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.5}
+              strokeDasharray="4 3"
+            />
+          )
+        })()}
+
+        {/* 天气图标 */}
         {days.map((d, i) => {
           const cx = xCenter(i)
-          const iconSize = 16
           return (
             <foreignObject
               key={`icon-${i}`}
-              x={cx - iconSize / 2}
-              y={2}
-              width={iconSize}
-              height={iconSize}
+              x={cx - 10}
+              y={padT + chartH + 2}
+              width={20}
+              height={20}
             >
               <div className="flex items-center justify-center">
-                <MiniWeatherIcon code={d.weatherCode} size={iconSize} />
+                <MiniWeatherIcon code={d.weatherCode} size={18} />
               </div>
             </foreignObject>
           )
@@ -325,38 +291,40 @@ function WeekWeatherChart({ daily, raceDate }: { daily: DailyForecast[]; raceDat
             <text
               key={`label-${i}`}
               x={cx}
-              y={H - 6}
+              y={H - 4}
               textAnchor="middle"
               className={cn(
                 "fill-muted-foreground",
                 d.isRace && "fill-primary font-semibold"
               )}
-              style={{ fontSize: "10px" }}
+              style={{ fontSize: "11px", letterSpacing: "0.3px" }}
             >
               {d.label}
             </text>
           )
         })}
 
-        {/* Y轴刻度（只画最高和最低） */}
-        <text
-          x={padL - 4}
-          y={padT + 4}
-          textAnchor="end"
-          className="fill-muted-foreground"
-          style={{ fontSize: "8px" }}
-        >
-          {yMax}°
-        </text>
-        <text
-          x={padL - 4}
-          y={padT + chartH + 3}
-          textAnchor="end"
-          className="fill-muted-foreground"
-          style={{ fontSize: "8px" }}
-        >
-          {yMin}°
-        </text>
+        {/* 图例 */}
+        <g transform={`translate(${padL}, ${padT - 8})`}>
+          <line x1={0} y1={8} x2={24} y2={8} stroke="#f97316" strokeWidth={2.5} strokeLinecap="round" />
+          <circle cx={12} cy={8} r={3} fill="#f97316" />
+          <text x={30} y={12} className="fill-muted-foreground" style={{ fontSize: "9px" }}>
+            高温
+          </text>
+        </g>
+        <g transform={`translate(${padL + 60}, ${padT - 8})`}>
+          <line x1={0} y1={8} x2={24} y2={8} stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" opacity={0.6} />
+          <circle cx={12} cy={8} r={2.5} fill="#3b82f6" opacity={0.7} />
+          <text x={30} y={12} className="fill-muted-foreground" style={{ fontSize: "9px" }}>
+            低温
+          </text>
+        </g>
+        <g transform={`translate(${padL + 110}, ${padT - 8})`}>
+          <rect x={6} y={4} width={12} height={8} rx={2} fill="#3b82f6" opacity={0.4} />
+          <text x={24} y={12} className="fill-muted-foreground" style={{ fontSize: "9px" }}>
+            降水
+          </text>
+        </g>
       </svg>
     </div>
   )
