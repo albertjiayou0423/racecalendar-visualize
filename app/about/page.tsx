@@ -11,6 +11,14 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.0.1",
+    date: "2026-07-22",
+    items: [
+      { type: "fix", text: "修复开发者页面 Patreon 名片图片无法显示的问题" },
+      { type: "ui", text: "Patreon 卡片改用本地静态图片资源，提升加载稳定性" },
+    ],
+  },
+  {
     version: "v2.0.0",
     date: "2026-07-22",
     items: [
@@ -187,8 +195,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v2.0.0</span>
-          <span className="text-sm text-muted-foreground">重大更新</span>
+          <span className="text-3xl font-bold">v2.0.1</span>
+          <span className="text-sm text-muted-foreground">修复更新</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -220,7 +228,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.0.0" && (
+                {entry.version === "v2.0.1" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
