@@ -292,4 +292,78 @@ function formatDayLabel(dateStr: string, raceDate: string): string {
 
   const weekdays = ["日", "一", "二", "三", "四", "五", "六"]
   return weekdays[d.getDay()]
-}
+}"use client"use client"
+
+import { useState, useEffect, useCallback"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import {"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
+import {
+  GridComponent"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
+import {
+  GridComponent,
+  TooltipComponent,
+} from "echarts/components"
+import { CanvasRenderer"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
+import {
+  GridComponent,
+  TooltipComponent,
+} from "echarts/components"
+import { CanvasRenderer } from "echarts/renderers"
+import {
+  Thermometer,
+  Drop"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
+import {
+  GridComponent,
+  TooltipComponent,
+} from "echarts/components"
+import { CanvasRenderer } from "echarts/renderers"
+import {
+  Thermometer,
+  Droplets,
+  RefreshCw,
+} from "lucide-react"
+import type {"use client"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
+import ReactEChartsCore from "echarts-for-react/lib/core"
+import * as echarts from "echarts/core"
+import { LineChart, BarChart } from "echarts/charts"
+import {
+  GridComponent,
+  TooltipComponent,
+} from "echarts/components"
+import { CanvasRenderer } from "echarts/renderers"
+import {
+  Thermometer,
+  Droplets,
+  RefreshCw,
+} from "lucide-react"
+import type { DailyForecast } from "@/app/api/weather/route"
+
+echarts.use([
