@@ -10,6 +10,7 @@ export interface HourlyForecast {
   weatherCode: number
   windSpeed: number
   humidity: number
+  visibility: number
 }
 
 export interface DailyForecast {
@@ -18,6 +19,7 @@ export interface DailyForecast {
   tempMin: number
   precipitationSum: number
   precipitationProbability: number
+  weatherCode: number
   sunrise: string
   sunset: string
 }
@@ -185,17 +187,26 @@ function generateAlerts(hourly: HourlyForecast[]): WeatherAlert[] {
   return merged.slice(0, 5)
 }
 
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z")
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 async function fetchWeather(lat: number, lon: number, date: string): Promise<WeatherResponse | null> {
   try {
+    const startDate = addDays(date, -3)
+    const endDate = addDays(date, 3)
+
     const params = new URLSearchParams({
       latitude: lat.toString(),
       longitude: lon.toString(),
-      hourly: "temperature_2m,precipitation_probability,precipitation,weathercode,wind_speed_10m,relative_humidity_2m",
-      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset",
+      hourly: "temperature_2m,precipitation_probability,precipitation,weathercode,wind_speed_10m,relative_humidity_2m,visibility",
+      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,weathercode",
       current_weather: "true",
       timezone: "auto",
-      start_date: date,
-      end_date: date,
+      start_date: startDate,
+      end_date: endDate,
     })
 
     const res = await fetch(`${OPEN_METEO_BASE}?${params.toString()}`, { next: { revalidate: 3600 } })
@@ -213,6 +224,7 @@ async function fetchWeather(lat: number, lon: number, date: string): Promise<Wea
           weatherCode: data.hourly.weathercode[i],
           windSpeed: data.hourly.wind_speed_10m[i],
           humidity: data.hourly.relative_humidity_2m[i],
+          visibility: data.hourly.visibility[i] ?? 0,
         })
       }
     }
@@ -226,6 +238,7 @@ async function fetchWeather(lat: number, lon: number, date: string): Promise<Wea
           tempMin: data.daily.temperature_2m_min[i],
           precipitationSum: data.daily.precipitation_sum[i],
           precipitationProbability: data.daily.precipitation_probability_max[i],
+          weatherCode: data.daily.weathercode[i] ?? 0,
           sunrise: data.daily.sunrise[i],
           sunset: data.daily.sunset[i],
         })
