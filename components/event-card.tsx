@@ -354,6 +354,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                   startTime={formatTime(main.utc, event.tz)}
                   lat={event.lat}
                   lon={event.lon}
+                  compact
                 />
               </div>
             )}

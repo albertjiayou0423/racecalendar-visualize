@@ -31,9 +31,10 @@ interface WeatherCardProps {
   startTime: string
   lat?: number
   lon?: number
+  compact?: boolean
 }
 
-export function WeatherCard({ city, country, date, startTime, lat, lon }: WeatherCardProps) {
+export function WeatherCard({ city, country, date, startTime, lat, lon, compact = false }: WeatherCardProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [daily, setDaily] = useState<DailyForecast[]>([])
@@ -80,32 +81,60 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
 
   if (error || !daily.length) return null
 
+  if (compact || !raceDayData) {
+    return <CompactWeather data={raceDayData} />
+  }
+
   return (
     <div className="space-y-3">
-      {raceDayData && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-900/50 to-orange-900/50">
-              <Thermometer className="size-4 text-amber-500" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-900/50 to-orange-900/50">
+            <Thermometer className="size-4 text-amber-500" />
+          </div>
+          <div>
+            <div className="text-base font-medium text-amber-500">
+              {Math.round(raceDayData.tempMax)}°
             </div>
-            <div>
-              <div className="text-base font-medium text-amber-500">
-                {Math.round(raceDayData.tempMax)}°
-              </div>
-              <div className="text-xs text-sky-400">
-                {Math.round(raceDayData.tempMin)}°
-              </div>
+            <div className="text-xs text-sky-400">
+              {Math.round(raceDayData.tempMin)}°
             </div>
           </div>
-          {raceDayData.precipitationProbability > 30 && (
-            <div className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2 py-1 text-xs text-blue-400">
-              <Droplets className="size-3" />
-              {raceDayData.precipitationProbability}%
-            </div>
-          )}
+        </div>
+        {raceDayData.precipitationProbability > 30 && (
+          <div className="flex items-center gap-1 rounded-lg bg-blue-500/10 px-2 py-1 text-xs text-blue-400">
+            <Droplets className="size-3" />
+            {raceDayData.precipitationProbability}%
+          </div>
+        )}
+      </div>
+      <WeatherChart daily={daily} raceDate={date} />
+    </div>
+  )
+}
+
+function CompactWeather({ data }: { data: DailyForecast | null }) {
+  if (!data) return null
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        <Thermometer className="size-3.5 text-amber-500" />
+        <span className="text-sm text-amber-500 font-medium">
+          {Math.round(data.tempMax)}°
+        </span>
+        <span className="text-xs text-sky-400">
+          {Math.round(data.tempMin)}°
+        </span>
+      </div>
+      {data.precipitationProbability > 30 && (
+        <div className="flex items-center gap-1">
+          <Droplets className="size-3 text-blue-400" />
+          <span className="text-xs text-blue-400">
+            {data.precipitationProbability}%
+          </span>
         </div>
       )}
-      <WeatherChart daily={daily} raceDate={date} />
     </div>
   )
 }
