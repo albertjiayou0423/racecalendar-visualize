@@ -176,10 +176,10 @@ export function MonthView({ events, now }: MonthViewProps) {
       </div>
 
       {/* 日历格子 */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
         {cells.map((cell, i) => {
           if (!cell.key) {
-            return <div key={i} className="min-h-20 rounded-lg border border-border/40 bg-card/30" />
+            return <div key={i} className="min-h-16 sm:min-h-20 rounded-lg border border-border/40 bg-card/30" />
           }
           const dayItems = byDay.get(cell.key) ?? []
           const past = dayItems.every(({ event }) => {
@@ -192,7 +192,7 @@ export function MonthView({ events, now }: MonthViewProps) {
               type="button"
               onClick={() => setSelectedDay(cell.key)}
               className={cn(
-                "min-h-20 w-full rounded-lg border bg-card p-1.5 text-left transition-colors",
+                "min-h-16 sm:min-h-20 w-full rounded-lg border bg-card p-1 sm:p-1.5 text-left transition-colors",
                 cell.isToday
                   ? "border-primary"
                   : "border-border hover:border-primary/40",
@@ -201,53 +201,46 @@ export function MonthView({ events, now }: MonthViewProps) {
             >
               <div
                 className={cn(
-                  "text-xs font-medium tabular-nums",
+                  "text-[10px] sm:text-xs font-medium tabular-nums",
                   cell.isToday ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 {cell.day}
               </div>
-              <div className="mt-1 flex flex-col gap-0.5">
-                {dayItems.slice(0, 3).map(({ event: e, firstUtc }, idx) => {
+              <div className="mt-0.5 sm:mt-1 flex flex-col gap-0.5">
+                {dayItems.slice(0, 2).map(({ event: e, firstUtc }, idx) => {
                   const meta = SERIES_META[e.series]
-                  const time = new Intl.DateTimeFormat("en-GB", {
-                    timeZone: BEIJING_TZ,
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hourCycle: "h23",
-                  }).format(new Date(firstUtc))
                   const flag = countryCodeToFlag(e.countryCode)
-                  // 同一天如果同一赛事已出现过（同一 event id），标记为"续"
                   const prevSameEvent = idx > 0 && dayItems[idx - 1].event.id === e.id
                   return (
                     <div
                       key={`${e.id}-${idx}`}
                       className={cn(
-                        "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight",
+                        "flex items-center gap-0.5 rounded px-0.5 py-0.5 text-[8px] sm:text-[10px] leading-tight",
                         past && "opacity-50",
                       )}
                       style={{
                         backgroundColor: `${meta.color}22`,
                       }}
-                      title={`${e.name}${prevSameEvent ? "（续）" : ""} · ${time} 北京时间`}
+                      title={`${e.name}${prevSameEvent ? "（续）" : ""}`}
                     >
                       <span
-                        className="size-1.5 shrink-0 rounded-full"
+                        className="size-1 sm:size-1.5 shrink-0 rounded-full"
                         style={{ backgroundColor: meta.color }}
                         aria-hidden
                       />
-                      <span className="truncate font-medium" style={{ color: meta.color }}>
+                      <span className="truncate font-medium hidden sm:inline" style={{ color: meta.color }}>
                         {prevSameEvent ? "续" : `${flag ? `${flag} ` : ""}${meta.label}`}
                       </span>
-                      <span className="ml-auto font-mono tabular-nums text-muted-foreground">
-                        {time}
+                      <span className="truncate font-medium sm:hidden" style={{ color: meta.color }}>
+                        {meta.label}
                       </span>
                     </div>
                   )
                 })}
-                {dayItems.length > 3 ? (
-                  <div className="px-1 text-[10px] text-muted-foreground">
-                    +{dayItems.length - 3} 场
+                {dayItems.length > 2 ? (
+                  <div className="px-0.5 text-[8px] sm:text-[10px] text-muted-foreground">
+                    +{dayItems.length - 2}
                   </div>
                 ) : null}
               </div>

@@ -40,10 +40,10 @@ export async function getSqlOrFail(): Promise<NeonQueryFunction> {
 export async function initDb(): Promise<void> {
   const sql = getSql()
   if (!sql) return
-  
+
   if (initialized) return
   initialized = true
-  
+
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS predictions (
@@ -55,12 +55,74 @@ export async function initDb(): Promise<void> {
         UNIQUE(event_id, voter_id)
       )
     `
-    
+
     await sql`
       CREATE INDEX IF NOT EXISTS idx_predictions_event_id ON predictions(event_id)
     `
+
+    // AI API 用量追踪表
+    await sql`
+      CREATE TABLE IF NOT EXISTS ai_usage (
+        id SERIAL PRIMARY KEY,
+        date DATE NOT NULL UNIQUE,
+        count INTEGER DEFAULT 0
+      )
+    `
   } catch {
     // ignore errors (table might already exist)
+  }
+}
+
+// AI API 用量管理
+const AI_DAILY_LIMIT = 50
+
+export async function checkAiQuota(): Promise<{ allowed: boolean; remaining: number; used: number }> {
+  const sql = getSql()
+  if (!sql) {
+    return { allowed: true, remaining: AI_DAILY_LIMIT, used: 0 }
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+
+  try {
+    const result = await sql`
+      SELECT count FROM ai_usage WHERE date = ${today}
+    `
+
+    const used = result[0]?.count || 0
+    const remaining = Math.max(0, AI_DAILY_LIMIT - Number(used))
+
+    return {
+      allowed: Number(used) < AI_DAILY_LIMIT,
+      remaining,
+      used: Number(used),
+    }
+  } catch {
+    return { allowed: true, remaining: AI_DAILY_LIMIT, used: 0 }
+  }
+}
+
+export async function incrementAiUsage(): Promise<number> {
+  const sql = getSql()
+  if (!sql) return 0
+
+  const today = new Date().toISOString().split('T')[0]
+
+  try {
+    // 先尝试插入
+    await sql`
+      INSERT INTO ai_usage (date, count)
+      VALUES (${today}, 1)
+      ON CONFLICT (date) DO UPDATE SET count = ai_usage.count + 1
+    `
+
+    const result = await sql`
+      SELECT count FROM ai_usage WHERE date = ${today}
+    `
+
+    return Number(result[0]?.count || 1)
+  } catch {
+    return 0
   }
 }
 

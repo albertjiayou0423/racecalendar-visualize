@@ -11,6 +11,32 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v1.0.10",
+    date: "2026-07-21",
+    items: [
+      { type: "fix", text: "修复 F1 赛道图加载失败：API 层强制覆盖为本地图片资源，解决快照缓存旧 URL 问题" },
+      { type: "fix", text: "修复后台用户建议入口登录循环：cookie 值检查从 authenticated 改为 true" },
+      { type: "fix", text: "修复 AI 赛事预测排序错误：重写解析逻辑，只匹配序号开头行，过滤分析文本" },
+      { type: "fix", text: "修复 FE 积分榜 API 500 错误：赛季未开始时返回空数据，接口不可用时返回友好提示" },
+      { type: "ui", text: "移动端顶部筛选栏简化：只保留赛事系列（全部/F1/WRC/FE），搜索框和高级筛选移至桌面端" },
+      { type: "ui", text: "赛道图组件添加加载状态、错误重试和路径显示" },
+    ],
+  },
+  {
+    version: "v1.0.9",
+    date: "2026-07-21",
+    items: [
+      { type: "feat", text: "历史赛果查询页面，支持 F1/FE 各赛季完整成绩" },
+      { type: "feat", text: "天气预警功能：暴雨/雷暴/强风/极端温度/降雪/大雾自动识别" },
+      { type: "feat", text: "积分榜图表可视化，支持积分/胜场切换，前三名金银铜色标识" },
+      { type: "feat", text: "赛事日历壁纸生成，支持手机 9:16 / 桌面 16:9 两种比例" },
+      { type: "feat", text: "AI 预测 API 每日 50 次用量限制" },
+      { type: "fix", text: "修复 Wikipedia 图片 OpaqueResponseBlocking 被阻止问题（通过服务端代理）" },
+      { type: "fix", text: "修复投票 POST 400 错误（投票不需要 series 字段）" },
+      { type: "fix", text: "修复 React hydration mismatch（传递 serverTime prop 确保 SSR/客户端一致）" },
+    ],
+  },
+  {
     version: "v1.0.8",
     date: "2026-07-16",
     items: [
@@ -148,7 +174,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v1.0.8</span>
+          <span className="text-3xl font-bold">v1.0.10</span>
           <span className="text-sm text-muted-foreground">当前版本</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -181,7 +207,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v1.0.8" && (
+                {entry.version === "v1.0.10" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

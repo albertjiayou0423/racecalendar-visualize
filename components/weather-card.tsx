@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, Clock } from "lucide-react"
-import type { HourlyForecast, DailyForecast } from "@/app/api/weather/route"
+import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Thermometer, Wind, RefreshCw, CloudLightning, Snowflake, AlertTriangle } from "lucide-react"
+import type { HourlyForecast, WeatherAlert } from "@/app/api/weather/route"
 import { getWeatherInfo } from "@/app/api/weather/route"
 import { cn } from "@/lib/utils"
 
@@ -19,29 +19,25 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hourly, setHourly] = useState<HourlyForecast[]>([])
-  const [daily, setDaily] = useState<DailyForecast[]>([])
+  const [alerts, setAlerts] = useState<WeatherAlert[]>([])
 
   const fetchWeather = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const params = new URLSearchParams({
-        city: city,
-        country: country,
-        date: date,
-      })
+      const params = new URLSearchParams({ city, country, date })
       if (lat !== undefined) params.set("lat", lat.toString())
       if (lon !== undefined) params.set("lon", lon.toString())
       const res = await fetch(`/api/weather?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setHourly(data.hourly || [])
-        setDaily(data.daily || [])
+        setAlerts(data.alerts || [])
       } else {
         const err = await res.json().catch(() => ({}))
         setError(err.error || "获取天气失败")
       }
-    } catch (err) {
+    } catch {
       setError("网络错误")
     } finally {
       setLoading(false)
@@ -53,125 +49,113 @@ export function WeatherCard({ city, country, date, startTime, lat, lon }: Weathe
   }, [fetchWeather])
 
   if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <RefreshCw className="size-4 animate-spin" />
-        加载天气...
-      </div>
-    )
+    return <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><RefreshCw className="size-3 animate-spin" />天气</div>
   }
 
-  if (error) {
-    return null
-  }
+  if (error || hourly.length === 0) return null
 
-  if (daily.length === 0) {
-    return null
-  }
-
-  const day = daily[0]
+  // 取比赛当天的天气
   const startHour = parseInt(startTime.split(":")[0]) || 14
   const raceHour = hourly.find((h) => {
     const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
     return Math.abs(hh - startHour) <= 2
-  }) || hourly[startHour] || hourly[0]
+  }) || hourly[Math.min(startHour, hourly.length - 1)]
 
   const weatherInfo = raceHour ? getWeatherInfo(raceHour.weatherCode) : getWeatherInfo(0)
 
+  // 取一周天气数据（每天取中午12点）
+  const weekData: { day: string; temp: number; rain: number; code: number }[] = []
+  const seenDays = new Set<string>()
+  for (const h of hourly) {
+    const d = new Date(h.time)
+    const dayKey = d.toISOString().slice(0, 10)
+    if (seenDays.has(dayKey)) continue
+    seenDays.add(dayKey)
+    const hour = d.getHours()
+    // 取最接近12点的数据
+    const dayHours = hourly.filter(x => x.time.startsWith(dayKey))
+    const midDay = dayHours.find(x => Math.abs(parseInt(x.time.split("T")[1]?.split(":")[0] || "0") - 12) <= 3) || dayHours[0]
+    if (midDay) {
+      weekData.push({
+        day: ["日", "一", "二", "三", "四", "五", "六"][d.getDay()],
+        temp: midDay.temperature,
+        rain: midDay.precipitationProbability,
+        code: midDay.weatherCode,
+      })
+    }
+  }
+
+  const maxTemp = Math.max(...weekData.map(d => d.temp))
+  const minTemp = Math.min(...weekData.map(d => d.temp))
+  const tempRange = Math.max(maxTemp - minTemp, 1)
+
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+    <div className="space-y-2">
+      {/* 当前天气摘要 */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 shrink-0">
           {getWeatherIcon(raceHour?.weatherCode || 0)}
         </div>
-        <div>
-          <div className="flex items-center gap-1 text-sm font-medium">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-sm">
             <span>{weatherInfo.icon}</span>
-            <span>{weatherInfo.label}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {day.tempMin}° ~ {day.tempMax}°
+            <span className="font-medium truncate">{raceHour?.temperature}°C</span>
+            <span className="text-muted-foreground text-xs">{raceHour?.precipitationProbability}%雨</span>
           </div>
         </div>
       </div>
 
-      <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
-        {raceHour && (
-          <>
-            <div className="flex items-center gap-1">
-              <Thermometer className="size-3" />
-              <span>{raceHour.temperature}°C</span>
+      {/* 一周气温折线图 */}
+      {weekData.length > 1 && (
+        <div className="flex items-end gap-1 h-12 px-1">
+          {weekData.slice(0, 7).map((d, i) => {
+            const heightPercent = ((d.temp - minTemp) / tempRange) * 100
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                <div className="relative w-full flex justify-center" style={{ height: "28px" }}>
+                  <div
+                    className="w-1 rounded-full bg-gradient-to-t from-blue-500 to-orange-400"
+                    style={{ height: `${Math.max(heightPercent, 20)}%`, minHeight: "4px" }}
+                    title={`${d.temp}°C`}
+                  />
+                </div>
+                <span className="text-[9px] text-muted-foreground">{d.day}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 预警条 */}
+      {alerts.length > 0 && (
+        <div className="space-y-1">
+          {alerts.slice(0, 2).map((alert, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                "flex items-center gap-1.5 rounded px-2 py-1 text-[10px]",
+                alert.level === "severe"
+                  ? "bg-red-500/10 text-red-500"
+                  : "bg-amber-500/10 text-amber-500"
+              )}
+            >
+              <AlertTriangle className="size-2.5" />
+              <span className="truncate">{alert.title}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Droplets className="size-3" />
-              <span>{raceHour.precipitationProbability}%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Wind className="size-3" />
-              <span>{raceHour.windSpeed} km/h</span>
-            </div>
-          </>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 function getWeatherIcon(code: number) {
-  if (code >= 51 && code <= 65) return <CloudRain className="size-4 text-blue-500" />
-  if (code >= 71 && code <= 77) return <CloudSnow className="size-4 text-sky-400" />
-  if (code >= 80 && code <= 86) return <CloudRain className="size-4 text-blue-500" />
-  if (code >= 95 && code <= 99) return <CloudRain className="size-4 text-purple-500" />
-  if (code === 0) return <Sun className="size-4 text-yellow-500" />
-  if (code >= 45 && code <= 48) return <Cloud className="size-4 text-slate-500" />
-  return <Cloud className="size-4 text-slate-400" />
-}
-
-interface WeatherTimelineProps {
-  hourly: HourlyForecast[]
-  startTime: string
-}
-
-export function WeatherTimeline({ hourly, startTime }: WeatherTimelineProps) {
-  const startHour = parseInt(startTime.split(":")[0]) || 14
-  const relevantHours = hourly.filter((h) => {
-    const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
-    return hh >= Math.max(0, startHour - 4) && hh <= Math.min(23, startHour + 4)
-  })
-
-  if (relevantHours.length === 0) return null
-
-  return (
-    <div className="mt-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Clock className="size-3" />
-        <span>{startTime} 前后天气变化</span>
-      </div>
-      <div className="mt-2 flex gap-1">
-        {relevantHours.map((h) => {
-          const hh = parseInt(h.time.split("T")[1]?.split(":")[0] || "0")
-          const isRaceTime = Math.abs(hh - startHour) <= 1
-          const weatherInfo = getWeatherInfo(h.weatherCode)
-          return (
-            <div
-              key={h.time}
-              className={cn(
-                "flex flex-col items-center rounded-md px-2 py-1.5 text-xs",
-                isRaceTime && "bg-primary/10 ring-1 ring-primary/50",
-              )}
-            >
-              <span className={cn(isRaceTime && "font-medium")}>{hh}:00</span>
-              <span className="mt-1">{weatherInfo.icon}</span>
-              <span className={cn("mt-0.5 tabular-nums", isRaceTime && "font-medium")}>
-                {Math.round(h.temperature)}°
-              </span>
-              {h.precipitationProbability > 20 && (
-                <span className="text-[10px] text-blue-500">{h.precipitationProbability}%</span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+  if (code === 0) return <Sun className="size-3.5 text-amber-500" />
+  if (code <= 3) return <Cloud className="size-3.5 text-gray-400" />
+  if (code <= 49) return <Cloud className="size-3.5 text-gray-500" />
+  if (code <= 59) return <Droplets className="size-3.5 text-blue-400" />
+  if (code <= 69) return <CloudRain className="size-3.5 text-blue-500" />
+  if (code <= 79) return <CloudSnow className="size-3.5 text-cyan-400" />
+  if (code <= 99) return <CloudLightning className="size-3.5 text-purple-500" />
+  return <Cloud className="size-3.5 text-gray-400" />
 }

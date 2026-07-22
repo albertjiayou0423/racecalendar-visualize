@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
@@ -77,9 +77,10 @@ const TIME_TABS: { key: TimeFilter; label: string }[] = [
 ]
 
 /** 每秒刷新的当前时间戳 */
-function useNow() {
-  const [now, setNow] = useState(() => Date.now())
+function useNow(serverTime: number) {
+  const [now, setNow] = useState<number>(serverTime)
   useEffect(() => {
+    setNow(Date.now())
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
@@ -222,8 +223,8 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
   )
 }
 
-export function ScheduleView() {
-  const now = useNow()
+export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
+  const now = useNow(serverTime)
   const { data, error, isLoading } = useSWR("/api/schedule", fetcher, {
     revalidateOnFocus: false,
   })
@@ -293,11 +294,9 @@ export function ScheduleView() {
         e.circuit.toLowerCase().includes(query)
       )
     }
-    // 赛道类型筛选
     if (circuitType !== "all") {
       list = list.filter((e) => e.circuitType === circuitType)
     }
-    // 地区筛选
     if (region !== "all") {
       list = list.filter((e) => e.region === region)
     }
@@ -344,9 +343,15 @@ export function ScheduleView() {
       </header>
 
       {/* 筛选 */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all duration-300">
+      <div
+        data-filter-bar
+        className={cn(
+          "sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
+          filterStuck && isMobile && "py-2 gap-0"
+        )}
+      >
         {/* 搜索框 - 移动端吸顶时隐藏 */}
-        <div className={cn("relative", filterStuck && isMobile ? "hidden" : "block")}>
+        <div className={cn("relative transition-all", filterStuck && isMobile && "hidden")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             type="text"
@@ -356,6 +361,7 @@ export function ScheduleView() {
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
+        {/* 赛事系列 - 始终显示，吸顶时只保留这一行 */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="赛事系列">
             {SERIES_TABS.map((t) => (
@@ -377,7 +383,7 @@ export function ScheduleView() {
             ))}
           </div>
           {/* 视图切换 + 通知 - 移动端吸顶时隐藏 */}
-          <div className={cn("flex items-center gap-2", filterStuck && isMobile ? "hidden" : "flex")}>
+          <div className={cn("flex items-center gap-2", filterStuck && isMobile && "hidden")}>
             <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
               <button
                 type="button"
@@ -428,31 +434,31 @@ export function ScheduleView() {
             {data ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
-        {/* 时间范围 - 移动端吸顶时隐藏 */}
-        {view === "list" && !(filterStuck && isMobile) ? (
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
-            {TIME_TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={time === t.key}
-                onClick={() => setTime(t.key)}
-                className={cn(
-                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                  time === t.key
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        {/* 时间范围和高级筛选 - 移动端吸顶时隐藏 */}
+        <div className={cn("flex flex-col gap-2 transition-all", filterStuck && isMobile && "hidden")}>
+          {view === "list" ? (
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
+              {TIME_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={time === t.key}
+                  onClick={() => setTime(t.key)}
+                  className={cn(
+                    "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                    time === t.key
+                      ? "bg-secondary text-secondary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-        {/* 高级筛选 - 移动端吸顶时隐藏 */}
-        {!(filterStuck && isMobile) ? (
+          {/* 高级筛选 */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -519,7 +525,7 @@ export function ScheduleView() {
               </>
             ) : null}
           </div>
-        ) : null}
+        </div>
       </div>
 
       {/* 加载 / 错误 */}
@@ -623,15 +629,36 @@ export function ScheduleView() {
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Trophy className="size-3.5" />
-          F1 积分榜
+          积分榜
         </Link>
         <Link
-          href="/about"
+          href="/results"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
-          <Sparkles className="size-3.5" />
-          v1.0.8 · 更新日志
+          <Flag className="size-3.5" />
+          历史赛果
         </Link>
+        <Link
+          href="/wallpaper"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <ImageIcon className="size-3.5" />
+          壁纸生成
+        </Link>
+        <Link
+          href="/circuits"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <Hash className="size-3.5" />
+          赛道数据库
+        </Link>
+        <Link
+            href="/about"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+          >
+            <Sparkles className="size-3.5" />
+            v1.0.10 · 更新日志
+          </Link>
         <Link
           href="/developer"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"

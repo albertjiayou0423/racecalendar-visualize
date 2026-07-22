@@ -182,7 +182,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
         <button
           onClick={toggleNotifications}
           className={cn(
-            "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs transition-colors",
+            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs transition-colors sm:gap-2 sm:px-4",
             enabled
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
               : "border-border text-muted-foreground hover:border-primary hover:text-foreground"
@@ -192,12 +192,12 @@ export function NotificationManager({ events }: NotificationManagerProps) {
           {enabled ? (
             <>
               <Check className="size-3.5" />
-              通知已开启
+              <span className="hidden sm:inline">通知已开启</span>
             </>
           ) : (
             <>
               <Bell className="size-3.5" />
-              开启比赛提醒
+              <span className="hidden sm:inline">开启比赛提醒</span>
             </>
           )}
         </button>

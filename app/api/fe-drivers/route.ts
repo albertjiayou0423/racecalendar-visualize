@@ -6,7 +6,6 @@ export const revalidate = 3600
 
 export async function GET() {
   try {
-    // 获取当前赛季
     const champRes = await fetch(`${FE_BASE}/championships`, {
       next: { revalidate: 3600 },
     })
@@ -16,15 +15,35 @@ export async function GET() {
     const present = champs.find((c: { status: string }) => c.status === "Present") ?? champs[champs.length - 1]
     if (!present) throw new Error("未找到当前 FE 赛季")
 
-    // 获取车手积分榜
+    const champDetails = await fetch(`${FE_BASE}/championships/${present.id}`, {
+      next: { revalidate: 3600 },
+    })
+    const champData = champDetails.ok ? await champDetails.json() : {}
+    const lastFinishedRound = champData?.lastFinishedRound ?? 0
+
+    if (lastFinishedRound === 0) {
+      return NextResponse.json({
+        drivers: [],
+        ok: true,
+        note: "当前赛季尚未开始，暂无积分榜数据",
+      })
+    }
+
     const standingsRes = await fetch(
       `${FE_BASE}/standings?championshipId=${present.id}&season=2026`,
       { next: { revalidate: 3600 } }
     )
-    if (!standingsRes.ok) throw new Error(`HTTP ${standingsRes.status}`)
+
+    if (!standingsRes.ok) {
+      return NextResponse.json({
+        drivers: [],
+        ok: true,
+        note: "FE 官方积分榜接口暂不可用",
+      })
+    }
+
     const standingsJson = await standingsRes.json()
 
-    // 获取车手详情（头像、国家）
     const driversRes = await fetch(`${FE_BASE}/drivers?championshipId=${present.id}`, {
       next: { revalidate: 3600 },
     })
@@ -41,7 +60,6 @@ export async function GET() {
       position: number
     }[] = []
 
-    // 构建车手信息映射
     const driverMap = new Map<string, {
       firstName?: string
       lastName?: string
@@ -52,17 +70,16 @@ export async function GET() {
     }>()
 
     for (const d of driversJson?.drivers ?? []) {
-      driverMap.set(d.driverId, {
-        firstName: d.firstName,
-        lastName: d.lastName,
-        teamName: d.teamName,
+      driverMap.set(d.id, {
+        firstName: d.driverFirstName,
+        lastName: d.driverLastName,
+        teamName: d.team?.name,
         country: d.country,
         countryCode: d.countryCode,
         photoUrl: d.photoUrl,
       })
     }
 
-    // 从积分榜提取数据
     for (const entry of standingsJson?.driverStandings ?? []) {
       const info = driverMap.get(entry.driverId) ?? {}
       drivers.push({

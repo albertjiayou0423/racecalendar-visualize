@@ -1,0 +1,222 @@
+{
+  "australia": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Australia.webp",
+      "filename": "australia_header_Australia.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmelbournedetailed.webp",
+      "filename": "australia_track_2026trackmelbournedetailed.webp"
+    }
+  },
+  "china": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/China.webp",
+      "filename": "china_header_China.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackshanghaidetailed.webp",
+      "filename": "china_track_2026trackshanghaidetailed.webp"
+    }
+  },
+  "japan": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Japan.webp",
+      "filename": "japan_header_Japan.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026tracksuzukadetailed.webp",
+      "filename": "japan_track_2026tracksuzukadetailed.webp"
+    }
+  },
+  "miami": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Miami.webp",
+      "filename": "miami_header_Miami.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmiamidetailed.webp",
+      "filename": "miami_track_2026trackmiamidetailed.webp"
+    }
+  },
+  "canada": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Canada.webp",
+      "filename": "canada_header_Canada.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmontrealdetailed.webp",
+      "filename": "canada_track_2026trackmontrealdetailed.webp"
+    }
+  },
+  "monaco": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Monaco.webp",
+      "filename": "monaco_header_Monaco.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmontecarlodetailed.webp",
+      "filename": "monaco_track_2026trackmontecarlodetailed.webp"
+    }
+  },
+  "barcelona-catalunya": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Spain.webp",
+      "filename": "barcelona-catalunya_header_Spain.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackcatalunyadetailed.webp",
+      "filename": "barcelona-catalunya_track_2026trackcatalunyadetailed.webp"
+    }
+  },
+  "austria": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Austria.webp",
+      "filename": "austria_header_Austria.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackspielbergdetailed.webp",
+      "filename": "austria_track_2026trackspielbergdetailed.webp"
+    }
+  },
+  "great-britain": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Great%20Britain.webp",
+      "filename": "great-britain_header_Great Britain.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026tracksilverstonedetailed.webp",
+      "filename": "great-britain_track_2026tracksilverstonedetailed.webp"
+    }
+  },
+  "belgium": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Belgium.webp",
+      "filename": "belgium_header_Belgium.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackspafrancorchampsdetailed.webp",
+      "filename": "belgium_track_2026trackspafrancorchampsdetailed.webp"
+    }
+  },
+  "hungary": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Hungary.webp",
+      "filename": "hungary_header_Hungary.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackhungaroringdetailed.webp",
+      "filename": "hungary_track_2026trackhungaroringdetailed.webp"
+    }
+  },
+  "netherlands": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Netherlands.webp",
+      "filename": "netherlands_header_Netherlands.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackzandvoortdetailed.webp",
+      "filename": "netherlands_track_2026trackzandvoortdetailed.webp"
+    }
+  },
+  "italy": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Italy.webp",
+      "filename": "italy_header_Italy.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmonzadetailed.webp",
+      "filename": "italy_track_2026trackmonzadetailed.webp"
+    }
+  },
+  "spain": {
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmadringdetailed.webp",
+      "filename": "spain_track_2026trackmadringdetailed.webp"
+    },
+    "header": {
+      "url": "https://media.formula1.com/image/upload/t_16by9Centre/c_lfill,w_3392/q_auto/v1740000001/fom-website/2023/Spain/IFEMA_MADRID_PRENSA_005.webp",
+      "filename": "spain_header_Spain.webp"
+    }
+  },
+  "azerbaijan": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Azerbaijan.webp",
+      "filename": "azerbaijan_header_Azerbaijan.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackbakudetailed.webp",
+      "filename": "azerbaijan_track_2026trackbakudetailed.webp"
+    }
+  },
+  "singapore": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Singapore.webp",
+      "filename": "singapore_header_Singapore.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026tracksingaporedetailed.webp",
+      "filename": "singapore_track_2026tracksingaporedetailed.webp"
+    }
+  },
+  "united-states": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/USA.webp",
+      "filename": "united-states_header_USA.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackaustindetailed.webp",
+      "filename": "united-states_track_2026trackaustindetailed.webp"
+    }
+  },
+  "mexico": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Mexico.webp",
+      "filename": "mexico_header_Mexico.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackmexicocitydetailed.webp",
+      "filename": "mexico_track_2026trackmexicocitydetailed.webp"
+    }
+  },
+  "brazil": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Brazil.webp",
+      "filename": "brazil_header_Brazil.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackinterlagosdetailed.webp",
+      "filename": "brazil_track_2026trackinterlagosdetailed.webp"
+    }
+  },
+  "las-vegas": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Las%20Vegas.webp",
+      "filename": "las-vegas_header_Las Vegas.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026tracklasvegasdetailed.webp",
+      "filename": "las-vegas_track_2026tracklasvegasdetailed.webp"
+    }
+  },
+  "qatar": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Qatar.webp",
+      "filename": "qatar_header_Qatar.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026tracklusaildetailed.webp",
+      "filename": "qatar_track_2026tracklusaildetailed.webp"
+    }
+  },
+  "united-arab-emirates": {
+    "header": {
+      "url": "https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000001/content/dam/fom-website/2018-redesign-assets/Racehub%20header%20images%2016x9/Abu%20Dhabi.webp",
+      "filename": "united-arab-emirates_header_Abu Dhabi.webp"
+    },
+    "track": {
+      "url": "https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026trackyasmarinacircuitdetailed.webp",
+      "filename": "united-arab-emirates_track_2026trackyasmarinacircuitdetailed.webp"
+    }
+  }
+}

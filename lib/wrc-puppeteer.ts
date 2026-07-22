@@ -660,13 +660,15 @@ export async function fetchWrc(): Promise<{ events: RaceEvent[]; ok: boolean; no
   const errors: string[] = []
 
   const now = Date.now()
-  const thirtyDays = 30 * 24 * 60 * 60 * 1000
-  const recentRallies = WRC_RALLIES.filter(r => {
+  const oneDay = 24 * 60 * 60 * 1000
+  const sixtyDays = 60 * oneDay
+
+  const relevantRallies = WRC_RALLIES.filter(r => {
     const rallyTime = new Date(r.startDate).getTime()
-    return rallyTime >= now - thirtyDays && rallyTime <= now + thirtyDays * 2
+    return rallyTime >= now - oneDay && rallyTime <= now + sixtyDays
   })
 
-  const rallies = recentRallies.length > 0 ? recentRallies : WRC_RALLIES.slice(0, 2)
+  const rallies = relevantRallies.length > 0 ? relevantRallies : WRC_RALLIES.slice(0, 3)
 
   console.log(`WRC: scraping ${rallies.length} rallies (filtered by date)`)
 

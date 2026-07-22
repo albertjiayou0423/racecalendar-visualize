@@ -236,3 +236,95 @@ export async function deleteEventOverride(
     console.error("删除手动覆盖失败:", err)
   }
 }
+
+// ─── 用户反馈 ───────────────────────────────────────────────
+
+/** 初始化反馈表 */
+export async function initFeedbackTable(): Promise<void> {
+  const sql = getSql()
+  if (!sql) return
+
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS feedbacks (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(20) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        description TEXT NOT NULL,
+        email VARCHAR(100),
+        browser VARCHAR(100),
+        system VARCHAR(100),
+        ip VARCHAR(50),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+  } catch (err) {
+    console.error("初始化反馈表失败:", err)
+  }
+}
+
+/** 保存用户反馈 */
+export async function saveFeedback(feedback: {
+  type: string
+  title: string
+  description: string
+  email?: string
+  browser?: string
+  system?: string
+  ip?: string
+  userAgent?: string
+}): Promise<void> {
+  const sql = getSql()
+  if (!sql) return
+
+  try {
+    await sql`
+      INSERT INTO feedbacks (type, title, description, email, browser, system, ip, user_agent)
+      VALUES (${feedback.type}, ${feedback.title}, ${feedback.description}, ${feedback.email ?? null}, ${feedback.browser ?? null}, ${feedback.system ?? null}, ${feedback.ip ?? null}, ${feedback.userAgent ?? null})
+    `
+  } catch (err) {
+    console.error("保存反馈失败:", err)
+  }
+}
+
+/** 获取所有反馈 */
+export async function getFeedbacks(limit = 50): Promise<{
+  id: number
+  type: string
+  title: string
+  description: string
+  email: string | null
+  browser: string | null
+  system: string | null
+  ip: string | null
+  created_at: Date
+}[]> {
+  const sql = getSql()
+  if (!sql) return []
+
+  try {
+    const rows = await sql`
+      SELECT id, type, title, description, email, browser, system, ip, created_at
+      FROM feedbacks
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+    return rows as any[]
+  } catch (err) {
+    console.error("获取反馈失败:", err)
+    return []
+  }
+}
+
+/** 删除反馈 */
+export async function deleteFeedback(id: number): Promise<void> {
+  const sql = getSql()
+  if (!sql) return
+
+  try {
+    await sql`DELETE FROM feedbacks WHERE id = ${id}`
+  } catch (err) {
+    console.error("删除反馈失败:", err)
+  }
+}

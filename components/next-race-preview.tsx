@@ -109,12 +109,17 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
 }
 
 function Countdown({ targetTime }: { targetTime: string }) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
+    setNow(Date.now())
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  if (now === null) {
+    return <span>--:--:--</span>
+  }
 
   const diff = Math.max(0, new Date(targetTime).getTime() - now)
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))

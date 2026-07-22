@@ -13,6 +13,7 @@ import { EventNotificationManager } from "@/components/event-notification-manage
 import { EventHeader } from "@/components/event-header"
 import { SessionTimeline } from "@/components/session-timeline"
 import { PageTransition } from "@/components/page-transition"
+import { AIPrediction } from "@/components/ai-prediction"
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -134,6 +135,7 @@ export default function EventDetailPage() {
           <WatchInfo event={event} />
           <Highlights event={event} />
           <DeepInfo event={event} />
+          <AIPrediction event={event} />
           {event.liveTimingUrl && (
             <div className="mt-4">
               <OfficialLiveTiming url={event.liveTimingUrl} eventName={event.name} />

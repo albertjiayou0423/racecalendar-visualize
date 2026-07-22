@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   Activity, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Clock,
-  Database, Edit3, Eye, Lock, LogOut, Play, RefreshCw, Save, Server,
+  Database, Edit3, Eye, Lock, LogOut, MessageSquare, Play, RefreshCw, Save, Server,
   Trash2, X, Zap
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -41,7 +41,7 @@ interface Override {
   updatedAt: string
 }
 
-type TabId = "status" | "crawl" | "overrides" | "preview"
+type TabId = "status" | "crawl" | "overrides" | "preview" | "feedback"
 
 // ─── 常量 ───────────────────────────────────────────────
 
@@ -56,6 +56,7 @@ const TABS: { id: TabId; label: string; icon: typeof Server }[] = [
   { id: "crawl", label: "爬虫管理", icon: Zap },
   { id: "overrides", label: "数据覆盖", icon: Database },
   { id: "preview", label: "数据预览", icon: Eye },
+  { id: "feedback", label: "用户建议", icon: MessageSquare },
 ]
 
 const OVERRIDABLE_FIELDS = [
@@ -128,6 +129,10 @@ export function AdminPanel() {
   // 快照状态
   const [snapshotData, setSnapshotData] = useState<any>(null)
   const [snapshotLoading, setSnapshotLoading] = useState(false)
+
+  // 反馈状态
+  const [feedbacks, setFeedbacks] = useState<any[]>([])
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -317,6 +322,35 @@ export function AdminPanel() {
     }
   }
 
+  const fetchFeedbacks = useCallback(async () => {
+    setFeedbackLoading(true)
+    try {
+      const res = await fetch("/api/feedback")
+      const data = await handleApiResponse(res)
+      setFeedbacks(data.feedbacks ?? [])
+    } catch (e) {
+      console.error("Failed to fetch feedbacks:", e)
+      setFeedbacks([])
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }, [])
+
+  const deleteFeedback = async (id: number) => {
+    if (!confirm("确定删除这条反馈？")) return
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      await handleApiResponse(res)
+      fetchFeedbacks()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "删除失败")
+    }
+  }
+
   // Tab 切换时加载数据
   useEffect(() => {
     if (!authenticated) return
@@ -324,7 +358,8 @@ export function AdminPanel() {
     if (activeTab === "crawl") fetchCrawlStatus()
     if (activeTab === "overrides") fetchOverrides()
     if (activeTab === "preview") fetchPreview(previewSeries)
-  }, [activeTab, authenticated, fetchStatus, fetchCrawlStatus, fetchOverrides, fetchPreview, previewSeries])
+    if (activeTab === "feedback") fetchFeedbacks()
+  }, [activeTab, authenticated, fetchStatus, fetchCrawlStatus, fetchOverrides, fetchPreview, previewSeries, fetchFeedbacks])
 
   // ─── 登录页 ─────────────────────────────────────────
 
@@ -442,6 +477,14 @@ export function AdminPanel() {
             loading={previewLoading}
             onSeriesChange={(s) => { setPreviewSeries(s); setPreviewData(null) }}
             onRefresh={() => fetchPreview(previewSeries)}
+          />
+        )}
+        {activeTab === "feedback" && (
+          <FeedbackTab
+            feedbacks={feedbacks}
+            loading={feedbackLoading}
+            onRefresh={fetchFeedbacks}
+            onDelete={deleteFeedback}
           />
         )}
       </div>
@@ -963,6 +1006,96 @@ function PreviewTab({
               </div>
             ))
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 用户反馈 Tab ───────────────────────────────────────
+
+function FeedbackTab({
+  feedbacks, loading, onRefresh, onDelete
+}: {
+  feedbacks: any[]
+  loading: boolean
+  onRefresh: () => void
+  onDelete: (id: number) => void
+}) {
+  const TYPE_LABELS: Record<string, { label: string; color: string }> = {
+    bug: { label: "Bug", color: "bg-destructive/10 text-destructive" },
+    feature: { label: "功能", color: "bg-blue-500/10 text-blue-600" },
+    suggestion: { label: "建议", color: "bg-amber-500/10 text-amber-600" },
+    other: { label: "其他", color: "bg-muted/20 text-muted-foreground" },
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <MessageSquare className="size-4" />
+          用户反馈 · 共 {feedbacks.length} 条
+        </div>
+        <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading} className="gap-1">
+          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+          刷新
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <RefreshCw className="size-5 animate-spin mr-2" />
+          加载中...
+        </div>
+      ) : feedbacks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+          <MessageSquare className="size-8 mb-2 opacity-50" />
+          <p className="text-sm">暂无用户反馈</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {feedbacks.map((fb) => (
+            <div
+              key={fb.id}
+              className="rounded-lg border border-border bg-card p-4 hover:border-muted-foreground/30 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-xs font-medium",
+                      TYPE_LABELS[fb.type]?.color ?? TYPE_LABELS.other.color
+                    )}>
+                      {TYPE_LABELS[fb.type]?.label ?? TYPE_LABELS.other.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{formatTime(fb.created_at)}</span>
+                  </div>
+                  <h3 className="font-medium text-sm truncate">{fb.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{fb.description}</p>
+                  {fb.email && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="opacity-50">邮箱:</span>
+                      <span>{fb.email}</span>
+                    </div>
+                  )}
+                  {(fb.browser || fb.system) && (
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      {fb.browser && <span>{fb.browser}</span>}
+                      {fb.system && <span>{fb.system}</span>}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(fb.id)}
+                  className="gap-1 text-destructive hover:text-destructive shrink-0"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

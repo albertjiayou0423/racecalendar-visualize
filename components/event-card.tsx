@@ -6,6 +6,7 @@ import Link from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
 import { WikipediaImage } from "./wikipedia-image"
+import { CircuitImage } from "./circuit-image"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -184,11 +185,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {/* F1 赛道平面图 */}
             {event.series === "F1" && event.circuitImageUrl && (
               <div className="mt-2">
-                <img
+                <CircuitImage
                   src={event.circuitImageUrl}
                   alt={`${event.circuit} 赛道平面图`}
-                  className="h-auto w-full max-h-[180px] rounded-lg object-contain"
-                  loading="lazy"
                 />
               </div>
             )}
@@ -214,21 +213,21 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
         </div>
 
         {/* 转播条 + 展开按钮 */}
-        <div className="flex items-center justify-between gap-3 border-t border-border bg-secondary/30 px-4 py-2.5">
+        <div className="flex flex-col gap-2 border-t border-border bg-secondary/30 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-center gap-2 text-xs">
             {event.broadcaster ? (
               <>
                 <Radio className="size-3.5 shrink-0 text-primary" aria-hidden />
-                <span className="font-medium">{event.broadcaster.name}</span>
+                <span className="truncate font-medium">{event.broadcaster.name}</span>
                 {event.broadcaster.note ? (
-                  <span className="truncate text-muted-foreground">{event.broadcaster.note}</span>
+                  <span className="hidden truncate text-muted-foreground sm:inline">{event.broadcaster.note}</span>
                 ) : null}
               </>
             ) : (
-              <span className="text-muted-foreground">转播信息待确认</span>
+              <span className="text-muted-foreground">转播待确认</span>
             )}
             {event.series === "WRC" && (
-              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", hasTentative ? "bg-muted text-muted-foreground" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400")}>
+              <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium", hasTentative ? "bg-muted text-muted-foreground" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400")}>
                 {hasTentative ? "估计" : "官方"}
               </span>
             )}
@@ -237,10 +236,10 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 href={event.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline"
+                className="inline-flex shrink-0 items-center gap-1 text-primary hover:underline"
               >
                 <ExternalLink className="size-3" aria-hidden />
-                官网
+                <span className="hidden sm:inline">官网</span>
               </a>
             ) : null}
           </div>
@@ -249,7 +248,8 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               href={`/event/${event.id}`}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
-              赛事详情
+              <span className="hidden sm:inline">赛事详情</span>
+              <span className="sm:hidden">详情</span>
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
             <button
@@ -258,7 +258,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               aria-expanded={open}
             >
-              {open ? "收起" : "详细时间"}
+              {open ? "收起" : "详细"}
               <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
             </button>
           </div>
@@ -439,11 +439,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               {event.circuitImageUrl ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold">赛道平面图</h4>
-                  <img
+                  <CircuitImage
                     src={event.circuitImageUrl}
                     alt={`${event.circuit} 赛道平面图`}
-                    className="h-auto w-full max-h-[240px] rounded-lg object-contain"
-                    loading="lazy"
                   />
                 </div>
               ) : (event.circuitWikipediaUrl || event.wikipediaUrl) ? (
