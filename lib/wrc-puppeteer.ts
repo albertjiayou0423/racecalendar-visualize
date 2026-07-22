@@ -2,20 +2,33 @@ import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents } from "./wrc-data"
 
+// ============ 通用请求头（绕过 Akamai WAF） ============
+
+const WRC_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate",
+  "Connection": "keep-alive",
+  "Upgrade-Insecure-Requests": "1",
+}
+
+const WRC_API_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Origin": "https://www.wrc.com",
+  "Referer": "https://www.wrc.com/",
+}
+
 // ============ 直接 fetch (主要方案) ============
 
 async function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
   for (let i = 0; i <= retries; i++) {
     try {
       const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate",
-          "Connection": "keep-alive",
-          "Upgrade-Insecure-Requests": "1",
-        },
+        headers: WRC_HEADERS,
         signal: AbortSignal.timeout(15000),
       })
       if (!res.ok) {
@@ -527,10 +540,7 @@ async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Pr
 
   try {
     const res = await fetch(feedUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-      },
+      headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(15000),
     })
 
@@ -627,9 +637,177 @@ function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): strin
   return null
 }
 
+// ============ 新方案：WRC Feed API 直接多 slug 尝试 + mainSubPage 补充 ============
+
+/** 通用 JSON API fetch（带完整浏览器头） */
+async function fetchJsonApi(url: string): Promise<any | null> {
+  try {
+    const res = await fetch(url, {
+      headers: WRC_API_HEADERS,
+      signal: AbortSignal.timeout(12000),
+    })
+    if (!res.ok) {
+      console.error(`WRC API ${url.substring(0, 100)} returned ${res.status}`)
+      return null
+    }
+    return await res.json()
+  } catch (e) {
+    console.error(`WRC API error for ${url.substring(0, 100)}:`, e)
+    return null
+  }
+}
+
+/** 从 mainSubPage 提取赛事关键信息（stages 数量、surface、date 范围） */
+interface MainSubPageInfo {
+  stagesCount: number | null
+  surface: string | null
+  dateRange: string | null
+  servicePark: string | null
+  itineraryStatus: string | null  // "TBC" 或 "Download PDF"
+  mapsUrl: string | null
+}
+
+async function fetchMainSubPage(itinerarySlug: string): Promise<MainSubPageInfo | null> {
+  const url = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${itinerarySlug}&page[limit]=1&rb3Locale=en&rb3Schema=v1:mainSubPage`
+  const json = await fetchJsonApi(url)
+  if (!json?.data?.items?.[0]) return null
+
+  const item = json.data.items[0]
+  const elements = item.elements || []
+  const info: MainSubPageInfo = {
+    stagesCount: null,
+    surface: null,
+    dateRange: null,
+    servicePark: null,
+    itineraryStatus: null,
+    mapsUrl: null,
+  }
+
+  for (const el of elements) {
+    const label = el.question?.find((q: any) => q.variant === "text")?.text || ""
+    const answerText = el.answer?.find((a: any) => a.type === "text")?.text || ""
+    const labelLower = label.toLowerCase()
+
+    if (labelLower.includes("stages")) {
+      const numMatch = answerText.match(/(\d+)/)
+      if (numMatch) info.stagesCount = parseInt(numMatch[1], 10)
+    } else if (labelLower.includes("surface")) {
+      info.surface = answerText
+    } else if (labelLower.includes("date")) {
+      info.dateRange = answerText
+    } else if (labelLower.includes("service")) {
+      info.servicePark = answerText
+    } else if (labelLower.includes("itinerary")) {
+      info.itineraryStatus = answerText
+    } else if (labelLower.includes("map")) {
+      const linkAnswer = el.answer?.find((a: any) => a.type === "link")
+      if (linkAnswer?.url) info.mapsUrl = linkAnswer.url
+    }
+  }
+
+  return info
+}
+
+/** 从 unifiedEventHero API 获取赛事完整元数据（坐标、日期、logo） */
+async function fetchEventHero(eventSlug: string): Promise<{ lat: number; lon: number; startDate: string; endDate: string } | null> {
+  const url = `https://www.wrc.com/v3/api/graphql/v1/v3/content/rrn:slug:event-profiles:en-INT:${eventSlug}?rb3Locale=en&rb3Schema=v1:unifiedEventHero`
+  const json = await fetchJsonApi(url)
+  if (!json?.data) return null
+  const d = json.data
+  const lat = d.geo?.latitude ?? d.latitude
+  const lon = d.geo?.longitude ?? d.longitude
+  if (lat == null || lon == null) return null
+  return {
+    lat,
+    lon,
+    startDate: d.startDate || d.eventStartDate || "",
+    endDate: d.endDate || d.eventEndDate || "",
+  }
+}
+
+/** 从 iCal API 获取赛事日期范围（带时区） */
+async function fetchICalEvent(eventSlug: string): Promise<{ startUtc: string; endUtc: string } | null> {
+  const url = `https://www.wrc.com/v3/api/ical/en/events/${eventSlug}.ics`
+  try {
+    const res = await fetch(url, {
+      headers: WRC_API_HEADERS,
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return null
+    const text = await res.text()
+    // 解析 iCal 中的 DTSTART 和 DTEND
+    const startMatch = text.match(/DTSTART[^:]*:(.+)/)
+    const endMatch = text.match(/DTEND[^:]*:(.+)/)
+    if (!startMatch) return null
+    const parseICalDate = (s: string): string | null => {
+      // 格式: 20260730T070100Z 或 20260730T070100
+      const m = s.match(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?/)
+      if (!m) return null
+      return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${s.endsWith("Z") ? "Z" : ""}`
+    }
+    const startUtc = parseICalDate(startMatch[1].trim())
+    const endUtc = endMatch ? parseICalDate(endMatch[1].trim()) : null
+    if (!startUtc) return null
+    return { startUtc, endUtc: endUtc || startUtc }
+  } catch (e) {
+    console.error(`WRC iCal error:`, e)
+    return null
+  }
+}
+
+/** 新方案：直接并行尝试多种 itinerary slug 模式调用 Feed API（无需先获取 HTML 页面） */
+async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
+  console.log(`WRC v2: direct Feed API multi-slug attempt for ${eventSlug}`)
+
+  // 生成多种可能的 itinerary slug 模式
+  const slugNoYear = eventSlug.replace(/-\d{4}$/, "")
+  const candidateSlugs = [
+    `itinerary-${eventSlug}`,
+    `itinerary-stages-${slugNoYear}`,
+    `itinerary-${slugNoYear}`,
+    `itinerary-stages-${eventSlug}`,
+  ]
+
+  // 并行尝试所有 slug 模式
+  const results = await Promise.all(
+    candidateSlugs.map(async (slug) => {
+      const days = await fetchItineraryFromFeedApi(slug, startDate)
+      return { slug, days }
+    })
+  )
+
+  // 找到第一个成功的结果
+  for (const { slug, days } of results) {
+    if (days && days.length > 0) {
+      console.log(`WRC v2: success with slug "${slug}" (${days.length} days)`)
+      return convertDaysToSessions(days, tz, eventSlug)
+    }
+  }
+
+  console.log(`WRC v2: all slug patterns failed for ${eventSlug}`)
+
+  // 获取 mainSubPage 补充信息（即使 itinerary 未发布也有效）
+  const subPageInfo = await fetchMainSubPage(`itinerary-${eventSlug}`)
+  if (subPageInfo) {
+    console.log(`WRC v2: mainSubPage - stages=${subPageInfo.stagesCount}, surface=${subPageInfo.surface}, itinerary=${subPageInfo.itineraryStatus}`)
+  }
+
+  // itinerary 未发布，无法获取具体赛段时间
+  return null
+}
+
 // ============ 主爬取函数 ============
 
 async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
+  // 新方案优先：通过 pageTabs API 获取正确的 slug（不再猜测）
+  console.log(`WRC: trying v2 approach (pageTabs API) for ${eventSlug}`)
+  const v2Result = await scrapeWrcItineraryV2(eventSlug, tz, startDate)
+  if (v2Result && v2Result.length > 0) {
+    return v2Result
+  }
+  console.log(`WRC: v2 approach failed, falling back to original approach`)
+
+  // 原有方案作为 fallback
   const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
   console.log(`WRC: fetching ${homeUrl}`)
 
