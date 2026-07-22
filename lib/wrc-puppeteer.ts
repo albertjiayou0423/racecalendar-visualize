@@ -962,9 +962,9 @@ const WRC_RALLIES: WrcRally[] = [
   { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", eventSlug: "wrc-safari-rally-kenya-2026", startDate: "2026-03-20" },
   { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", eventSlug: "wrc-croatia-rally-2026", startDate: "2026-04-10" },
   { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", eventSlug: "wrc-rally-islas-canarias-2026", startDate: "2026-04-25" },
-  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-rally-de-portugal-2026", startDate: "2026-05-15" },
-  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-rally-japan-2026", startDate: "2026-05-29" },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-acropolis-rally-greece-2026", startDate: "2026-06-26" },
+  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-vodafone-rally-de-portugal-2026", startDate: "2026-05-07" },
+  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-forum8-rally-japan-2026", startDate: "2026-05-29" },
+  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-eko-acropolis-rally-greece-2026", startDate: "2026-06-25" },
   { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", eventSlug: "wrc-delfi-rally-estonia-2026", startDate: "2026-07-17" },
   { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", eventSlug: "wrc-secto-rally-finland-2026", startDate: "2026-08-07" },
   { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-28" },
@@ -972,6 +972,83 @@ const WRC_RALLIES: WrcRally[] = [
   { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-09" },
   { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-13" },
 ]
+
+// 国家到时区映射（用于动态赛历）
+const COUNTRY_TZ: Record<string, string> = {
+  "Monaco": "Europe/Paris",
+  "France": "Europe/Paris",
+  "Sweden": "Europe/Stockholm",
+  "Kenya": "Africa/Nairobi",
+  "Croatia": "Europe/Zagreb",
+  "Spain": "Atlantic/Canary",
+  "Portugal": "Europe/Lisbon",
+  "Japan": "Asia/Tokyo",
+  "Greece": "Europe/Athens",
+  "Estonia": "Europe/Tallinn",
+  "Finland": "Europe/Helsinki",
+  "Paraguay": "America/Asuncion",
+  "Chile": "America/Santiago",
+  "Italy": "Europe/Rome",
+  "Saudi Arabia": "Asia/Riyadh",
+}
+
+const WRC_EVENT_SERIES_ID = "rrn:content:event-series:444b650c-978a-4b2f-bcb6-e11e0b22a42a:en-INT"
+
+/** 从WRC官网 Event Series API 动态获取赛季完整赛历 */
+async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventSlug: string; startDate: string; tz: string }[] | null> {
+  console.log("WRC: fetching season calendar from official API...")
+
+  // 1. 获取 Event Series 列表
+  const seriesUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${WRC_EVENT_SERIES_ID}?rb3Locale=en&rb3Schema=v1:card`
+  const seriesJson = await fetchJsonApi(seriesUrl)
+  const eventIds: string[] = seriesJson?.data?.events?.map((e: any) => e.id) || []
+
+  if (eventIds.length === 0) {
+    console.log("WRC: no events found in series, will use hardcoded list")
+    return null
+  }
+
+  // 2. 并行获取每个 event 的详细信息
+  const eventDetails = await Promise.all(
+    eventIds.map(async (id: string) => {
+      const cardUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${id}?rb3Locale=en&rb3Schema=v1:card`
+      const json = await fetchJsonApi(cardUrl)
+      const d = json?.data
+      if (!d) return null
+
+      const roundMatch = d.content?.standfirst?.match(/Round (\d+)/)
+      const round = roundMatch ? parseInt(roundMatch[1]) : 0
+      const slug = d.reference?.uriSlug
+      const startDate = d.event?.startDate?.slice(0, 10)
+      const country = d.location?.countryName
+
+      if (!round || !slug || !startDate) return null
+
+      return {
+        round,
+        name: d.content?.title || slug,
+        eventSlug: slug,
+        startDate,
+        tz: COUNTRY_TZ[country] || "UTC",
+      }
+    })
+  )
+
+  const valid = eventDetails.filter((e): e is NonNullable<typeof e> => e !== null)
+  valid.sort((a, b) => a.round - b.round)
+
+  if (valid.length === 0) {
+    console.log("WRC: failed to parse any events from calendar")
+    return null
+  }
+
+  console.log(`WRC: calendar fetched, ${valid.length} rallies found`)
+  for (const r of valid) {
+    console.log(`  R${r.round}: ${r.eventSlug} (${r.startDate})`)
+  }
+
+  return valid
+}
 
 // ============ 主函数 ============
 
@@ -983,18 +1060,33 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
   let ocblacktopCount = 0
   const errors: string[] = []
 
-  const now = Date.now()
-  const oneDay = 24 * 60 * 60 * 1000
-  const sixtyDays = 60 * oneDay
+  // 1. 动态获取2026年完整赛历（从WRC官网API）
+  const calendar = await fetchWrcCalendar()
 
-  const relevantRallies = WRC_RALLIES.filter(r => {
-    const rallyTime = new Date(r.startDate).getTime()
-    return rallyTime >= now - oneDay && rallyTime <= now + sixtyDays
-  })
+  // 2. 构建要爬取的赛事列表：优先使用动态发现的赛历，fallback到硬编码
+  let rallies: WrcRally[]
 
-  const rallies = relevantRallies.length > 0 ? relevantRallies : WRC_RALLIES.slice(0, 3)
+  if (calendar && calendar.length > 0) {
+    rallies = calendar.map(c => {
+      // 用 round 匹配 fallbackEvents 获取更精确的元数据（时区、名称等）
+      const fallback = WRC_RALLIES.find(r => r.round === c.round)
+      return {
+        round: c.round,
+        name: fallback?.name || c.name,
+        hq: fallback?.hq || "",
+        city: fallback?.city || "",
+        country: fallback?.country || "",
+        code: fallback?.code || "",
+        tz: fallback?.tz || c.tz,
+        eventSlug: c.eventSlug,  // 使用官网API返回的正确slug
+        startDate: c.startDate,
+      }
+    })
+  } else {
+    rallies = [...WRC_RALLIES]
+  }
 
-  console.log(`WRC: scraping ${rallies.length} rallies (filtered by date), allowApiFallback=${allowApiFallback}`)
+  console.log(`WRC: scraping ${rallies.length} rallies (full season), allowApiFallback=${allowApiFallback}`)
 
   const ocblacktopRallies = (OCBLACKTOP_API_KEY && allowApiFallback) ? await fetchOcblacktopRallies() : null
   if (OCBLACKTOP_API_KEY && allowApiFallback) {
