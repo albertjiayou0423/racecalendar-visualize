@@ -200,10 +200,10 @@ function PreviewScaler({ targetWidth, previewRef, children }: { targetWidth: num
     return () => window.removeEventListener("resize", updateScale)
   }, [targetWidth])
 
-  const targetHeight = targetWidth === 360 ? 720 : 720
+  const targetHeight = targetWidth === 360 ? 640 : 720
 
   return (
-    <div ref={wrapperRef} className="w-full overflow-hidden">
+    <div ref={wrapperRef} className="w-full overflow-x-auto">
       <div
         style={{
           width: targetWidth,
@@ -243,7 +243,7 @@ const PhoneWallpaper = ({
     <div
       ref={ref}
       className="relative w-[360px] shrink-0 overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
-      style={{ aspectRatio: "9/16", padding: "24px 16px" }}
+      style={{ height: 640, padding: "24px 16px" }}
     >
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-red-500 blur-3xl" />
@@ -257,27 +257,27 @@ const PhoneWallpaper = ({
           <div className="mt-1 text-xs text-white/30">{totalEvents} 场赛事</div>
         </div>
 
-        <div className="mt-4 flex-1 space-y-2 overflow-y-auto">
-          {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateEvents]) => {
+        <div className="mt-4 flex-1 space-y-2 overflow-hidden">
+          {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).slice(0, 10).map(([date, dateEvents]) => {
             const d = new Date(date)
             return (
-              <div key={date} className="rounded-lg bg-white/5 p-3">
+              <div key={date} className="rounded-lg bg-white/5 p-2.5">
                 <div className="flex items-center gap-2 text-xs text-white/50">
                   <span className="font-mono font-bold text-white/80">{d.getDate()}</span>
                   <span>周{weekDays[d.getDay()]}</span>
                 </div>
-                <div className="mt-1.5 space-y-1">
+                <div className="mt-1 space-y-0.5">
                   {dateEvents.map((event) => {
                     const mainSession = getMainSession(event)
                     return (
                       <div key={event.id} className="flex items-center gap-2">
                         <div
-                          className="h-2 w-2 rounded-full shrink-0"
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
                           style={{ backgroundColor: SERIES_COLORS[event.series] }}
                         />
-                        <span className="text-xs text-white/90 truncate flex-1">{event.name}</span>
+                        <span className="text-[11px] text-white/90 truncate flex-1">{event.name}</span>
                         {mainSession && (
-                          <span className="text-[10px] text-white/40 font-mono">
+                          <span className="text-[9px] text-white/40 font-mono">
                             {formatTime(mainSession.utc)}
                           </span>
                         )}
@@ -291,9 +291,12 @@ const PhoneWallpaper = ({
           {Object.keys(grouped).length === 0 && (
             <div className="text-center text-sm text-white/30 py-8">该月暂无赛事</div>
           )}
+          {Object.keys(grouped).length > 10 && (
+            <div className="text-center text-[10px] text-white/30">+{Object.keys(grouped).length - 10} 个比赛日</div>
+          )}
         </div>
 
-        <div className="mt-4 text-center">
+        <div className="mt-3 text-center">
           <div className="text-[10px] text-white/20">{host || "racecalendar-visualize.vercel.app"}</div>
         </div>
       </div>
