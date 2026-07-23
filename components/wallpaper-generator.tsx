@@ -188,36 +188,39 @@ function PreviewWrapper({
   targetHeight: number
   children: React.ReactNode
 }) {
-  const innerRef = useRef<HTMLDivElement>(null)
   const outerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  const [wrapperHeight, setWrapperHeight] = useState(targetHeight)
 
   useEffect(() => {
     const update = () => {
       if (!outerRef.current) return
       const w = outerRef.current.clientWidth
-      setScale(Math.min(1, w / targetWidth))
+      const s = Math.min(1, w / targetWidth)
+      setScale(s)
+      setWrapperHeight(targetHeight * s)
     }
     update()
     window.addEventListener("resize", update)
     return () => window.removeEventListener("resize", update)
-  }, [targetWidth])
+  }, [targetWidth, targetHeight])
 
   return (
     <div className="rounded-xl border border-border bg-black/5 p-3 sm:p-4">
-      <div ref={outerRef} className="w-full" style={{ aspectRatio: `${targetWidth} / ${targetHeight}` }}>
-        <div className="relative w-full h-full overflow-hidden rounded-lg">
-          <div
-            ref={innerRef}
-            className="absolute left-0 top-0 origin-top-left"
-            style={{
-              width: targetWidth,
-              height: targetHeight,
-              transform: `scale(${scale})`,
-            }}
-          >
-            {children}
-          </div>
+      <div
+        ref={outerRef}
+        className="relative w-full"
+        style={{ height: wrapperHeight }}
+      >
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={{
+            width: targetWidth,
+            height: targetHeight,
+            transform: `scale(${scale})`,
+          }}
+        >
+          {children}
         </div>
       </div>
     </div>
@@ -327,43 +330,34 @@ const DesktopWallpaper = ({
     <div
       ref={ref}
       className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
-      style={{ width: DESKTOP_W, height: DESKTOP_H, padding: "28px 32px" }}
+      style={{ width: DESKTOP_W, height: DESKTOP_H, padding: "24px 28px" }}
     >
-      <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-red-600 blur-3xl" />
-        <div className="absolute top-1/3 -left-40 h-96 w-96 rounded-full bg-blue-600 blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-purple-600 blur-3xl" />
-      </div>
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-        <div
-          className="h-full w-full"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
+      {/* 背景装饰 */}
+      <div className="absolute inset-0 opacity-[0.06] pointer-events-none">
+        <div className="absolute -top-32 -right-32 h-80 w-80 rounded-full bg-red-600 blur-3xl" />
+        <div className="absolute top-1/4 -left-32 h-80 w-80 rounded-full bg-blue-600 blur-3xl" />
+        <div className="absolute bottom-0 right-1/3 h-80 w-80 rounded-full bg-purple-600 blur-3xl" />
       </div>
 
       <div className="relative z-10 flex h-full flex-col">
         {/* 头部 */}
-        <div className="flex items-start justify-between border-b border-white/10 pb-3 mb-3">
+        <div className="flex items-start justify-between border-b border-white/10 pb-2 mb-2">
           <div>
-            <div className="text-[10px] font-bold tracking-[0.3em] text-white/30 uppercase">
-              Race Calendar · Full Year
+            <div className="text-[9px] font-bold tracking-[0.3em] text-white/30 uppercase">
+              Race Calendar · Full Year {year}
             </div>
-            <h1 className="mt-0.5 text-2xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
-              {year} 赛季
+            <h1 className="mt-0.5 text-xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
+              全年赛历
             </h1>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-white">{totalEvents}</div>
-            <div className="text-[10px] text-white/40">Scheduled Events</div>
+            <div className="text-xl font-bold text-white">{totalEvents}</div>
+            <div className="text-[9px] text-white/40">Races</div>
           </div>
         </div>
 
-        {/* 3列4行网格 */}
-        <div className="grid grid-cols-3 grid-rows-4 gap-3 flex-1">
+        {/* 12个月份网格 - 3列4行，紧凑布局 */}
+        <div className="grid grid-cols-3 grid-rows-4 gap-2 flex-1">
           {Array.from({ length: 12 }).map((_, m) => {
             const grouped = yearGrouped[m] || {}
             const monthEvents = Object.values(grouped).flat()
@@ -373,20 +367,25 @@ const DesktopWallpaper = ({
             return (
               <div
                 key={m}
-                className="rounded-lg bg-white/[0.03] border border-white/5 p-2 flex flex-col overflow-hidden"
+                className="rounded-lg bg-white/[0.03] border border-white/5 p-1.5 flex flex-col overflow-hidden"
               >
-                <div className="flex items-baseline justify-between mb-1">
-                  <h3 className="text-xs font-bold text-white/90">{monthNames[m]}</h3>
-                  <span className="text-[8px] text-white/30 font-mono">{monthEvents.length} 场</span>
+                {/* 月份标题 */}
+                <div className="flex items-baseline justify-between mb-0.5">
+                  <h3 className="text-[11px] font-bold text-white/90">{monthNames[m]}</h3>
+                  <span className="text-[7px] text-white/30 font-mono">{monthEvents.length}</span>
                 </div>
 
-                {/* 日历 */}
-                <div className="grid grid-cols-7 gap-px">
+                {/* 日历表头 */}
+                <div className="grid grid-cols-7 gap-px mb-0.5">
                   {weekDays.map((d) => (
-                    <div key={d} className="text-center text-[7px] font-semibold text-white/30 leading-none py-0.5">
+                    <div key={d} className="text-center text-[6px] font-semibold text-white/25 leading-none py-px">
                       {d}
                     </div>
                   ))}
+                </div>
+
+                {/* 日历日期 */}
+                <div className="grid grid-cols-7 gap-px">
                   {Array.from({ length: firstDay }).map((_, i) => (
                     <div key={`e-${m}-${i}`} />
                   ))}
@@ -402,23 +401,23 @@ const DesktopWallpaper = ({
                         key={day}
                         className={cn(
                           "flex flex-col items-center justify-center leading-none",
-                          dayEvents.length > 0 ? "bg-white/[0.08] rounded-sm border border-white/10" : ""
+                          dayEvents.length > 0 ? "bg-white/[0.08] rounded-sm" : ""
                         )}
-                        style={{ height: "13px" }}
+                        style={{ height: "11px" }}
                       >
                         <span
                           className={cn(
-                            "font-mono font-bold leading-none text-[8px]",
-                            dayEvents.length > 0 ? "text-white/80" : "text-white/20"
+                            "font-mono leading-none text-[7px]",
+                            dayEvents.length > 0 ? "text-white/80 font-bold" : "text-white/20"
                           )}
                         >
                           {day}
                         </span>
                         {dayEvents.length > 0 && (
-                          <div className="flex gap-px mt-px">
-                            {f1 && <div className="w-0.5 h-0.5 rounded-full bg-[#ef4444]" />}
-                            {wrc && <div className="w-0.5 h-0.5 rounded-full bg-[#3b82f6]" />}
-                            {fe && <div className="w-0.5 h-0.5 rounded-full bg-[#10b981]" />}
+                          <div className="flex gap-px">
+                            {f1 && <div className="w-[2px] h-[2px] rounded-full bg-[#ef4444]" />}
+                            {wrc && <div className="w-[2px] h-[2px] rounded-full bg-[#3b82f6]" />}
+                            {fe && <div className="w-[2px] h-[2px] rounded-full bg-[#10b981]" />}
                           </div>
                         )}
                       </div>
@@ -426,24 +425,28 @@ const DesktopWallpaper = ({
                   })}
                 </div>
 
-                {/* 赛事列表 */}
+                {/* 当月赛事（最多2条） */}
                 {monthEvents.length > 0 && (
-                  <div className="mt-1 space-y-0.5 border-t border-white/5 pt-1">
+                  <div className="mt-1 space-y-px border-t border-white/5 pt-1 overflow-hidden">
                     {monthEvents.slice(0, 2).map((event) => {
                       const s = getMainSession(event)
                       return (
-                        <div key={event.id} className="flex items-center gap-1 text-[8px] leading-tight">
+                        <div key={event.id} className="flex items-center gap-1" style={{ height: "10px" }}>
                           <div
-                            className="w-1 h-1 rounded-full shrink-0 mt-0.5"
+                            className="w-1 h-1 rounded-full shrink-0"
                             style={{ backgroundColor: SERIES_COLORS[event.series] }}
                           />
-                          <span className="text-white/60 truncate flex-1">{event.name}</span>
-                          {s && <span className="text-white/25 font-mono shrink-0">{formatTime(s.utc)}</span>}
+                          <span className="text-[7px] text-white/70 truncate flex-1 leading-none">{event.name}</span>
+                          {s && (
+                            <span className="text-[7px] text-white/30 font-mono shrink-0 leading-none">
+                              {formatTime(s.utc)}
+                            </span>
+                          )}
                         </div>
                       )
                     })}
                     {monthEvents.length > 2 && (
-                      <div className="text-[7px] text-white/25 text-center leading-none">
+                      <div className="text-[6px] text-white/25 text-center leading-none">
                         +{monthEvents.length - 2}
                       </div>
                     )}
@@ -454,17 +457,19 @@ const DesktopWallpaper = ({
           })}
         </div>
 
-        {/* 底部 */}
-        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
-          <div className="flex items-center gap-4">
+        {/* 底部图例 */}
+        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
+          <div className="flex items-center gap-5">
             {Object.entries(SERIES_COLORS).map(([series, color]) => (
               <div key={series} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
                 <span className="text-[9px] text-white/40 font-medium">{series}</span>
               </div>
             ))}
           </div>
-          <div className="text-[9px] text-white/20 font-mono">{host || "racecalendar-visualize.vercel.app"}</div>
+          <div className="text-[9px] text-white/20 font-mono">
+            {host || "racecalendar-visualize.vercel.app"}
+          </div>
         </div>
       </div>
     </div>
