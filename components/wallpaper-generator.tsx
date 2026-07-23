@@ -251,8 +251,8 @@ const DesktopWallpaper = ({
   return (
     <div
       ref={ref}
-      className="relative w-[800px] shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
-      style={{ padding: "40px" }}
+      className="relative shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
+      style={{ width: 1280, height: 720, padding: "36px 40px" }}
     >
       {/* 背景装饰 */}
       <div className="absolute inset-0 opacity-[0.08]">
@@ -273,25 +273,25 @@ const DesktopWallpaper = ({
         />
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex h-full flex-col">
         {/* 头部 */}
-        <div className="flex items-start justify-between border-b border-white/10 pb-6 mb-6">
+        <div className="flex items-start justify-between border-b border-white/10 pb-4 mb-4">
           <div>
             <div className="text-[10px] font-bold tracking-[0.3em] text-white/30 uppercase">
               Race Calendar · Full Year
             </div>
-            <h1 className="mt-2 text-4xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
+            <h1 className="mt-1 text-3xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
               {year} 赛季
             </h1>
           </div>
           <div className="text-right">
-            <div className="text-4xl font-bold text-white">{totalEvents}</div>
+            <div className="text-3xl font-bold text-white">{totalEvents}</div>
             <div className="text-xs text-white/40">Scheduled Events</div>
           </div>
         </div>
 
         {/* 12个月份网格 - 3列4行 */}
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-3 grid-rows-4 gap-3 flex-1">
           {Array.from({ length: 12 }).map((_, m) => {
             const grouped = yearGrouped[m] || {}
             const monthEvents = Object.values(grouped).flat()
@@ -301,22 +301,22 @@ const DesktopWallpaper = ({
             return (
               <div
                 key={m}
-                className="rounded-xl bg-white/[0.03] border border-white/5 p-4 backdrop-blur-sm"
+                className="rounded-lg bg-white/[0.03] border border-white/5 p-2.5 flex flex-col"
               >
                 {/* 月份标题 */}
-                <div className="flex items-baseline justify-between mb-3">
-                  <h3 className="text-lg font-bold text-white/90">{monthNames[m]}</h3>
-                  <span className="text-[10px] text-white/30 font-mono">
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <h3 className="text-sm font-bold text-white/90">{monthNames[m]}</h3>
+                  <span className="text-[9px] text-white/30 font-mono">
                     {monthEvents.length} 场
                   </span>
                 </div>
 
                 {/* 日历网格 */}
-                <div className="grid grid-cols-7 gap-0.5">
+                <div className="grid grid-cols-7 gap-px">
                   {weekDays.map((d) => (
                     <div
                       key={d}
-                      className="text-center text-[9px] font-semibold text-white/30 py-1"
+                      className="text-center text-[7px] font-semibold text-white/30 py-0.5"
                     >
                       {d}
                     </div>
@@ -336,25 +336,25 @@ const DesktopWallpaper = ({
                       <div
                         key={day}
                         className={cn(
-                          "aspect-square rounded flex flex-col items-center justify-center text-[10px] font-mono",
+                          "aspect-square rounded-sm flex flex-col items-center justify-center",
                           dayEvents.length > 0
                             ? "bg-white/[0.08] border border-white/10"
                             : ""
                         )}
                       >
-                        <div
+                        <span
                           className={cn(
-                            "font-bold",
-                            dayEvents.length > 0 ? "text-white/90" : "text-white/20"
+                            "text-[8px] font-mono font-bold",
+                            dayEvents.length > 0 ? "text-white/80" : "text-white/20"
                           )}
                         >
                           {day}
-                        </div>
+                        </span>
                         {dayEvents.length > 0 && (
-                          <div className="flex gap-0.5 mt-0.5">
-                            {hasF1 && <div className="w-1 h-1 rounded-full bg-[#ef4444]" />}
-                            {hasWRC && <div className="w-1 h-1 rounded-full bg-[#3b82f6]" />}
-                            {hasFE && <div className="w-1 h-1 rounded-full bg-[#10b981]" />}
+                          <div className="flex gap-px mt-px">
+                            {hasF1 && <div className="w-0.5 h-0.5 rounded-full bg-[#ef4444]" />}
+                            {hasWRC && <div className="w-0.5 h-0.5 rounded-full bg-[#3b82f6]" />}
+                            {hasFE && <div className="w-0.5 h-0.5 rounded-full bg-[#10b981]" />}
                           </div>
                         )}
                       </div>
@@ -362,29 +362,29 @@ const DesktopWallpaper = ({
                   })}
                 </div>
 
-                {/* 当月赛事列表（最多3条） */}
+                {/* 当月赛事列表（最多2条） */}
                 {monthEvents.length > 0 && (
-                  <div className="mt-3 space-y-1 border-t border-white/5 pt-2">
-                    {monthEvents.slice(0, 3).map((event) => {
+                  <div className="mt-1.5 space-y-0.5 border-t border-white/5 pt-1.5">
+                    {monthEvents.slice(0, 2).map((event) => {
                       const mainSession = getMainSession(event)
                       return (
-                        <div key={event.id} className="flex items-center gap-1.5 text-[10px]">
+                        <div key={event.id} className="flex items-center gap-1 text-[8px]">
                           <div
-                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            className="w-1 h-1 rounded-full shrink-0"
                             style={{ backgroundColor: SERIES_COLORS[event.series] }}
                           />
-                          <span className="text-white/70 truncate flex-1">{event.name}</span>
+                          <span className="text-white/60 truncate flex-1">{event.name}</span>
                           {mainSession && (
-                            <span className="text-white/30 font-mono">
+                            <span className="text-white/25 font-mono">
                               {formatTime(mainSession.utc)}
                             </span>
                           )}
                         </div>
                       )
                     })}
-                    {monthEvents.length > 3 && (
-                      <div className="text-[9px] text-white/30 text-center pt-0.5">
-                        +{monthEvents.length - 3} 更多
+                    {monthEvents.length > 2 && (
+                      <div className="text-[7px] text-white/25 text-center">
+                        +{monthEvents.length - 2}
                       </div>
                     )}
                   </div>
@@ -395,12 +395,12 @@ const DesktopWallpaper = ({
         </div>
 
         {/* 底部：图例 + 版权 */}
-        <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
-          <div className="flex items-center gap-6">
+        <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+          <div className="flex items-center gap-5">
             {Object.entries(SERIES_COLORS).map(([series, color]) => (
-              <div key={series} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-md" style={{ backgroundColor: color }} />
-                <span className="text-xs text-white/40 font-medium">{series}</span>
+              <div key={series} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
+                <span className="text-[10px] text-white/40 font-medium">{series}</span>
               </div>
             ))}
           </div>

@@ -14,6 +14,7 @@ import { EventHeader } from "@/components/event-header"
 import { SessionTimeline } from "@/components/session-timeline"
 import { PageTransition } from "@/components/page-transition"
 import { AIPrediction } from "@/components/ai-prediction"
+import { ShareCard } from "@/components/share-card"
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -136,6 +137,7 @@ export default function EventDetailPage() {
           <Highlights event={event} />
           <DeepInfo event={event} />
           <AIPrediction event={event} />
+          <ShareCard event={event} now={now} />
           {event.liveTimingUrl && (
             <div className="mt-4">
               <OfficialLiveTiming url={event.liveTimingUrl} eventName={event.name} />

@@ -68,6 +68,32 @@ export async function initDb(): Promise<void> {
         count INTEGER DEFAULT 0
       )
     `
+
+    // Web Push 推送订阅表
+    await sql`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // 服务健康度历史记录表
+    await sql`
+      CREATE TABLE IF NOT EXISTS service_health_log (
+        id SERIAL PRIMARY KEY,
+        checked_at TIMESTAMP DEFAULT NOW(),
+        service TEXT NOT NULL,
+        ok BOOLEAN NOT NULL,
+        event_count INTEGER DEFAULT 0,
+        note TEXT
+      )
+    `
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_health_log_service_time ON service_health_log(service, checked_at)
+    `
   } catch {
     // ignore errors (table might already exist)
   }
