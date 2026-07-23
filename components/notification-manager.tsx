@@ -33,19 +33,11 @@ type ScheduledNotification = {
   triggered: boolean
 }
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/")
-  const rawData = window.atob(base64)
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)))
-}
-
 export function NotificationManager({ events }: NotificationManagerProps) {
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [enabled, setEnabled] = useState(false)
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
-  const [pushSupported, setPushSupported] = useState(false)
   const timersRef = useRef<Map<string, number>>(new Map())
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -64,10 +56,6 @@ export function NotificationManager({ events }: NotificationManagerProps) {
           // ignore
         }
       }
-    }
-    if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
-      setPushSupported(true)
-      navigator.serviceWorker.register("/sw.js").catch(console.error)
     }
   }, [])
 
@@ -164,23 +152,6 @@ export function NotificationManager({ events }: NotificationManagerProps) {
       setEnabled(false)
       localStorage.setItem(STORAGE_KEY, "false")
       clearAllTimers()
-      // 取消 Web Push 订阅
-      if (pushSupported) {
-        try {
-          const reg = await navigator.serviceWorker.ready
-          const sub = await reg.pushManager.getSubscription()
-          if (sub) {
-            await sub.unsubscribe()
-            await fetch("/api/push/subscribe", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ endpoint: sub.endpoint }),
-            })
-          }
-        } catch (e) {
-          console.error("Unsubscribe error:", e)
-        }
-      }
       return
     }
 
@@ -194,37 +165,6 @@ export function NotificationManager({ events }: NotificationManagerProps) {
     } else if (permission === "granted") {
       setEnabled(true)
       localStorage.setItem(STORAGE_KEY, "true")
-    }
-
-    // 注册 Web Push 订阅
-    if (pushSupported && permission === "granted") {
-      try {
-        const reg = await navigator.serviceWorker.ready
-        const existing = await reg.pushManager.getSubscription()
-        if (!existing) {
-          const vapidRes = await fetch("/api/push/vapid")
-          const vapidData = await vapidRes.json()
-          if (vapidData.ok && vapidData.publicKey) {
-            const newSub = await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey),
-            })
-            await fetch("/api/push/subscribe", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                endpoint: newSub.endpoint,
-                keys: {
-                  p256dh: btoa(String.fromCharCode(...new Uint8Array(newSub.getKey("p256dh")!))),
-                  auth: btoa(String.fromCharCode(...new Uint8Array(newSub.getKey("auth")!))),
-                },
-              }),
-            })
-          }
-        }
-      } catch (e) {
-        console.error("Push subscribe error:", e)
-      }
     }
   }
 
