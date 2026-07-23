@@ -154,8 +154,8 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
 
       {/* 生成用 DOM（屏幕外，专门用于 html-to-image） */}
       <div
-        className="pointer-events-none absolute left-0 top-0 -z-50"
-        style={{ visibility: "hidden", width: 0, height: 0, overflow: "hidden" }}
+        className="pointer-events-none fixed -z-[9999]"
+        style={{ left: "-9999px", top: 0 }}
         aria-hidden="true"
       >
         {aspectRatio === "phone" ? (
