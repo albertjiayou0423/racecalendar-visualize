@@ -6,6 +6,9 @@ import {
   Database, Edit3, Eye, Lock, LogOut, MessageSquare, Play, RefreshCw, Save, Server,
   Trash2, X, Zap
 } from "lucide-react"
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+} from "recharts"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Series } from "@/lib/types"
@@ -134,6 +137,10 @@ export function AdminPanel() {
   const [feedbacks, setFeedbacks] = useState<any[]>([])
   const [feedbackLoading, setFeedbackLoading] = useState(false)
 
+  // 健康度历史
+  const [healthHistory, setHealthHistory] = useState<any[]>([])
+  const [healthLoading, setHealthLoading] = useState(false)
+
   useEffect(() => {
     checkAuth()
   }, [])
@@ -202,6 +209,41 @@ export function AdminPanel() {
       console.error("Failed to fetch status:", e)
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const fetchHealthHistory = useCallback(async () => {
+    setHealthLoading(true)
+    try {
+      const res = await fetch("/api/admin/health-history?hours=24")
+      const data = await res.json()
+      if (data.ok) {
+        // 按时间分组聚合
+        const map = new Map<string, Record<string, number>>()
+        for (const row of data.data) {
+          const time = new Date(row.checked_at).toLocaleString("zh-CN", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+          if (!map.has(time)) map.set(time, {})
+          map.get(time)![row.service] = row.ok ? 1 : 0
+        }
+        const chartData = Array.from(map.entries())
+          .map(([time, values]) => ({
+            time,
+            f1: values.f1 ?? null,
+            fe: values.fe ?? null,
+            wrc: values.wrc ?? null,
+          }))
+          .reverse()
+        setHealthHistory(chartData)
+      }
+    } catch (e) {
+      console.error("Failed to fetch health history:", e)
+    } finally {
+      setHealthLoading(false)
     }
   }, [])
 
@@ -354,12 +396,15 @@ export function AdminPanel() {
   // Tab 切换时加载数据
   useEffect(() => {
     if (!authenticated) return
-    if (activeTab === "status") fetchStatus()
+    if (activeTab === "status") {
+      fetchStatus()
+      fetchHealthHistory()
+    }
     if (activeTab === "crawl") fetchCrawlStatus()
     if (activeTab === "overrides") fetchOverrides()
     if (activeTab === "preview") fetchPreview(previewSeries)
     if (activeTab === "feedback") fetchFeedbacks()
-  }, [activeTab, authenticated, fetchStatus, fetchCrawlStatus, fetchOverrides, fetchPreview, previewSeries, fetchFeedbacks])
+  }, [activeTab, authenticated, fetchStatus, fetchHealthHistory, fetchCrawlStatus, fetchOverrides, fetchPreview, previewSeries, fetchFeedbacks])
 
   // ─── 登录页 ─────────────────────────────────────────
 
@@ -442,7 +487,13 @@ export function AdminPanel() {
       {/* Tab 内容 */}
       <div className="min-h-[60vh]">
         {activeTab === "status" && (
-          <StatusTab status={status} loading={loading} onRefresh={fetchStatus} />
+          <StatusTab
+            status={status}
+            loading={loading}
+            onRefresh={() => { fetchStatus(); fetchHealthHistory() }}
+            healthHistory={healthHistory}
+            healthLoading={healthLoading}
+          />
         )}
         {activeTab === "crawl" && (
           <CrawlTab
@@ -499,11 +550,13 @@ export function AdminPanel() {
 // ─── 服务状态 Tab ───────────────────────────────────────
 
 function StatusTab({
-  status, loading, onRefresh
+  status, loading, onRefresh, healthHistory, healthLoading
 }: {
   status: StatusResponse | null
   loading: boolean
   onRefresh: () => void
+  healthHistory: any[]
+  healthLoading: boolean
 }) {
   return (
     <div className="space-y-4">
@@ -512,9 +565,9 @@ function StatusTab({
           <Activity className="size-4" />
           服务状态
         </div>
-        <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading} className="gap-2">
-          <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-          {loading ? "刷新中..." : "刷新"}
+        <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading || healthLoading} className="gap-2">
+          <RefreshCw className={cn("size-4", (loading || healthLoading) && "animate-spin")} />
+          {loading || healthLoading ? "刷新中..." : "刷新"}
         </Button>
       </div>
 
@@ -580,6 +633,45 @@ function StatusTab({
               </div>
             </div>
           </div>
+
+          {/* 健康度历史曲线 */}
+          {healthHistory.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+              <div className="mb-2 sm:mb-3 text-sm font-medium">24小时健康度趋势</div>
+              <div className="h-48 sm:h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={healthHistory}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fontSize: 9, fill: "rgba(255,255,255,0.4)" }}
+                      interval="preserveStartEnd"
+                      angle={0}
+                      height={30}
+                    />
+                    <YAxis
+                      domain={[0, 1]}
+                      tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }}
+                      tickFormatter={(v: number) => (v === 1 ? "正常" : v === 0 ? "异常" : "")}
+                      width={40}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#1a1a1e",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                      }}
+                      labelStyle={{ fontSize: "10px", color: "rgba(255,255,255,0.5)" }}
+                    />
+                    <Line type="stepAfter" dataKey="f1" stroke="#00D2BE" strokeWidth={2} dot={false} name="F1" />
+                    <Line type="stepAfter" dataKey="fe" stroke="#FFD500" strokeWidth={2} dot={false} name="FE" />
+                    <Line type="stepAfter" dataKey="wrc" stroke="#E4002B" strokeWidth={2} dot={false} name="WRC" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
