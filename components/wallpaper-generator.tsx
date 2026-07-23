@@ -20,14 +20,15 @@ const SERIES_COLORS: Record<string, string> = {
   FE: "#10b981",
 }
 
-const DESKTOP_WIDTH = 1280
-const DESKTOP_HEIGHT = 720
-const PHONE_WIDTH = 360
-const PHONE_HEIGHT = 640
+const DESKTOP_W = 1280
+const DESKTOP_H = 720
+const PHONE_W = 360
+const PHONE_H = 640
 
 export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorProps) {
-  const generateRef = useRef<HTMLDivElement>(null)
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("phone")
+  const phoneRef = useRef<HTMLDivElement>(null)
+  const desktopRef = useRef<HTMLDivElement>(null)
+  const [mode, setMode] = useState<AspectRatio>("phone")
   const [generating, setGenerating] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -35,26 +36,21 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
 
   useEffect(() => {
     setMounted(true)
-    if (typeof window !== "undefined") {
-      setHost(window.location.hostname)
-    }
+    if (typeof window !== "undefined") setHost(window.location.hostname)
   }, [])
 
   const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
-
   const grouped = eventsByDate(events, month, year)
   const yearGrouped = eventsByYear(events, year)
   const totalEvents = Object.values(grouped).flat().length
   const yearTotalEvents = Object.values(yearGrouped).reduce((acc, m) => acc + Object.values(m).flat().length, 0)
 
-  const generateWallpaper = async () => {
-    if (!generateRef.current) return
+  const generate = async () => {
+    const ref = mode === "phone" ? phoneRef : desktopRef
+    if (!ref.current) return
     setGenerating(true)
     try {
-      const dataUrl = await toPng(generateRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-      })
+      const dataUrl = await toPng(ref.current, { quality: 1, pixelRatio: 2 })
       setGeneratedUrl(dataUrl)
     } catch (err) {
       console.error("壁纸生成失败:", err)
@@ -63,19 +59,19 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
     }
   }
 
-  const downloadWallpaper = () => {
+  const download = () => {
     if (!generatedUrl) return
-    const link = document.createElement("a")
-    const suffix = aspectRatio === "phone" ? `${String(month + 1).padStart(2, "0")}` : "full-year"
-    link.download = `race-calendar-${year}-${suffix}.png`
-    link.href = generatedUrl
-    link.click()
+    const a = document.createElement("a")
+    const suffix = mode === "phone" ? `${String(month + 1).padStart(2, "0")}` : "full-year"
+    a.download = `race-calendar-${year}-${suffix}.png`
+    a.href = generatedUrl
+    a.click()
   }
 
   if (!mounted) return null
 
-  const targetW = aspectRatio === "phone" ? PHONE_WIDTH : DESKTOP_WIDTH
-  const targetH = aspectRatio === "phone" ? PHONE_HEIGHT : DESKTOP_HEIGHT
+  const targetW = mode === "phone" ? PHONE_W : DESKTOP_W
+  const targetH = mode === "phone" ? PHONE_H : DESKTOP_H
 
   return (
     <div className="space-y-4">
@@ -83,47 +79,38 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
           <button
-            onClick={() => setAspectRatio("phone")}
+            onClick={() => setMode("phone")}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              aspectRatio === "phone"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+              mode === "phone" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Smartphone className="size-3.5" />
             手机（当月）
           </button>
           <button
-            onClick={() => setAspectRatio("desktop")}
+            onClick={() => setMode("desktop")}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              aspectRatio === "desktop"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+              mode === "desktop" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Monitor className="size-3.5" />
             桌面（全年）
           </button>
         </div>
-
         <div className="flex gap-2">
           <button
-            onClick={generateWallpaper}
+            onClick={generate}
             disabled={generating}
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {generating ? (
-              <RotateCcw className="size-3.5 animate-spin" />
-            ) : (
-              <ImageIcon className="size-3.5" />
-            )}
+            {generating ? <RotateCcw className="size-3.5 animate-spin" /> : <ImageIcon className="size-3.5" />}
             生成
           </button>
           {generatedUrl && (
             <button
-              onClick={downloadWallpaper}
+              onClick={download}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
             >
               <Download className="size-3.5" />
@@ -133,9 +120,9 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         </div>
       </div>
 
-      {/* 预览区（固定宽高比，内部用 scale 填满） */}
-      <PreviewContainer targetWidth={targetW} targetHeight={targetH}>
-        {aspectRatio === "phone" ? (
+      {/* 预览区 — 外层按比例撑开，内层固定尺寸 transform 填满 */}
+      <PreviewWrapper targetWidth={targetW} targetHeight={targetH}>
+        {mode === "phone" ? (
           <PhoneWallpaper
             ref={null}
             year={year}
@@ -155,41 +142,44 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
             host={host}
           />
         )}
-      </PreviewContainer>
+      </PreviewWrapper>
 
-      {/* 生成用 DOM（屏幕外，专门用于 html-to-image） */}
+      {/* 生成用 DOM（屏幕外，固定像素尺寸） */}
       <div
         className="pointer-events-none fixed -z-[9999]"
         style={{ left: "-9999px", top: 0 }}
         aria-hidden="true"
       >
-        {aspectRatio === "phone" ? (
-          <PhoneWallpaper
-            ref={generateRef}
-            year={year}
-            month={month}
-            monthNames={monthNames}
-            grouped={grouped}
-            totalEvents={totalEvents}
-            host={host}
-          />
-        ) : (
-          <DesktopWallpaper
-            ref={generateRef}
-            year={year}
-            monthNames={monthNames}
-            yearGrouped={yearGrouped}
-            totalEvents={yearTotalEvents}
-            host={host}
-          />
-        )}
+        <PhoneWallpaper
+          ref={phoneRef}
+          year={year}
+          month={month}
+          monthNames={monthNames}
+          grouped={grouped}
+          totalEvents={totalEvents}
+          host={host}
+        />
+      </div>
+      <div
+        className="pointer-events-none fixed -z-[9999]"
+        style={{ left: "-9999px", top: `${PHONE_H + 40}px` }}
+        aria-hidden="true"
+      >
+        <DesktopWallpaper
+          ref={desktopRef}
+          year={year}
+          monthNames={monthNames}
+          yearGrouped={yearGrouped}
+          totalEvents={yearTotalEvents}
+          host={host}
+        />
       </div>
     </div>
   )
 }
 
-// 预览容器：动态计算缩放比例，确保内容完整显示
-function PreviewContainer({
+// 预览包装器：外层按比例撑开，内层用 transform scale 填满
+function PreviewWrapper({
   targetWidth,
   targetHeight,
   children,
@@ -198,41 +188,43 @@ function PreviewContainer({
   targetHeight: number
   children: React.ReactNode
 }) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const outerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
 
   useEffect(() => {
-    const updateScale = () => {
-      if (!wrapperRef.current) return
-      const containerWidth = wrapperRef.current.clientWidth
-      const s = Math.min(1, Math.max(0.1, containerWidth / targetWidth))
-      setScale(s)
+    const update = () => {
+      if (!outerRef.current) return
+      const w = outerRef.current.clientWidth
+      setScale(Math.min(1, w / targetWidth))
     }
-    updateScale()
-    window.addEventListener("resize", updateScale)
-    return () => window.removeEventListener("resize", updateScale)
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
   }, [targetWidth])
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-border bg-black/5 p-3 sm:p-4">
-      <div ref={wrapperRef} className="w-full">
-        <div
-          style={{
-            width: targetWidth,
-            height: targetHeight,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            marginBottom: `${targetHeight * (scale - 1)}px`,
-          }}
-        >
-          {children}
+    <div className="rounded-xl border border-border bg-black/5 p-3 sm:p-4">
+      <div ref={outerRef} className="w-full" style={{ aspectRatio: `${targetWidth} / ${targetHeight}` }}>
+        <div className="relative w-full h-full overflow-hidden rounded-lg">
+          <div
+            ref={innerRef}
+            className="absolute left-0 top-0 origin-top-left"
+            style={{
+              width: targetWidth,
+              height: targetHeight,
+              transform: `scale(${scale})`,
+            }}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-// 手机壁纸
+// 手机壁纸（360x640 固定像素）
 const PhoneWallpaper = ({
   ref,
   year,
@@ -255,8 +247,8 @@ const PhoneWallpaper = ({
   return (
     <div
       ref={ref}
-      className="relative shrink-0 overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
-      style={{ width: PHONE_WIDTH, height: PHONE_HEIGHT, padding: "24px 16px" }}
+      className="relative overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
+      style={{ width: PHONE_W, height: PHONE_H, padding: "24px 16px" }}
     >
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-red-500 blur-3xl" />
@@ -281,7 +273,7 @@ const PhoneWallpaper = ({
                 </div>
                 <div className="mt-1 space-y-0.5">
                   {dateEvents.map((event) => {
-                    const mainSession = getMainSession(event)
+                    const s = getMainSession(event)
                     return (
                       <div key={event.id} className="flex items-center gap-2">
                         <div
@@ -289,11 +281,7 @@ const PhoneWallpaper = ({
                           style={{ backgroundColor: SERIES_COLORS[event.series] }}
                         />
                         <span className="text-[11px] text-white/90 truncate flex-1">{event.name}</span>
-                        {mainSession && (
-                          <span className="text-[9px] text-white/40 font-mono">
-                            {formatTime(mainSession.utc)}
-                          </span>
-                        )}
+                        {s && <span className="text-[9px] text-white/40 font-mono">{formatTime(s.utc)}</span>}
                       </div>
                     )
                   })}
@@ -317,7 +305,7 @@ const PhoneWallpaper = ({
   )
 }
 
-// 桌面壁纸（全年赛历横版 1280x720，3列4行 — 紧凑布局）
+// 桌面壁纸（1280x720 固定像素，3列4行）
 const DesktopWallpaper = ({
   ref,
   year,
@@ -338,17 +326,14 @@ const DesktopWallpaper = ({
   return (
     <div
       ref={ref}
-      className="relative shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
-      style={{ width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT, padding: "28px 32px" }}
+      className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
+      style={{ width: DESKTOP_W, height: DESKTOP_H, padding: "28px 32px" }}
     >
-      {/* 背景光晕 */}
       <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
         <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-red-600 blur-3xl" />
         <div className="absolute top-1/3 -left-40 h-96 w-96 rounded-full bg-blue-600 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-purple-600 blur-3xl" />
       </div>
-
-      {/* 网格背景 */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
         <div
           className="h-full w-full"
@@ -377,63 +362,53 @@ const DesktopWallpaper = ({
           </div>
         </div>
 
-        {/* 12个月份网格 - 3列4行，紧凑布局 */}
-        <div className="grid grid-cols-3 grid-rows-4 gap-2.5 flex-1">
+        {/* 3列4行网格 */}
+        <div className="grid grid-cols-3 grid-rows-4 gap-3 flex-1">
           {Array.from({ length: 12 }).map((_, m) => {
             const grouped = yearGrouped[m] || {}
             const monthEvents = Object.values(grouped).flat()
             const daysInMonth = new Date(year, m + 1, 0).getDate()
-            const firstDayOfWeek = new Date(year, m, 1).getDay()
+            const firstDay = new Date(year, m, 1).getDay()
 
             return (
               <div
                 key={m}
                 className="rounded-lg bg-white/[0.03] border border-white/5 p-2 flex flex-col overflow-hidden"
               >
-                {/* 月份标题 */}
                 <div className="flex items-baseline justify-between mb-1">
                   <h3 className="text-xs font-bold text-white/90">{monthNames[m]}</h3>
-                  <span className="text-[8px] text-white/30 font-mono">
-                    {monthEvents.length} 场
-                  </span>
+                  <span className="text-[8px] text-white/30 font-mono">{monthEvents.length} 场</span>
                 </div>
 
-                {/* 日历网格 - 紧凑行高 */}
+                {/* 日历 */}
                 <div className="grid grid-cols-7 gap-px">
                   {weekDays.map((d) => (
-                    <div
-                      key={d}
-                      className="text-center text-[7px] font-semibold text-white/30 leading-none py-0.5"
-                    >
+                    <div key={d} className="text-center text-[7px] font-semibold text-white/30 leading-none py-0.5">
                       {d}
                     </div>
                   ))}
-                  {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                    <div key={`empty-${m}-${i}`} />
+                  {Array.from({ length: firstDay }).map((_, i) => (
+                    <div key={`e-${m}-${i}`} />
                   ))}
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1
                     const dateStr = `${year}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
                     const dayEvents = grouped[dateStr] || []
-                    const hasF1 = dayEvents.some((e) => e.series === "F1")
-                    const hasWRC = dayEvents.some((e) => e.series === "WRC")
-                    const hasFE = dayEvents.some((e) => e.series === "FE")
-
+                    const f1 = dayEvents.some((e) => e.series === "F1")
+                    const wrc = dayEvents.some((e) => e.series === "WRC")
+                    const fe = dayEvents.some((e) => e.series === "FE")
                     return (
                       <div
                         key={day}
                         className={cn(
                           "flex flex-col items-center justify-center leading-none",
-                          "h-[13px]",
-                          dayEvents.length > 0
-                            ? "bg-white/[0.08] rounded-sm border border-white/10"
-                            : ""
+                          dayEvents.length > 0 ? "bg-white/[0.08] rounded-sm border border-white/10" : ""
                         )}
+                        style={{ height: "13px" }}
                       >
                         <span
                           className={cn(
-                            "font-mono font-bold leading-none",
-                            "text-[8px]",
+                            "font-mono font-bold leading-none text-[8px]",
                             dayEvents.length > 0 ? "text-white/80" : "text-white/20"
                           )}
                         >
@@ -441,9 +416,9 @@ const DesktopWallpaper = ({
                         </span>
                         {dayEvents.length > 0 && (
                           <div className="flex gap-px mt-px">
-                            {hasF1 && <div className="w-0.5 h-0.5 rounded-full bg-[#ef4444]" />}
-                            {hasWRC && <div className="w-0.5 h-0.5 rounded-full bg-[#3b82f6]" />}
-                            {hasFE && <div className="w-0.5 h-0.5 rounded-full bg-[#10b981]" />}
+                            {f1 && <div className="w-0.5 h-0.5 rounded-full bg-[#ef4444]" />}
+                            {wrc && <div className="w-0.5 h-0.5 rounded-full bg-[#3b82f6]" />}
+                            {fe && <div className="w-0.5 h-0.5 rounded-full bg-[#10b981]" />}
                           </div>
                         )}
                       </div>
@@ -451,11 +426,11 @@ const DesktopWallpaper = ({
                   })}
                 </div>
 
-                {/* 当月赛事列表（最多2条） */}
+                {/* 赛事列表 */}
                 {monthEvents.length > 0 && (
                   <div className="mt-1 space-y-0.5 border-t border-white/5 pt-1">
                     {monthEvents.slice(0, 2).map((event) => {
-                      const mainSession = getMainSession(event)
+                      const s = getMainSession(event)
                       return (
                         <div key={event.id} className="flex items-center gap-1 text-[8px] leading-tight">
                           <div
@@ -463,11 +438,7 @@ const DesktopWallpaper = ({
                             style={{ backgroundColor: SERIES_COLORS[event.series] }}
                           />
                           <span className="text-white/60 truncate flex-1">{event.name}</span>
-                          {mainSession && (
-                            <span className="text-white/25 font-mono shrink-0">
-                              {formatTime(mainSession.utc)}
-                            </span>
-                          )}
+                          {s && <span className="text-white/25 font-mono shrink-0">{formatTime(s.utc)}</span>}
                         </div>
                       )
                     })}
@@ -483,7 +454,7 @@ const DesktopWallpaper = ({
           })}
         </div>
 
-        {/* 底部：图例 + 版权 */}
+        {/* 底部 */}
         <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
           <div className="flex items-center gap-4">
             {Object.entries(SERIES_COLORS).map(([series, color]) => (
@@ -493,9 +464,7 @@ const DesktopWallpaper = ({
               </div>
             ))}
           </div>
-          <div className="text-[9px] text-white/20 font-mono">
-            {host || "racecalendar-visualize.vercel.app"}
-          </div>
+          <div className="text-[9px] text-white/20 font-mono">{host || "racecalendar-visualize.vercel.app"}</div>
         </div>
       </div>
     </div>
@@ -503,46 +472,33 @@ const DesktopWallpaper = ({
 }
 
 function eventsByDate(events: RaceEvent[], month: number, year: number): Record<string, RaceEvent[]> {
-  const grouped: Record<string, RaceEvent[]> = {}
-  const monthEvents = events.filter((e) => {
-    const mainSession = getMainSession(e)
-    if (!mainSession) return false
-    const date = new Date(mainSession.utc)
-    return date.getMonth() === month && date.getFullYear() === year
-  })
-
-  for (const event of monthEvents) {
-    const mainSession = getMainSession(event)
-    if (!mainSession) continue
-    const dateStr = new Date(mainSession.utc).toISOString().split("T")[0]
-    if (!grouped[dateStr]) grouped[dateStr] = []
-    grouped[dateStr].push(event)
+  const g: Record<string, RaceEvent[]> = {}
+  for (const e of events) {
+    const s = getMainSession(e)
+    if (!s) continue
+    const d = new Date(s.utc)
+    if (d.getMonth() !== month || d.getFullYear() !== year) continue
+    const k = d.toISOString().split("T")[0]
+    if (!g[k]) g[k] = []
+    g[k].push(e)
   }
-
-  return grouped
+  return g
 }
 
 function eventsByYear(events: RaceEvent[], year: number): Record<number, Record<string, RaceEvent[]>> {
-  const result: Record<number, Record<string, RaceEvent[]>> = {}
-  for (let m = 0; m < 12; m++) result[m] = {}
-
-  const yearEvents = events.filter((e) => {
-    const mainSession = getMainSession(e)
-    if (!mainSession) return false
-    return new Date(mainSession.utc).getFullYear() === year
-  })
-
-  for (const event of yearEvents) {
-    const mainSession = getMainSession(event)
-    if (!mainSession) continue
-    const d = new Date(mainSession.utc)
+  const r: Record<number, Record<string, RaceEvent[]>> = {}
+  for (let m = 0; m < 12; m++) r[m] = {}
+  for (const e of events) {
+    const s = getMainSession(e)
+    if (!s) continue
+    const d = new Date(s.utc)
+    if (d.getFullYear() !== year) continue
     const m = d.getMonth()
-    const dateStr = d.toISOString().split("T")[0]
-    if (!result[m][dateStr]) result[m][dateStr] = []
-    result[m][dateStr].push(event)
+    const k = d.toISOString().split("T")[0]
+    if (!r[m][k]) r[m][k] = []
+    r[m][k].push(e)
   }
-
-  return result
+  return r
 }
 
 function getMainSession(event: RaceEvent): RaceSession | undefined {
@@ -551,6 +507,6 @@ function getMainSession(event: RaceEvent): RaceSession | undefined {
 
 function formatTime(utc: string): string {
   const d = new Date(utc)
-  const beijing = new Date(d.getTime() + 8 * 60 * 60 * 1000)
-  return `${String(beijing.getHours()).padStart(2, "0")}:${String(beijing.getMinutes()).padStart(2, "0")}`
+  const bj = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+  return `${String(bj.getHours()).padStart(2, "0")}:${String(bj.getMinutes()).padStart(2, "0")}`
 }
