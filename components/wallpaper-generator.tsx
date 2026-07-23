@@ -70,7 +70,7 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
   return (
     <div className="space-y-4">
       {/* 控制栏 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
           <button
             onClick={() => setAspectRatio("phone")}
@@ -123,26 +123,65 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         </div>
       </div>
 
-      {/* 壁纸预览 */}
-      <div className="flex justify-center overflow-x-auto rounded-xl border border-border bg-black/5 p-4">
+      {/* 壁纸预览 - 移动端自动缩放 */}
+      <div className="rounded-xl border border-border bg-black/5 p-4">
         {aspectRatio === "phone" ? (
-          <PhoneWallpaper
-            ref={wallpaperRef}
-            year={year}
-            month={month}
-            monthNames={monthNames}
-            grouped={grouped}
-            totalEvents={totalEvents}
-          />
+          <ScaledPreview targetWidth={360}>
+            <PhoneWallpaper
+              ref={wallpaperRef}
+              year={year}
+              month={month}
+              monthNames={monthNames}
+              grouped={grouped}
+              totalEvents={totalEvents}
+            />
+          </ScaledPreview>
         ) : (
-          <DesktopWallpaper
-            ref={wallpaperRef}
-            year={year}
-            monthNames={monthNames}
-            yearGrouped={yearGrouped}
-            totalEvents={yearTotalEvents}
-          />
+          <ScaledPreview targetWidth={1280}>
+            <DesktopWallpaper
+              ref={wallpaperRef}
+              year={year}
+              monthNames={monthNames}
+              yearGrouped={yearGrouped}
+              totalEvents={yearTotalEvents}
+            />
+          </ScaledPreview>
         )}
+      </div>
+    </div>
+  )
+}
+
+// 移动端缩放预览包装器
+function ScaledPreview({ children, targetWidth }: { children: React.ReactNode; targetWidth: number }) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (!wrapperRef.current) return
+      const containerWidth = wrapperRef.current.clientWidth
+      // 留出一点边距，最大 1 倍，最小缩放到容器能放下
+      const s = Math.min(1, (containerWidth - 8) / targetWidth)
+      setScale(s)
+    }
+    updateScale()
+    window.addEventListener("resize", updateScale)
+    return () => window.removeEventListener("resize", updateScale)
+  }, [targetWidth])
+
+  return (
+    <div ref={wrapperRef} className="w-full overflow-x-auto">
+      <div
+        className="mx-auto"
+        style={{
+          width: targetWidth,
+          transform: `scale(${scale})`,
+          transformOrigin: "top center",
+          marginBottom: `${targetWidth * (scale - 1)}px`, // 抵消 scale 造成的布局高度压缩
+        }}
+      >
+        {children}
       </div>
     </div>
   )
@@ -232,7 +271,7 @@ const PhoneWallpaper = ({
   )
 }
 
-// 桌面壁纸组件 - 全年赛历长图
+// 桌面壁纸组件 - 全年赛历横版 3x4
 const DesktopWallpaper = ({
   ref,
   year,

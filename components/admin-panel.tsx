@@ -636,21 +636,33 @@ function StatusTab({
 
           {/* 健康度历史曲线 */}
           {healthHistory.length > 0 && (
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 text-sm font-medium">24小时健康度趋势</div>
-              <div className="h-64">
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+              <div className="mb-2 sm:mb-3 text-sm font-medium">24小时健康度趋势</div>
+              <div className="h-48 sm:h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={healthHistory}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} />
-                    <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} />
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fontSize: 9, fill: "rgba(255,255,255,0.4)" }}
+                      interval="preserveStartEnd"
+                      angle={0}
+                      height={30}
+                    />
+                    <YAxis
+                      domain={[0, 1]}
+                      tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }}
+                      tickFormatter={(v: number) => (v === 1 ? "正常" : v === 0 ? "异常" : "")}
+                      width={40}
+                    />
                     <Tooltip
                       contentStyle={{
                         background: "#1a1a1e",
                         border: "1px solid rgba(255,255,255,0.1)",
                         borderRadius: "8px",
-                        fontSize: "12px",
+                        fontSize: "11px",
                       }}
+                      labelStyle={{ fontSize: "10px", color: "rgba(255,255,255,0.5)" }}
                     />
                     <Line type="stepAfter" dataKey="f1" stroke="#00D2BE" strokeWidth={2} dot={false} name="F1" />
                     <Line type="stepAfter" dataKey="fe" stroke="#FFD500" strokeWidth={2} dot={false} name="FE" />
