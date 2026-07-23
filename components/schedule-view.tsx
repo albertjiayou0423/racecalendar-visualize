@@ -18,6 +18,7 @@ import {
 import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
@@ -619,7 +620,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       ) : null}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-2">
+        <ThemeToggle />
         <FeedbackButton />
       </div>
 

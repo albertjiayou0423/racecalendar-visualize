@@ -68,6 +68,17 @@ export async function initDb(): Promise<void> {
         count INTEGER DEFAULT 0
       )
     `
+
+    // Web Push 推送订阅表
+    await sql`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
   } catch {
     // ignore errors (table might already exist)
   }

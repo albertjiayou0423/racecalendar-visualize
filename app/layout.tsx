@@ -23,8 +23,11 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'dark',
-  themeColor: '#1a1a1e',
+  colorScheme: 'dark light',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafafe' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1a1e' },
+  ],
 }
 
 export default function RootLayout({
@@ -33,7 +36,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
+    <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              var theme = localStorage.getItem('race-theme');
+              if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+              }
+            } catch(e) {}
+          })()
+        `}} />
+      </head>
       <body className="antialiased font-sans">
         {children}
       </body>

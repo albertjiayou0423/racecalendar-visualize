@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { Bell, BellOff, Check, Settings } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { firstSession, formatTime, SERIES_META } from "@/lib/format"
@@ -13,6 +13,7 @@ interface NotificationManagerProps {
 
 const STORAGE_KEY = "race-notifications-enabled"
 const SETTINGS_KEY = "race-notification-settings"
+const PUSH_SUB_KEY = "race-push-subscription"
 
 type NotificationSettings = {
   remind60: boolean
@@ -38,8 +39,40 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   const [enabled, setEnabled] = useState(false)
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
+  const [pushSupported, setPushSupported] = useState(false)
   const timersRef = useRef<Map<string, number>>(new Map())
   const panelRef = useRef<HTMLDivElement>(null)
+  const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null)
+
+  // 注册 Service Worker
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => {
+        swRegistrationRef.current = registration
+        // 检查是否支持 PushManager
+        if ("PushManager" in window) {
+          setPushSupported(true)
+        }
+      })
+      .catch((err) => {
+        console.error("Service Worker 注册失败:", err)
+      })
+
+    // 监听 Service Worker 发来的订阅变更消息
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PUSH_SUBSCRIPTION_CHANGED") {
+        // 订阅变更，将新订阅发送到服务器
+        savePushSubscription(event.data.subscription)
+      }
+    }
+    navigator.serviceWorker.addEventListener("message", handleMessage)
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleMessage)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -147,11 +180,93 @@ export function NotificationManager({ events }: NotificationManagerProps) {
     })
   }
 
+  // 保存推送订阅到服务器
+  const savePushSubscription = useCallback(async (subscription: PushSubscription | { endpoint: string; keys: { p256dh: string; auth: string } }) => {
+    try {
+      const subJson = subscription.toJSON ? subscription.toJSON() : subscription
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: subJson.endpoint,
+          keys: subJson.keys,
+        }),
+      })
+      // 缓存订阅信息到 localStorage
+      localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subJson))
+    } catch (err) {
+      console.error("保存推送订阅失败:", err)
+    }
+  }, [])
+
+  // 删除推送订阅
+  const deletePushSubscription = useCallback(async () => {
+    try {
+      const cached = localStorage.getItem(PUSH_SUB_KEY)
+      if (cached) {
+        const subJson = JSON.parse(cached)
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: subJson.endpoint }),
+        })
+        localStorage.removeItem(PUSH_SUB_KEY)
+      }
+    } catch (err) {
+      console.error("删除推送订阅失败:", err)
+    }
+  }, [])
+
+  // 注册 Web Push 订阅
+  const registerPushSubscription = useCallback(async () => {
+    if (!pushSupported || !swRegistrationRef.current) return
+
+    try {
+      // 获取 VAPID 公钥
+      const vapidRes = await fetch("/api/push/vapid")
+      const vapidData = await vapidRes.json()
+
+      if (!vapidData.available) {
+        // VAPID keys 未配置，Web Push 不可用，优雅降级
+        console.info("Web Push 不可用（VAPID keys 未配置），仅使用浏览器即时通知")
+        return
+      }
+
+      const registration = swRegistrationRef.current
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidData.publicKey,
+      })
+
+      await savePushSubscription(subscription)
+    } catch (err) {
+      // Web Push 注册失败，优雅降级，不影响原有通知功能
+      console.error("Web Push 注册失败，将使用浏览器即时通知作为 fallback:", err)
+    }
+  }, [pushSupported, savePushSubscription])
+
+  // 取消 Web Push 订阅
+  const unregisterPushSubscription = useCallback(async () => {
+    if (!swRegistrationRef.current) return
+
+    try {
+      const subscription = await swRegistrationRef.current.pushManager.getSubscription()
+      if (subscription) {
+        await subscription.unsubscribe()
+      }
+      await deletePushSubscription()
+    } catch (err) {
+      console.error("取消 Web Push 订阅失败:", err)
+    }
+  }, [deletePushSubscription])
+
   const toggleNotifications = async () => {
     if (enabled) {
       setEnabled(false)
       localStorage.setItem(STORAGE_KEY, "false")
       clearAllTimers()
+      // 取消 Web Push 订阅
+      await unregisterPushSubscription()
       return
     }
 
@@ -161,10 +276,14 @@ export function NotificationManager({ events }: NotificationManagerProps) {
       if (result === "granted") {
         setEnabled(true)
         localStorage.setItem(STORAGE_KEY, "true")
+        // 注册 Web Push 订阅
+        await registerPushSubscription()
       }
     } else if (permission === "granted") {
       setEnabled(true)
       localStorage.setItem(STORAGE_KEY, "true")
+      // 注册 Web Push 订阅
+      await registerPushSubscription()
     }
   }
 
