@@ -20,9 +20,13 @@ const SERIES_COLORS: Record<string, string> = {
   FE: "#10b981",
 }
 
+const DESKTOP_WIDTH = 1280
+const DESKTOP_HEIGHT = 720
+const PHONE_WIDTH = 360
+const PHONE_HEIGHT = 640
+
 export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorProps) {
   const generateRef = useRef<HTMLDivElement>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("phone")
   const [generating, setGenerating] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
@@ -69,6 +73,9 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
   }
 
   if (!mounted) return null
+
+  const targetW = aspectRatio === "phone" ? PHONE_WIDTH : DESKTOP_WIDTH
+  const targetH = aspectRatio === "phone" ? PHONE_HEIGHT : DESKTOP_HEIGHT
 
   return (
     <div className="space-y-4">
@@ -126,31 +133,29 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         </div>
       </div>
 
-      {/* 预览区（移动端自动缩放） */}
-      <div className="rounded-xl border border-border bg-black/5 p-4">
-        <PreviewScaler targetWidth={aspectRatio === "phone" ? 360 : 1280} previewRef={previewRef}>
-          {aspectRatio === "phone" ? (
-            <PhoneWallpaper
-              ref={null}
-              year={year}
-              month={month}
-              monthNames={monthNames}
-              grouped={grouped}
-              totalEvents={totalEvents}
-              host={host}
-            />
-          ) : (
-            <DesktopWallpaper
-              ref={null}
-              year={year}
-              monthNames={monthNames}
-              yearGrouped={yearGrouped}
-              totalEvents={yearTotalEvents}
-              host={host}
-            />
-          )}
-        </PreviewScaler>
-      </div>
+      {/* 预览区（固定宽高比，内部用 scale 填满） */}
+      <PreviewContainer targetWidth={targetW} targetHeight={targetH}>
+        {aspectRatio === "phone" ? (
+          <PhoneWallpaper
+            ref={null}
+            year={year}
+            month={month}
+            monthNames={monthNames}
+            grouped={grouped}
+            totalEvents={totalEvents}
+            host={host}
+          />
+        ) : (
+          <DesktopWallpaper
+            ref={null}
+            year={year}
+            monthNames={monthNames}
+            yearGrouped={yearGrouped}
+            totalEvents={yearTotalEvents}
+            host={host}
+          />
+        )}
+      </PreviewContainer>
 
       {/* 生成用 DOM（屏幕外，专门用于 html-to-image） */}
       <div
@@ -183,8 +188,16 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
   )
 }
 
-// 预览缩放器（只用于视觉预览，不影响内部 DOM 尺寸）
-function PreviewScaler({ targetWidth, previewRef, children }: { targetWidth: number; previewRef: React.RefObject<HTMLDivElement | null>; children: React.ReactNode }) {
+// 预览容器：动态计算缩放比例，确保内容完整显示
+function PreviewContainer({
+  targetWidth,
+  targetHeight,
+  children,
+}: {
+  targetWidth: number
+  targetHeight: number
+  children: React.ReactNode
+}) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
 
@@ -200,20 +213,20 @@ function PreviewScaler({ targetWidth, previewRef, children }: { targetWidth: num
     return () => window.removeEventListener("resize", updateScale)
   }, [targetWidth])
 
-  const targetHeight = targetWidth === 360 ? 640 : 720
-
   return (
-    <div ref={wrapperRef} className="w-full overflow-x-auto">
-      <div
-        style={{
-          width: targetWidth,
-          height: targetHeight,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-          marginBottom: `${targetHeight * (scale - 1)}px`,
-        }}
-      >
-        <div ref={previewRef}>{children}</div>
+    <div className="w-full overflow-hidden rounded-xl border border-border bg-black/5 p-3 sm:p-4">
+      <div ref={wrapperRef} className="w-full">
+        <div
+          style={{
+            width: targetWidth,
+            height: targetHeight,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            marginBottom: `${targetHeight * (scale - 1)}px`,
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   )
@@ -242,8 +255,8 @@ const PhoneWallpaper = ({
   return (
     <div
       ref={ref}
-      className="relative w-[360px] shrink-0 overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
-      style={{ height: 640, padding: "24px 16px" }}
+      className="relative shrink-0 overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
+      style={{ width: PHONE_WIDTH, height: PHONE_HEIGHT, padding: "24px 16px" }}
     >
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-red-500 blur-3xl" />
@@ -304,7 +317,7 @@ const PhoneWallpaper = ({
   )
 }
 
-// 桌面壁纸（全年赛历横版 1280x720，3列4行）
+// 桌面壁纸（全年赛历横版 1280x720，3列4行 — 紧凑布局）
 const DesktopWallpaper = ({
   ref,
   year,
@@ -326,14 +339,16 @@ const DesktopWallpaper = ({
     <div
       ref={ref}
       className="relative shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
-      style={{ width: 1280, height: 720, padding: "36px 40px" }}
+      style={{ width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT, padding: "28px 32px" }}
     >
+      {/* 背景光晕 */}
       <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
         <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-red-600 blur-3xl" />
         <div className="absolute top-1/3 -left-40 h-96 w-96 rounded-full bg-blue-600 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-purple-600 blur-3xl" />
       </div>
 
+      {/* 网格背景 */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
         <div
           className="h-full w-full"
@@ -346,22 +361,24 @@ const DesktopWallpaper = ({
       </div>
 
       <div className="relative z-10 flex h-full flex-col">
-        <div className="flex items-start justify-between border-b border-white/10 pb-4 mb-4">
+        {/* 头部 */}
+        <div className="flex items-start justify-between border-b border-white/10 pb-3 mb-3">
           <div>
             <div className="text-[10px] font-bold tracking-[0.3em] text-white/30 uppercase">
               Race Calendar · Full Year
             </div>
-            <h1 className="mt-1 text-3xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
+            <h1 className="mt-0.5 text-2xl font-bold bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
               {year} 赛季
             </h1>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold text-white">{totalEvents}</div>
-            <div className="text-xs text-white/40">Scheduled Events</div>
+            <div className="text-2xl font-bold text-white">{totalEvents}</div>
+            <div className="text-[10px] text-white/40">Scheduled Events</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 grid-rows-4 gap-3 flex-1">
+        {/* 12个月份网格 - 3列4行，紧凑布局 */}
+        <div className="grid grid-cols-3 grid-rows-4 gap-2.5 flex-1">
           {Array.from({ length: 12 }).map((_, m) => {
             const grouped = yearGrouped[m] || {}
             const monthEvents = Object.values(grouped).flat()
@@ -371,20 +388,22 @@ const DesktopWallpaper = ({
             return (
               <div
                 key={m}
-                className="rounded-lg bg-white/[0.03] border border-white/5 p-2.5 flex flex-col"
+                className="rounded-lg bg-white/[0.03] border border-white/5 p-2 flex flex-col overflow-hidden"
               >
-                <div className="flex items-baseline justify-between mb-1.5">
-                  <h3 className="text-sm font-bold text-white/90">{monthNames[m]}</h3>
-                  <span className="text-[9px] text-white/30 font-mono">
+                {/* 月份标题 */}
+                <div className="flex items-baseline justify-between mb-1">
+                  <h3 className="text-xs font-bold text-white/90">{monthNames[m]}</h3>
+                  <span className="text-[8px] text-white/30 font-mono">
                     {monthEvents.length} 场
                   </span>
                 </div>
 
+                {/* 日历网格 - 紧凑行高 */}
                 <div className="grid grid-cols-7 gap-px">
                   {weekDays.map((d) => (
                     <div
                       key={d}
-                      className="text-center text-[7px] font-semibold text-white/30 py-0.5"
+                      className="text-center text-[7px] font-semibold text-white/30 leading-none py-0.5"
                     >
                       {d}
                     </div>
@@ -404,15 +423,17 @@ const DesktopWallpaper = ({
                       <div
                         key={day}
                         className={cn(
-                          "aspect-square rounded-sm flex flex-col items-center justify-center",
+                          "flex flex-col items-center justify-center leading-none",
+                          "h-[13px]",
                           dayEvents.length > 0
-                            ? "bg-white/[0.08] border border-white/10"
+                            ? "bg-white/[0.08] rounded-sm border border-white/10"
                             : ""
                         )}
                       >
                         <span
                           className={cn(
-                            "text-[8px] font-mono font-bold",
+                            "font-mono font-bold leading-none",
+                            "text-[8px]",
                             dayEvents.length > 0 ? "text-white/80" : "text-white/20"
                           )}
                         >
@@ -430,19 +451,20 @@ const DesktopWallpaper = ({
                   })}
                 </div>
 
+                {/* 当月赛事列表（最多2条） */}
                 {monthEvents.length > 0 && (
-                  <div className="mt-1.5 space-y-0.5 border-t border-white/5 pt-1.5">
+                  <div className="mt-1 space-y-0.5 border-t border-white/5 pt-1">
                     {monthEvents.slice(0, 2).map((event) => {
                       const mainSession = getMainSession(event)
                       return (
-                        <div key={event.id} className="flex items-center gap-1 text-[8px]">
+                        <div key={event.id} className="flex items-center gap-1 text-[8px] leading-tight">
                           <div
-                            className="w-1 h-1 rounded-full shrink-0"
+                            className="w-1 h-1 rounded-full shrink-0 mt-0.5"
                             style={{ backgroundColor: SERIES_COLORS[event.series] }}
                           />
                           <span className="text-white/60 truncate flex-1">{event.name}</span>
                           {mainSession && (
-                            <span className="text-white/25 font-mono">
+                            <span className="text-white/25 font-mono shrink-0">
                               {formatTime(mainSession.utc)}
                             </span>
                           )}
@@ -450,7 +472,7 @@ const DesktopWallpaper = ({
                       )
                     })}
                     {monthEvents.length > 2 && (
-                      <div className="text-[7px] text-white/25 text-center">
+                      <div className="text-[7px] text-white/25 text-center leading-none">
                         +{monthEvents.length - 2}
                       </div>
                     )}
@@ -461,16 +483,17 @@ const DesktopWallpaper = ({
           })}
         </div>
 
-        <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
-          <div className="flex items-center gap-5">
+        {/* 底部：图例 + 版权 */}
+        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
+          <div className="flex items-center gap-4">
             {Object.entries(SERIES_COLORS).map(([series, color]) => (
               <div key={series} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
-                <span className="text-[10px] text-white/40 font-medium">{series}</span>
+                <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
+                <span className="text-[9px] text-white/40 font-medium">{series}</span>
               </div>
             ))}
           </div>
-          <div className="text-[10px] text-white/20 font-mono">
+          <div className="text-[9px] text-white/20 font-mono">
             {host || "racecalendar-visualize.vercel.app"}
           </div>
         </div>
