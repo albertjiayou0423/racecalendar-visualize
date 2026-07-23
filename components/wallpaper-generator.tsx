@@ -91,13 +91,12 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
     setGenerating(true)
     try {
       if (mode === "phone") {
-        if (!phoneRef.current) { alert('phoneRef is null'); return }
+        if (!phoneRef.current) return
         const dataUrl = await toPng(phoneRef.current, { quality: 1, pixelRatio: 2, cacheBust: true })
         setGeneratedUrl(dataUrl)
       } else {
-        if (!desktopRef.current) { alert('desktopRef is null'); return }
+        if (!desktopRef.current) return
         const svg = desktopRef.current
-        alert('desktop svg found width=' + svg.getAttribute('width') + ' children=' + svg.children.length)
         const serializer = new XMLSerializer()
         const clone = svg.cloneNode(true) as SVGSVGElement
         clone.setAttribute("xmlns", "http://www.w3.org/2000/svg")
@@ -105,7 +104,6 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         clone.setAttribute("width", "1600")
         clone.setAttribute("height", "1200")
         const svgStr = serializer.serializeToString(clone)
-        alert('serialized svg length=' + svgStr.length)
         const blob = new Blob(
           ['<?xml version="1.0" encoding="UTF-8"?>\n', svgStr],
           { type: "image/svg+xml;charset=utf-8" }
@@ -118,7 +116,6 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
           img.onerror = (e) => reject(new Error("SVG load error: " + String(e)))
           img.src = url
         })
-        alert('image loaded')
         const scale = 2
         const canvas = document.createElement("canvas")
         canvas.width = 1600 * scale
@@ -128,12 +125,10 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
         URL.revokeObjectURL(url)
-        const dataUrl = canvas.toDataURL("image/png")
-        alert('dataUrl length=' + dataUrl.length)
-        setGeneratedUrl(dataUrl)
+        setGeneratedUrl(canvas.toDataURL("image/png"))
       }
     } catch (err) {
-      alert("壁纸生成失败: " + String(err))
+      console.error("壁纸生成失败:", err)
     } finally {
       setGenerating(false)
     }
@@ -147,15 +142,6 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
     a.href = generatedUrl
     a.click()
   }
-
-  useEffect(() => {
-    ;(window as unknown as { __wallpaperGenerate?: () => Promise<void> }).__wallpaperGenerate = generate
-    ;(window as unknown as { __wallpaperDownload?: () => void }).__wallpaperDownload = download
-    return () => {
-      delete (window as unknown as { __wallpaperGenerate?: () => Promise<void> }).__wallpaperGenerate
-      delete (window as unknown as { __wallpaperDownload?: () => void }).__wallpaperDownload
-    }
-  })
 
   return (
     <div className="space-y-4">
@@ -207,12 +193,13 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
       <div className="rounded-xl border border-border bg-black/5 p-3 sm:p-4">
         <div
           ref={previewWrapRef}
-          className="relative w-full overflow-hidden"
+          className="relative w-full"
           style={{
             height:
               mode === "phone"
-                ? Math.round(1920 * previewZoom)
-                : Math.round(1240 * previewZoom),
+                ? Math.round(1920 * previewZoom + 120)
+                : Math.round(1200 * previewZoom + 160),
+            overflow: "hidden",
           }}
         >
           {mode === "phone" ? (
@@ -392,10 +379,10 @@ const DesktopWallpaper = ({
   const PAD_X = 60
   const PAD_TOP = 50
   const PAD_BOTTOM = 50
-  const GAP = 20
+  const GAP = 24
 
-  const HEADER_H = 140
-  const FOOTER_H = 80
+  const HEADER_H = 150
+  const FOOTER_H = 90
 
   const gridX0 = PAD_X
   const gridY0 = PAD_TOP + HEADER_H + GAP
@@ -610,23 +597,23 @@ const MonthCard = ({
   grouped: Record<string, RaceEvent[]>
   monthEvents: RaceEvent[]
 }) => {
-  const padX = 16
-  const padY = 14
+  const padX = 20
+  const padY = 18
   const innerX = x + padX
   const innerY = y + padY
   const innerW = w - padX * 2
   const innerH = h - padY * 2
 
-  const headerH = 34
-  const weekDayH = 22
+  const headerH = 38
+  const weekDayH = 26
   const gridTop = innerY + headerH + weekDayH
-  const gridBottom = y + h - padY - 4 // 4px bottom padding
-  const gridH = Math.max(40, gridBottom - gridTop)
+  const gridBottom = y + h - padY - 8
+  const gridH = Math.max(30, gridBottom - gridTop)
 
   const colW = innerW / 7
   const cellH = gridH / 6
 
-  const eventListTop = y + h - padY - 70
+  const eventListTop = y + h - padY - 78
   const eventListAvailable = Math.max(0, eventListTop - (gridTop + gridH))
 
   return (
