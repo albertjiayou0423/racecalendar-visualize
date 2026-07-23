@@ -21,30 +21,33 @@ const SERIES_COLORS: Record<string, string> = {
 }
 
 export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorProps) {
-  const wallpaperRef = useRef<HTMLDivElement>(null)
+  const generateRef = useRef<HTMLDivElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("phone")
   const [generating, setGenerating] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [host, setHost] = useState("")
 
   useEffect(() => {
     setMounted(true)
+    if (typeof window !== "undefined") {
+      setHost(window.location.hostname)
+    }
   }, [])
 
   const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
 
-  // 手机版：按当前月份分组
   const grouped = eventsByDate(events, month, year)
-  // 桌面版：全年12个月的分组
   const yearGrouped = eventsByYear(events, year)
   const totalEvents = Object.values(grouped).flat().length
   const yearTotalEvents = Object.values(yearGrouped).reduce((acc, m) => acc + Object.values(m).flat().length, 0)
 
   const generateWallpaper = async () => {
-    if (!wallpaperRef.current) return
+    if (!generateRef.current) return
     setGenerating(true)
     try {
-      const dataUrl = await toPng(wallpaperRef.current, {
+      const dataUrl = await toPng(generateRef.current, {
         quality: 1,
         pixelRatio: 2,
       })
@@ -123,37 +126,65 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         </div>
       </div>
 
-      {/* 壁纸预览 - 移动端自动缩放 */}
+      {/* 预览区（移动端自动缩放） */}
       <div className="rounded-xl border border-border bg-black/5 p-4">
-        {aspectRatio === "phone" ? (
-          <ScaledPreview targetWidth={360}>
+        <PreviewScaler targetWidth={aspectRatio === "phone" ? 360 : 1280} previewRef={previewRef}>
+          {aspectRatio === "phone" ? (
             <PhoneWallpaper
-              ref={wallpaperRef}
+              ref={null}
               year={year}
               month={month}
               monthNames={monthNames}
               grouped={grouped}
               totalEvents={totalEvents}
+              host={host}
             />
-          </ScaledPreview>
-        ) : (
-          <ScaledPreview targetWidth={1280}>
+          ) : (
             <DesktopWallpaper
-              ref={wallpaperRef}
+              ref={null}
               year={year}
               monthNames={monthNames}
               yearGrouped={yearGrouped}
               totalEvents={yearTotalEvents}
+              host={host}
             />
-          </ScaledPreview>
+          )}
+        </PreviewScaler>
+      </div>
+
+      {/* 生成用 DOM（屏幕外，专门用于 html-to-image） */}
+      <div
+        className="pointer-events-none absolute left-0 top-0 -z-50"
+        style={{ visibility: "hidden", width: 0, height: 0, overflow: "hidden" }}
+        aria-hidden="true"
+      >
+        {aspectRatio === "phone" ? (
+          <PhoneWallpaper
+            ref={generateRef}
+            year={year}
+            month={month}
+            monthNames={monthNames}
+            grouped={grouped}
+            totalEvents={totalEvents}
+            host={host}
+          />
+        ) : (
+          <DesktopWallpaper
+            ref={generateRef}
+            year={year}
+            monthNames={monthNames}
+            yearGrouped={yearGrouped}
+            totalEvents={yearTotalEvents}
+            host={host}
+          />
         )}
       </div>
     </div>
   )
 }
 
-// 移动端缩放预览包装器
-function ScaledPreview({ children, targetWidth }: { children: React.ReactNode; targetWidth: number }) {
+// 预览缩放器（只用于视觉预览，不影响内部 DOM 尺寸）
+function PreviewScaler({ targetWidth, previewRef, children }: { targetWidth: number; previewRef: React.RefObject<HTMLDivElement | null>; children: React.ReactNode }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
 
@@ -161,8 +192,7 @@ function ScaledPreview({ children, targetWidth }: { children: React.ReactNode; t
     const updateScale = () => {
       if (!wrapperRef.current) return
       const containerWidth = wrapperRef.current.clientWidth
-      // 留出一点边距，最大 1 倍，最小缩放到容器能放下
-      const s = Math.min(1, (containerWidth - 8) / targetWidth)
+      const s = Math.min(1, Math.max(0.1, containerWidth / targetWidth))
       setScale(s)
     }
     updateScale()
@@ -170,24 +200,26 @@ function ScaledPreview({ children, targetWidth }: { children: React.ReactNode; t
     return () => window.removeEventListener("resize", updateScale)
   }, [targetWidth])
 
+  const targetHeight = targetWidth === 360 ? 720 : 720
+
   return (
-    <div ref={wrapperRef} className="w-full overflow-x-auto">
+    <div ref={wrapperRef} className="w-full overflow-hidden">
       <div
-        className="mx-auto"
         style={{
           width: targetWidth,
+          height: targetHeight,
           transform: `scale(${scale})`,
-          transformOrigin: "top center",
-          marginBottom: `${targetWidth * (scale - 1)}px`, // 抵消 scale 造成的布局高度压缩
+          transformOrigin: "top left",
+          marginBottom: `${targetHeight * (scale - 1)}px`,
         }}
       >
-        {children}
+        <div ref={previewRef}>{children}</div>
       </div>
     </div>
   )
 }
 
-// 手机壁纸组件
+// 手机壁纸
 const PhoneWallpaper = ({
   ref,
   year,
@@ -195,6 +227,7 @@ const PhoneWallpaper = ({
   monthNames,
   grouped,
   totalEvents,
+  host,
 }: {
   ref: React.RefObject<HTMLDivElement | null>
   year: number
@@ -202,6 +235,7 @@ const PhoneWallpaper = ({
   monthNames: string[]
   grouped: Record<string, RaceEvent[]>
   totalEvents: number
+  host: string
 }) => {
   const weekDays = ["日", "一", "二", "三", "四", "五", "六"]
 
@@ -211,21 +245,18 @@ const PhoneWallpaper = ({
       className="relative w-[360px] shrink-0 overflow-hidden rounded-xl bg-[#0a0a0f] text-white"
       style={{ aspectRatio: "9/16", padding: "24px 16px" }}
     >
-      {/* 背景 */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-red-500 blur-3xl" />
         <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-blue-500 blur-3xl" />
       </div>
 
       <div className="relative z-10 h-full flex flex-col">
-        {/* 头部 */}
         <div className="text-center">
           <div className="text-[10px] font-medium tracking-widest text-white/40 uppercase">Race Calendar</div>
           <h2 className="mt-1 text-2xl font-bold">{year} {monthNames[month]}</h2>
           <div className="mt-1 text-xs text-white/30">{totalEvents} 场赛事</div>
         </div>
 
-        {/* 赛事列表 */}
         <div className="mt-4 flex-1 space-y-2 overflow-y-auto">
           {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateEvents]) => {
             const d = new Date(date)
@@ -262,28 +293,29 @@ const PhoneWallpaper = ({
           )}
         </div>
 
-        {/* 底部 */}
         <div className="mt-4 text-center">
-          <div className="text-[10px] text-white/20">racecalendar-visualize.vercel.app</div>
+          <div className="text-[10px] text-white/20">{host || "racecalendar-visualize.vercel.app"}</div>
         </div>
       </div>
     </div>
   )
 }
 
-// 桌面壁纸组件 - 全年赛历横版 3x4
+// 桌面壁纸（全年赛历横版 1280x720，3列4行）
 const DesktopWallpaper = ({
   ref,
   year,
   monthNames,
   yearGrouped,
   totalEvents,
+  host,
 }: {
   ref: React.RefObject<HTMLDivElement | null>
   year: number
   monthNames: string[]
   yearGrouped: Record<number, Record<string, RaceEvent[]>>
   totalEvents: number
+  host: string
 }) => {
   const weekDays = ["日", "一", "二", "三", "四", "五", "六"]
 
@@ -293,15 +325,13 @@ const DesktopWallpaper = ({
       className="relative shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] text-white"
       style={{ width: 1280, height: 720, padding: "36px 40px" }}
     >
-      {/* 背景装饰 */}
-      <div className="absolute inset-0 opacity-[0.08]">
+      <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
         <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-red-600 blur-3xl" />
         <div className="absolute top-1/3 -left-40 h-96 w-96 rounded-full bg-blue-600 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-purple-600 blur-3xl" />
       </div>
 
-      {/* 网格背景 */}
-      <div className="absolute inset-0 opacity-[0.03]">
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
         <div
           className="h-full w-full"
           style={{
@@ -313,7 +343,6 @@ const DesktopWallpaper = ({
       </div>
 
       <div className="relative z-10 flex h-full flex-col">
-        {/* 头部 */}
         <div className="flex items-start justify-between border-b border-white/10 pb-4 mb-4">
           <div>
             <div className="text-[10px] font-bold tracking-[0.3em] text-white/30 uppercase">
@@ -329,7 +358,6 @@ const DesktopWallpaper = ({
           </div>
         </div>
 
-        {/* 12个月份网格 - 3列4行 */}
         <div className="grid grid-cols-3 grid-rows-4 gap-3 flex-1">
           {Array.from({ length: 12 }).map((_, m) => {
             const grouped = yearGrouped[m] || {}
@@ -342,7 +370,6 @@ const DesktopWallpaper = ({
                 key={m}
                 className="rounded-lg bg-white/[0.03] border border-white/5 p-2.5 flex flex-col"
               >
-                {/* 月份标题 */}
                 <div className="flex items-baseline justify-between mb-1.5">
                   <h3 className="text-sm font-bold text-white/90">{monthNames[m]}</h3>
                   <span className="text-[9px] text-white/30 font-mono">
@@ -350,7 +377,6 @@ const DesktopWallpaper = ({
                   </span>
                 </div>
 
-                {/* 日历网格 */}
                 <div className="grid grid-cols-7 gap-px">
                   {weekDays.map((d) => (
                     <div
@@ -401,7 +427,6 @@ const DesktopWallpaper = ({
                   })}
                 </div>
 
-                {/* 当月赛事列表（最多2条） */}
                 {monthEvents.length > 0 && (
                   <div className="mt-1.5 space-y-0.5 border-t border-white/5 pt-1.5">
                     {monthEvents.slice(0, 2).map((event) => {
@@ -433,7 +458,6 @@ const DesktopWallpaper = ({
           })}
         </div>
 
-        {/* 底部：图例 + 版权 */}
         <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
           <div className="flex items-center gap-5">
             {Object.entries(SERIES_COLORS).map(([series, color]) => (
@@ -444,7 +468,7 @@ const DesktopWallpaper = ({
             ))}
           </div>
           <div className="text-[10px] text-white/20 font-mono">
-            racecalendar-visualize.vercel.app
+            {host || "racecalendar-visualize.vercel.app"}
           </div>
         </div>
       </div>
@@ -472,7 +496,6 @@ function eventsByDate(events: RaceEvent[], month: number, year: number): Record<
   return grouped
 }
 
-/** 按全年12个月分组赛事 */
 function eventsByYear(events: RaceEvent[], year: number): Record<number, Record<string, RaceEvent[]>> {
   const result: Record<number, Record<string, RaceEvent[]>> = {}
   for (let m = 0; m < 12; m++) result[m] = {}
