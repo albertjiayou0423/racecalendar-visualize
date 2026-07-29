@@ -1,4 +1,4 @@
-import type { Series } from "./types"
+import type { Series, RaceEvent } from "./types"
 import { getSql } from "./db"
 
 // ─── 表初始化 ───────────────────────────────────────────────
@@ -63,6 +63,42 @@ export async function saveCrawlSnapshot(
     `
   } catch (err) {
     console.error("保存爬取快照失败:", err)
+  }
+}
+
+/**
+ * 保存 WRC 快照并与上次快照合并：
+ * 对于本次爬取失败的赛事（tentative=true / 估计数据），
+ * 保留上次快照中成功爬取的真实数据（tentative=false）。
+ */
+export async function saveWrcSnapshotMerged(
+  newData: { events: RaceEvent[]; ok: boolean; note?: string; dataSource?: string },
+  source?: string
+): Promise<void> {
+  try {
+    const prev = await getLatestSnapshot("WRC")
+    const prevEvents = (prev?.data?.events as RaceEvent[] | undefined) ?? []
+
+    if (prevEvents.length > 0) {
+      for (let i = 0; i < newData.events.length; i++) {
+        const newEvent = newData.events[i]
+        // 找到上次快照中同一场赛事
+        const prevEvent = prevEvents.find(e => e.id === newEvent.id)
+        if (!prevEvent) continue
+
+        // 本次为估计数据（tentative=true），但上次有真实爬取数据（tentative=false 或 undefined）
+        // → 保留上次真实数据
+        if (newEvent.tentative && !prevEvent.tentative) {
+          newData.events[i] = prevEvent
+        }
+      }
+    }
+
+    await saveCrawlSnapshot("WRC", newData, source)
+  } catch (err) {
+    console.error("WRC 合并快照保存失败:", err)
+    // 合并失败也要保存原始数据
+    await saveCrawlSnapshot("WRC", newData, source)
   }
 }
 
