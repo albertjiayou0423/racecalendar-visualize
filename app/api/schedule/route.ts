@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
 import { buildWrcEvents } from "@/lib/wrc-data"
-import { initCrawlTables, saveCrawlSnapshot, getLatestSnapshot, getEventOverride, getCrawlQuota, incrementCrawlCount } from "@/lib/crawl-store"
+import { initCrawlTables, saveCrawlSnapshot, saveWrcSnapshotMerged, getLatestSnapshot, getEventOverride, getCrawlQuota, incrementCrawlCount } from "@/lib/crawl-store"
 import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 
@@ -99,7 +99,12 @@ async function fetchAndSave(
   try {
     const result = await fetcher()
     if (result.ok && result.events.length > 0) {
-      await saveCrawlSnapshot(series, result, "schedule-api")
+      // WRC 使用合并保存：爬取失败的赛事保留上次真实数据
+      if (series === "WRC") {
+        await saveWrcSnapshotMerged(result, "schedule-api")
+      } else {
+        await saveCrawlSnapshot(series, result, "schedule-api")
+      }
       
       if (series === "WRC") {
         if (result.dataSource === "api") {

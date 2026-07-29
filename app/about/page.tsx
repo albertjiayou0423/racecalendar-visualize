@@ -11,6 +11,15 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.0.2",
+    date: "2026-07-29",
+    items: [
+      { type: "fix", text: "WRC 快照合并持久化：新增 saveWrcSnapshotMerged，爬取失败(tentative)的赛事自动保留上次真实官方时间，解决WRC官方时间每天重置/丢失的问题" },
+      { type: "fix", text: "跨浏览器/跨设备 UI 颜色一致性：移除 prefers-color-scheme 媒体查询，统一为深色主题，所有用户看到完全一致的官方界面" },
+      { type: "ui", text: "主色调控件改为中性单色（浅灰底 + 深字），红色仅作 --f1 F1 品牌装饰色，交互控件不再用红色" },
+    ],
+  },
+  {
     version: "v2.0.1",
     date: "2026-07-22",
     items: [
@@ -195,7 +204,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v2.0.1</span>
+          <span className="text-3xl font-bold">v2.0.2</span>
           <span className="text-sm text-muted-foreground">修复更新</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -228,7 +237,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.0.1" && (
+                {entry.version === "v2.0.2" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

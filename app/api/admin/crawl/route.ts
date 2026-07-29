@@ -4,6 +4,7 @@ import {
   getCrawlQuota,
   incrementCrawlCount,
   saveCrawlSnapshot,
+  saveWrcSnapshotMerged,
 } from "@/lib/crawl-store"
 import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
 import type { Series } from "@/lib/types"
@@ -104,8 +105,12 @@ export async function POST(request: Request) {
   // 递增配额计数
   await incrementCrawlCount(series as Series)
 
-  // 保存快照
-  await saveCrawlSnapshot(series as Series, fetchResult)
+  // 保存快照（WRC 使用合并保存，保留上次真实爬取数据）
+  if (series === "WRC") {
+    await saveWrcSnapshotMerged(fetchResult as any)
+  } else {
+    await saveCrawlSnapshot(series as Series, fetchResult)
+  }
 
   return NextResponse.json({
     ok: true,
