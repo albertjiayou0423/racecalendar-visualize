@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon, Maximize2, PartyPopper } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
@@ -23,10 +23,30 @@ import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
 import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
+import { ImmersiveCountdown } from "@/components/immersive-countdown"
+import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 const CACHE_KEY = "schedule-cache"
+
+// 阶段颜色：用于倒计时不同阶段的文字/发光颜色
+const SERIES_ACCENT: Record<Series, string> = {
+  F1: "#ef4444",
+  WRC: "#3b82f6",
+  FE: "#10b981",
+}
+
+type CountdownStage = "far" | "today" | "soon" | "urgent" | "final" | "past"
+
+function getCountdownStage(seconds: number): CountdownStage {
+  if (seconds <= 0) return "past"
+  if (seconds <= 60) return "final"        // ≤60秒
+  if (seconds <= 600) return "urgent"      // ≤10分钟
+  if (seconds <= 1800) return "soon"       // ≤30分钟
+  if (seconds <= 86400) return "today"     // ≤24小时
+  return "far"
+}
 
 const fetcher = async (url: string): Promise<ScheduleResponse> => {
   try {
@@ -104,10 +124,52 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
   const meta = SERIES_META[event.series]
   const first = firstSession(event)
   const main = mainSession(event)
+  const { burst } = useConfettiBurst()
+  const { play } = useRaceSound()
+  const [immersiveOpen, setImmersiveOpen] = useState(false)
+  const prevStageRef = useRef<CountdownStage>("far")
+  const firstTriggerRef = useRef(false)
+
   if (!first) return null
   const c = countdown(first.utc, now)
   const flag = countryCodeToFlag(event.countryCode)
   const live = isLive(event, now)
+
+  // 阶段检测 + 触发撒花/音效
+  const totalSeconds = c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
+  const stage = getCountdownStage(totalSeconds)
+  const accentColor = SERIES_ACCENT[event.series]
+
+  useEffect(() => {
+    if (live) {
+      // 刚进入 LIVE：触发开赛音效 + grand 撒花（仅一次）
+      if (!firstTriggerRef.current) {
+        firstTriggerRef.current = true
+        play("start")
+        burst(event.series, "grand")
+      }
+      prevStageRef.current = "past"
+      return
+    }
+    firstTriggerRef.current = false
+
+    // 阶段切换时触发
+    const prev = prevStageRef.current
+    if (prev !== stage) {
+      // final 阶段首次进入：滴答声
+      if (stage === "final" && prev !== "final") {
+        play("tick")
+      }
+      prevStageRef.current = stage
+    }
+  }, [stage, live, burst, play, event.series])
+
+  // final 阶段每秒滴答
+  useEffect(() => {
+    if (stage !== "final" || live) return
+    const id = setInterval(() => play("tick"), 1000)
+    return () => clearInterval(id)
+  }, [stage, live, play])
 
   return (
     <section
@@ -164,13 +226,24 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
               <span className="text-2xl text-muted-foreground">已结束</span>
             ) : (
               <>
-                <TimeBlock value={c.days} unit="天" />
-                <TimeBlock value={c.hours} unit="时" />
-                <TimeBlock value={c.minutes} unit="分" />
-                <TimeBlock value={c.seconds} unit="秒" />
+                <TimeBlock value={c.days} unit="天" stage={stage} accentColor={accentColor} />
+                <TimeBlock value={c.hours} unit="时" stage={stage} accentColor={accentColor} />
+                <TimeBlock value={c.minutes} unit="分" stage={stage} accentColor={accentColor} />
+                <TimeBlock value={c.seconds} unit="秒" stage={stage} accentColor={accentColor} />
               </>
             )}
           </div>
+          {/* 沉浸式按钮 */}
+          {!live && !c.past && (
+            <button
+              onClick={() => setImmersiveOpen(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              title="进入沉浸式倒计时模式"
+            >
+              <Maximize2 className="size-3.5" />
+              沉浸式模式
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-1.5 text-sm sm:items-end">
           <div className="flex items-center gap-1.5">
@@ -193,14 +266,49 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
           ) : null}
         </div>
       </div>
+
+      {/* 沉浸式倒计时 overlay */}
+      {immersiveOpen && (
+        <ImmersiveCountdown
+          targetTime={first.utc}
+          series={event.series}
+          onClose={() => setImmersiveOpen(false)}
+        />
+      )}
     </section>
   )
 }
 
-function TimeBlock({ value, unit }: { value: number; unit: string }) {
+function TimeBlock({
+  value,
+  unit,
+  stage,
+  accentColor,
+}: {
+  value: number
+  unit: string
+  stage: CountdownStage
+  accentColor: string
+}) {
+  // 根据阶段决定字号和颜色
+  const sizeClass =
+    stage === "final" ? "text-5xl sm:text-6xl" :
+    stage === "urgent" ? "text-4xl sm:text-5xl" :
+    "text-3xl sm:text-4xl"
+
+  const showAccent = stage === "final" || stage === "urgent"
+  const textStyle = showAccent
+    ? { color: accentColor, textShadow: `0 0 24px ${accentColor}55` }
+    : undefined
+
   return (
     <span className="flex items-baseline">
-      <span className="text-3xl sm:text-4xl">{String(value).padStart(2, "0")}</span>
+      <span
+        className={`${sizeClass} transition-all duration-500 ${stage === "final" ? "animate-pulse" : ""}`}
+        style={textStyle}
+      >
+        {String(value).padStart(2, "0")}
+      </span>
       <span className="ml-0.5 mr-2 text-sm text-muted-foreground">{unit}</span>
     </span>
   )
