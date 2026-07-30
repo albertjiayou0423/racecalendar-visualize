@@ -52,7 +52,7 @@ const RALLIES: WrcRallyDef[] = [
   { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", start: [2026, 11, 11], finish: [2026, 11, 14], lat: 21.5433, lon: 39.1728, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Saudi_Arabia", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "沙漠拉力，全新站点" }] },
 ]
 
-function buildWrcLiveTimingUrl(eventSlug: string): string {
+export function buildWrcLiveTimingUrl(eventSlug: string): string {
   const yearMatch = eventSlug.match(/-(\d{4})$/);
   if (!yearMatch)
     return `https://www.wrc.com/en/events/${eventSlug}`;

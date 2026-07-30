@@ -97,6 +97,19 @@ export function WeekView({ events, now }: WeekViewProps) {
     return map
   }, [events])
 
+  // 详情面板用：同一天按 event 去重，避免多 session 导致重复渲染 EventCard
+  const uniqueEventsByDay = useMemo(() => {
+    const map = new Map<string, RaceEvent[]>()
+    for (const [key, items] of byDay) {
+      const seen = new Map<string, RaceEvent>()
+      for (const { event } of items) {
+        if (!seen.has(event.id)) seen.set(event.id, event)
+      }
+      map.set(key, [...seen.values()])
+    }
+    return map
+  }, [byDay])
+
   const weekDates = useMemo(() => getWeekDates(cursor), [cursor])
   const todayKey = dayKeyInBeijing(new Date(now).toISOString())
 
@@ -284,10 +297,10 @@ export function WeekView({ events, now }: WeekViewProps) {
             </button>
           </div>
           <div className="mt-4 flex flex-col gap-3">
-            {(byDay.get(selectedDay) ?? []).map(({ event }) => (
+            {(uniqueEventsByDay.get(selectedDay) ?? []).map((event) => (
               <EventCard key={event.id} event={event} now={now} />
             ))}
-            {byDay.get(selectedDay)?.length === 0 ? (
+            {uniqueEventsByDay.get(selectedDay)?.length === 0 ? (
               <p className="text-sm text-muted-foreground">当天暂无赛事</p>
             ) : null}
           </div>

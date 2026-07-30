@@ -1,6 +1,6 @@
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
-import { buildWrcEvents } from "./wrc-data"
+import { buildWrcEvents, buildWrcLiveTimingUrl } from "./wrc-data"
 
 // ============ 通用请求头（绕过 Akamai WAF） ============
 
@@ -1159,12 +1159,16 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
     if (sessions && sessions.length > 0) {
       const index = events.findIndex((e) => e.round === rally.round)
       if (index !== -1) {
+        // 同步官方动态 slug 到 eventSlug/liveTimingUrl，避免用旧硬编码 slug 指向 404
+        const updatedSlug = rally.eventSlug ?? events[index].eventSlug
         events[index] = {
           ...events[index],
           sessions,
+          eventSlug: updatedSlug,
+          liveTimingUrl: buildWrcLiveTimingUrl(updatedSlug ?? ""),
           url: source === "ocblacktop"
             ? `https://ocblacktop.com`
-            : `https://www.wrc.com/en/events/${rally.eventSlug}`,
+            : `https://www.wrc.com/en/events/${updatedSlug}`,
           tentative: source === "ocblacktop",
         }
       }
