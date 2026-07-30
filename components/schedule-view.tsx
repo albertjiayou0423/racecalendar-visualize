@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon } from "lucide-react"
+import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon, Maximize2, X } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
@@ -23,6 +23,15 @@ import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
 import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
+import {
+    usePageVisibility,
+    useRaceSound,
+    useConfetti,
+    useRaceStatusTransition,
+    getCountdownStage,
+    type CountdownStage,
+  } from "@/lib/countdown-hooks"
+import { ImmersiveCountdown } from "@/components/immersive-countdown"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -104,10 +113,45 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
   const meta = SERIES_META[event.series]
   const first = firstSession(event)
   const main = mainSession(event)
+  const [immersiveOpen, setImmersiveOpen] = useState(false)
+  const fireConfetti = useConfetti()
+  const playSound = useRaceSound()
+  const isVisible = usePageVisibility()
+  const lastTickSecondRef = useRef(-1)
+
+  // 开赛/完赛状态切换回调
+  const handleLiveStart = () => {
+    if (!isVisible) return
+    fireConfetti(event.series, "grand")
+    playSound("start")
+  }
+  const handleFinish = () => {
+    if (!isVisible) return
+    fireConfetti(event.series, "light")
+    playSound("finish")
+  }
+  useRaceStatusTransition(event, now, handleLiveStart, handleFinish)
+
   if (!first) return null
   const c = countdown(first.utc, now)
   const flag = countryCodeToFlag(event.countryCode)
   const live = isLive(event, now)
+
+  // 倒计时阶段与提示音（仅 ≤60 秒滴答，每秒一次，避免重复）
+  const totalSeconds = c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
+  const stage = getCountdownStage(totalSeconds)
+  // ≤60 秒每秒滴答提示（仅前台）
+  useEffect(() => {
+    if (!isVisible) return
+    if (live || c.past) return
+    if (totalSeconds > 0 && totalSeconds <= 60 && c.seconds !== lastTickSecondRef.current) {
+      lastTickSecondRef.current = c.seconds
+      playSound("tick")
+    }
+  }, [isVisible, live, c.past, totalSeconds, c.seconds, playSound])
+
+  // 倒计时进入 final 阶段（≤60秒）时显示"沉浸式开赛"入口按钮
+  const showImmersiveEntry = !live && !c.past && (stage === "final" || stage === "urgent")
 
   return (
     <section
@@ -164,13 +208,22 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
               <span className="text-2xl text-muted-foreground">已结束</span>
             ) : (
               <>
-                <TimeBlock value={c.days} unit="天" />
-                <TimeBlock value={c.hours} unit="时" />
-                <TimeBlock value={c.minutes} unit="分" />
-                <TimeBlock value={c.seconds} unit="秒" />
+                <TimeBlock value={c.days} unit="天" stage={stage} />
+                <TimeBlock value={c.hours} unit="时" stage={stage} />
+                <TimeBlock value={c.minutes} unit="分" stage={stage} />
+                <TimeBlock value={c.seconds} unit="秒" stage={stage} />
               </>
             )}
           </div>
+          {showImmersiveEntry && (
+            <button
+              onClick={() => setImmersiveOpen(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <Maximize2 className="size-3.5" />
+              沉浸式开赛
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-1.5 text-sm sm:items-end">
           <div className="flex items-center gap-1.5">
@@ -193,14 +246,35 @@ function NextUp({ event, now }: { event: RaceEvent; now: number }) {
           ) : null}
         </div>
       </div>
+
+      {immersiveOpen && (
+        <ImmersiveCountdown
+          event={event}
+          now={now}
+          onClose={() => setImmersiveOpen(false)}
+          onLiveStart={handleLiveStart}
+        />
+      )}
     </section>
   )
 }
 
-function TimeBlock({ value, unit }: { value: number; unit: string }) {
+function TimeBlock({ value, unit, stage }: { value: number; unit: string; stage?: CountdownStage }) {
+  // 阶段化字号：越临近开赛字号越大，但保持克制不过度抢眼
+  const sizeClass =
+    stage === "final" ? "text-5xl sm:text-6xl" :      // ≤1 分钟
+    stage === "urgent" ? "text-4xl sm:text-5xl" :     // ≤10 分钟
+    stage === "soon" ? "text-3xl sm:text-4xl" :       // ≤30 分钟
+    "text-3xl sm:text-4xl"                            // 默认
+  const accentClass =
+    stage === "final" ? "text-red-500 animate-pulse" :
+    stage === "urgent" ? "text-red-500" :
+    ""
   return (
-    <span className="flex items-baseline">
-      <span className="text-3xl sm:text-4xl">{String(value).padStart(2, "0")}</span>
+    <span className="flex items-baseline transition-all duration-500">
+      <span className={cn("font-mono font-bold tabular-nums", sizeClass, accentClass)}>
+        {String(value).padStart(2, "0")}
+      </span>
       <span className="ml-0.5 mr-2 text-sm text-muted-foreground">{unit}</span>
     </span>
   )
@@ -567,13 +641,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
         <div className="flex flex-col gap-4">
           <LastRaceResults />
-          <NextRacePreview event={nextUp} />
+          <NextRacePreview event={nextUp} now={now} />
         </div>
       ) : null}
 
       {/* 下一场高亮 */}
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series !== "F1" ? (
-        <NextRacePreview event={nextUp} />
+        <NextRacePreview event={nextUp} now={now} />
       ) : null}
 
       <div className="transition-all duration-300 ease-out animate-fade-in">
@@ -657,7 +731,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.0.2 · 更新日志
+            v2.1.0 · 更新日志
           </Link>
         <Link
           href="/developer"
