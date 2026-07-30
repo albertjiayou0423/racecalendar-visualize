@@ -1,19 +1,90 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
-import type { RaceEvent } from "@/lib/types"
-import { firstSession, formatDateTime, formatTime, SERIES_META } from "@/lib/format"
+import { useState, useEffect, useRef } from "react"
+import { Clock, MapPin, Calendar, Trophy, Maximize2 } from "lucide-react"
+import type { RaceEvent, Series } from "@/lib/types"
+import {
+  countdown,
+  firstSession,
+  formatDateTime,
+  formatTime,
+  isLive,
+  isPast,
+  SERIES_META,
+} from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
 import { PredictionVote } from "@/components/prediction-vote"
+import { ImmersiveCountdown } from "@/components/immersive-countdown"
+import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
 
 interface NextRacePreviewProps {
   event: RaceEvent
+  now: number
 }
 
-export function NextRacePreview({ event }: NextRacePreviewProps) {
+const SERIES_ACCENT: Record<Series, string> = {
+  F1: "#ef4444",
+  WRC: "#3b82f6",
+  FE: "#10b981",
+}
+
+type CountdownStage = "far" | "today" | "soon" | "urgent" | "final" | "past"
+
+function getCountdownStage(seconds: number): CountdownStage {
+  if (seconds <= 0) return "past"
+  if (seconds <= 60) return "final"
+  if (seconds <= 600) return "urgent"
+  if (seconds <= 1800) return "soon"
+  if (seconds <= 86400) return "today"
+  return "far"
+}
+
+export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const first = firstSession(event)
   const meta = SERIES_META[event.series]
+  const { burst } = useConfettiBurst()
+  const { play } = useRaceSound()
+  const [immersiveOpen, setImmersiveOpen] = useState(false)
+  const prevStageRef = useRef<CountdownStage>("far")
+  const firstTriggerRef = useRef(false)
+
+  if (!first) return null
+
+  const c = countdown(first.utc, now)
+  const live = isLive(event, now)
+  const past = isPast(event, now)
+  const accentColor = SERIES_ACCENT[event.series]
+
+  const totalSeconds =
+    c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
+  const stage = getCountdownStage(totalSeconds)
+
+  useEffect(() => {
+    if (live) {
+      if (!firstTriggerRef.current) {
+        firstTriggerRef.current = true
+        play("start")
+        burst(event.series, "grand")
+      }
+      prevStageRef.current = "past"
+      return
+    }
+    firstTriggerRef.current = false
+
+    const prev = prevStageRef.current
+    if (prev !== stage) {
+      if (stage === "final" && prev !== "final") {
+        play("tick")
+      }
+      prevStageRef.current = stage
+    }
+  }, [stage, live, burst, play, event.series])
+
+  useEffect(() => {
+    if (stage !== "final" || live) return
+    const id = setInterval(() => play("tick"), 1000)
+    return () => clearInterval(id)
+  }, [stage, live, play])
 
   return (
     <section
@@ -22,25 +93,34 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
     >
       <div
         className="absolute inset-x-0 top-0 h-1"
-        style={{ backgroundColor: meta.color }}
+        style={{ backgroundColor: live ? "#ef4444" : meta.color }}
         aria-hidden
       />
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span
           className="rounded px-2 py-0.5 font-bold"
-          style={{ backgroundColor: meta.color, color: meta.textColor }}
+          style={{ backgroundColor: live ? "#ef4444" : meta.color, color: meta.textColor }}
         >
-          {meta.label}
+          {live ? "LIVE" : meta.label}
         </span>
-        <span>{meta.full}</span>
+        <span>{live ? "进行中" : meta.full}</span>
         <span>·</span>
         <span>第 {event.round} 轮</span>
         <span>·</span>
-        <span>下一站</span>
+        <span>{live ? "当前赛事" : "下一站"}</span>
       </div>
 
-      <h2 className="mt-3 text-pretty text-xl font-bold leading-tight sm:text-2xl">
+      <h2 className="mt-3 flex items-center gap-2 text-pretty text-xl font-bold leading-tight sm:text-2xl">
         {event.name}
+        {live && (
+          <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+            </span>
+            LIVE
+          </span>
+        )}
       </h2>
 
       <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -56,14 +136,39 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
         </div>
       </div>
 
-      {first ? (
+      {!past ? (
         <div className="mt-4 rounded-xl bg-muted/30 p-4">
-          <div className="text-xs text-muted-foreground">距开赛</div>
-          <div className="mt-1 font-mono text-2xl font-bold tabular-nums">
-            <Countdown targetTime={first.utc} />
+          <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
+          <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
+            {live ? (
+              <span className="flex items-center gap-2 text-2xl text-red-500">
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+                </span>
+                正在进行
+              </span>
+            ) : (
+              <>
+                <TimeBlock value={c.days} unit="天" stage={stage} accentColor={accentColor} />
+                <TimeBlock value={c.hours} unit="时" stage={stage} accentColor={accentColor} />
+                <TimeBlock value={c.minutes} unit="分" stage={stage} accentColor={accentColor} />
+                <TimeBlock value={c.seconds} unit="秒" stage={stage} accentColor={accentColor} />
+              </>
+            )}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {formatDateTime(first.utc, BEIJING_TZ)} 北京时间
+          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>{formatDateTime(first.utc, BEIJING_TZ)} 北京时间</span>
+            {!live && (
+              <button
+                onClick={() => setImmersiveOpen(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                title="进入沉浸式倒计时模式"
+              >
+                <Maximize2 className="size-3" />
+                沉浸式
+              </button>
+            )}
           </div>
         </div>
       ) : null}
@@ -75,7 +180,7 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
         <div className="text-xs font-medium text-muted-foreground mb-2">赛程安排</div>
         <div className="space-y-1.5">
           {event.sessions.slice(0, 6).map((session, idx) => {
-            const sessionPast = new Date(session.utc).getTime() < Date.now()
+            const sessionPast = new Date(session.utc).getTime() < now
             return (
               <div
                 key={idx}
@@ -104,34 +209,50 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
           )}
         </div>
       </div>
+
+      {immersiveOpen && (
+        <ImmersiveCountdown
+          targetTime={first.utc}
+          series={event.series}
+          onClose={() => setImmersiveOpen(false)}
+        />
+      )}
     </section>
   )
 }
 
-function Countdown({ targetTime }: { targetTime: string }) {
-  const [now, setNow] = useState<number | null>(null)
+function TimeBlock({
+  value,
+  unit,
+  stage,
+  accentColor,
+}: {
+  value: number
+  unit: string
+  stage: CountdownStage
+  accentColor: string
+}) {
+  const sizeClass =
+    stage === "final"
+      ? "text-4xl sm:text-5xl"
+      : stage === "urgent"
+        ? "text-3xl sm:text-4xl"
+        : "text-2xl sm:text-3xl"
 
-  useEffect(() => {
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  if (now === null) {
-    return <span>--:--:--</span>
-  }
-
-  const diff = Math.max(0, new Date(targetTime).getTime() - now)
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+  const showAccent = stage === "final" || stage === "urgent"
+  const textStyle = showAccent
+    ? { color: accentColor, textShadow: `0 0 24px ${accentColor}55` }
+    : undefined
 
   return (
-    <span>
-      {days > 0 && `${days}天 `}
-      {String(hours).padStart(2, "0")}:{String(minutes).padStart(2, "0")}:
-      {String(seconds).padStart(2, "0")}
+    <span className="flex items-baseline">
+      <span
+        className={`${sizeClass} transition-all duration-500 ${stage === "final" ? "animate-pulse" : ""}`}
+        style={textStyle}
+      >
+        {String(value).padStart(2, "0")}
+      </span>
+      <span className="ml-0.5 mr-2 text-sm text-muted-foreground">{unit}</span>
     </span>
   )
 }

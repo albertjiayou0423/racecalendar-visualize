@@ -1,21 +1,17 @@
 "use client"
 
-import { useEffect, useMemo, useState, useRef } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon, Maximize2, PartyPopper } from "lucide-react"
-import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
+import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon } from "lucide-react"
+import type { ScheduleResponse } from "@/lib/types"
 import {
     BEIJING_TZ,
     SERIES_META,
-    countdown,
     formatDateTime,
     formatTime,
-    firstSession,
     isPast,
-    isLive,
     mainSession,
   } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
@@ -23,30 +19,10 @@ import { NextRacePreview } from "@/components/next-race-preview"
 import { MonthView } from "@/components/month-view"
 import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
-import { ImmersiveCountdown } from "@/components/immersive-countdown"
-import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 const CACHE_KEY = "schedule-cache"
-
-// 阶段颜色：用于倒计时不同阶段的文字/发光颜色
-const SERIES_ACCENT: Record<Series, string> = {
-  F1: "#ef4444",
-  WRC: "#3b82f6",
-  FE: "#10b981",
-}
-
-type CountdownStage = "far" | "today" | "soon" | "urgent" | "final" | "past"
-
-function getCountdownStage(seconds: number): CountdownStage {
-  if (seconds <= 0) return "past"
-  if (seconds <= 60) return "final"        // ≤60秒
-  if (seconds <= 600) return "urgent"      // ≤10分钟
-  if (seconds <= 1800) return "soon"       // ≤30分钟
-  if (seconds <= 86400) return "today"     // ≤24小时
-  return "far"
-}
 
 const fetcher = async (url: string): Promise<ScheduleResponse> => {
   try {
@@ -117,200 +93,6 @@ function BeijingClock({ now }: { now: number }) {
         <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, BEIJING_TZ)}</div>
       </div>
     </div>
-  )
-}
-
-function NextUp({ event, now }: { event: RaceEvent; now: number }) {
-  const meta = SERIES_META[event.series]
-  const first = firstSession(event)
-  const main = mainSession(event)
-  const { burst } = useConfettiBurst()
-  const { play } = useRaceSound()
-  const [immersiveOpen, setImmersiveOpen] = useState(false)
-  const prevStageRef = useRef<CountdownStage>("far")
-  const firstTriggerRef = useRef(false)
-
-  if (!first) return null
-  const c = countdown(first.utc, now)
-  const flag = countryCodeToFlag(event.countryCode)
-  const live = isLive(event, now)
-
-  // 阶段检测 + 触发撒花/音效
-  const totalSeconds = c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
-  const stage = getCountdownStage(totalSeconds)
-  const accentColor = SERIES_ACCENT[event.series]
-
-  useEffect(() => {
-    if (live) {
-      // 刚进入 LIVE：触发开赛音效 + grand 撒花（仅一次）
-      if (!firstTriggerRef.current) {
-        firstTriggerRef.current = true
-        play("start")
-        burst(event.series, "grand")
-      }
-      prevStageRef.current = "past"
-      return
-    }
-    firstTriggerRef.current = false
-
-    // 阶段切换时触发
-    const prev = prevStageRef.current
-    if (prev !== stage) {
-      // final 阶段首次进入：滴答声
-      if (stage === "final" && prev !== "final") {
-        play("tick")
-      }
-      prevStageRef.current = stage
-    }
-  }, [stage, live, burst, play, event.series])
-
-  // final 阶段每秒滴答
-  useEffect(() => {
-    if (stage !== "final" || live) return
-    const id = setInterval(() => play("tick"), 1000)
-    return () => clearInterval(id)
-  }, [stage, live, play])
-
-  return (
-    <section
-      className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6"
-      aria-label="下一场赛事"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-1"
-        style={{ backgroundColor: live ? "#ef4444" : meta.color }}
-        aria-hidden
-      />
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span
-          className="rounded px-2 py-0.5 font-bold"
-          style={{ backgroundColor: live ? "#ef4444" : meta.color, color: "#fff" }}
-        >
-          {live ? "LIVE" : meta.label}
-        </span>
-        <span>{live ? "进行中" : meta.full}</span>
-        <span>·</span>
-        <span>{live ? "当前赛事" : "下一场赛事"}</span>
-      </div>
-
-      <h2 className="mt-3 flex items-center gap-2 text-pretty text-2xl font-bold leading-tight sm:text-3xl">
-        {flag ? <span aria-hidden>{flag}</span> : null}
-        {event.name}
-        {live && (
-          <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
-            </span>
-            LIVE
-          </span>
-        )}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {event.circuit} · {event.locality}，{event.country}
-      </p>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
-        <div>
-          <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
-          <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
-            {live ? (
-              <span className="flex items-center gap-2 text-2xl text-red-500">
-                <span className="relative flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-                </span>
-                正在进行
-              </span>
-            ) : c.past ? (
-              <span className="text-2xl text-muted-foreground">已结束</span>
-            ) : (
-              <>
-                <TimeBlock value={c.days} unit="天" stage={stage} accentColor={accentColor} />
-                <TimeBlock value={c.hours} unit="时" stage={stage} accentColor={accentColor} />
-                <TimeBlock value={c.minutes} unit="分" stage={stage} accentColor={accentColor} />
-                <TimeBlock value={c.seconds} unit="秒" stage={stage} accentColor={accentColor} />
-              </>
-            )}
-          </div>
-          {/* 沉浸式按钮 */}
-          {!live && !c.past && (
-            <button
-              onClick={() => setImmersiveOpen(true)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-              title="进入沉浸式倒计时模式"
-            >
-              <Maximize2 className="size-3.5" />
-              沉浸式模式
-            </button>
-          )}
-        </div>
-        <div className="flex flex-col gap-1.5 text-sm sm:items-end">
-          <div className="flex items-center gap-1.5">
-            <Clock className="size-4 text-primary" aria-hidden />
-            <span className="font-medium">开赛时间</span>
-            <span className="font-mono tabular-nums">{formatDateTime(first.utc, BEIJING_TZ)}</span>
-            <span className="text-muted-foreground">北京</span>
-          </div>
-          {main && main !== first && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Trophy className="size-3.5" aria-hidden />
-              <span className="text-xs">主赛事：{formatDateTime(main.utc, BEIJING_TZ)}</span>
-            </div>
-          )}
-          {event.broadcaster ? (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Radio className="size-4 text-primary" aria-hidden />
-              <span>直播：{event.broadcaster.name}</span>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* 沉浸式倒计时 overlay */}
-      {immersiveOpen && (
-        <ImmersiveCountdown
-          targetTime={first.utc}
-          series={event.series}
-          onClose={() => setImmersiveOpen(false)}
-        />
-      )}
-    </section>
-  )
-}
-
-function TimeBlock({
-  value,
-  unit,
-  stage,
-  accentColor,
-}: {
-  value: number
-  unit: string
-  stage: CountdownStage
-  accentColor: string
-}) {
-  // 根据阶段决定字号和颜色
-  const sizeClass =
-    stage === "final" ? "text-5xl sm:text-6xl" :
-    stage === "urgent" ? "text-4xl sm:text-5xl" :
-    "text-3xl sm:text-4xl"
-
-  const showAccent = stage === "final" || stage === "urgent"
-  const textStyle = showAccent
-    ? { color: accentColor, textShadow: `0 0 24px ${accentColor}55` }
-    : undefined
-
-  return (
-    <span className="flex items-baseline">
-      <span
-        className={`${sizeClass} transition-all duration-500 ${stage === "final" ? "animate-pulse" : ""}`}
-        style={textStyle}
-      >
-        {String(value).padStart(2, "0")}
-      </span>
-      <span className="ml-0.5 mr-2 text-sm text-muted-foreground">{unit}</span>
-    </span>
   )
 }
 
@@ -675,13 +457,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
         <div className="flex flex-col gap-4">
           <LastRaceResults />
-          <NextRacePreview event={nextUp} />
+          <NextRacePreview event={nextUp} now={now} />
         </div>
       ) : null}
 
       {/* 下一场高亮 */}
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series !== "F1" ? (
-        <NextRacePreview event={nextUp} />
+        <NextRacePreview event={nextUp} now={now} />
       ) : null}
 
       <div className="transition-all duration-300 ease-out animate-fade-in">
