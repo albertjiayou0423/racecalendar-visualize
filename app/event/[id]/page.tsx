@@ -12,6 +12,7 @@ import { OfficialLiveTiming } from "@/components/official-live-timing"
 import { EventNotificationManager } from "@/components/event-notification-manager"
 import { EventHeader } from "@/components/event-header"
 import { SessionTimeline } from "@/components/session-timeline"
+import { NextSessionPill } from "@/components/next-session-pill"
 import { PageTransition } from "@/components/page-transition"
 import { AIPrediction } from "@/components/ai-prediction"
 import { ShareCard } from "@/components/share-card"
@@ -109,6 +110,7 @@ export default function EventDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <NextSessionPill event={event} now={now} />
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <button

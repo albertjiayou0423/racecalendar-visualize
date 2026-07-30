@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { SWRegister } from '@/components/sw-register'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -20,6 +21,12 @@ export const metadata: Metadata = {
   description:
     '直观查看 WRC、F1、Formula E 的未来赛程，提供当地时间与北京时间的详细时间安排，以及腾讯视频、五星体育等中国大陆转播直播时间。',
   generator: 'v0.app',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: '赛道时刻',
+  },
 }
 
 export const viewport: Viewport = {
@@ -36,6 +43,7 @@ export default function RootLayout({
     <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
       <body className="antialiased font-sans">
         {children}
+        <SWRegister />
       </body>
     </html>
   )

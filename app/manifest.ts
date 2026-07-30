@@ -1,0 +1,25 @@
+import type { MetadataRoute } from "next"
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "赛道时刻 · WRC / F1 / FE 赛程时间表",
+    short_name: "赛道时刻",
+    description:
+      "直观查看 WRC、F1、Formula E 的未来赛程，提供当地时间与北京时间的详细时间安排。",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#0a0a0b",
+    theme_color: "#1a1a1e",
+    orientation: "portrait-primary",
+    categories: ["sports", "entertainment"],
+    lang: "zh-CN",
+    icons: [
+      {
+        src: "/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "any",
+      },
+    ],
+  }
+}

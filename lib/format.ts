@@ -85,12 +85,25 @@ export function firstSession(event: RaceEvent) {
   return event.sessions[0]
 }
 
+/** 下一个未结束的场次（正在进行或未开始），没有则返回 null */
+export function nextSession(event: RaceEvent, now: number) {
+  for (const s of event.sessions) {
+    const start = new Date(s.utc).getTime()
+    const end = start + 2 * 60 * 60 * 1000
+    if (now < start) return { session: s, live: false }
+    if (now >= start && now <= end) return { session: s, live: true }
+  }
+  return null
+}
+
 /** 事件是否已结束（所有场次都已结束） */
 export function isPast(event: RaceEvent, now: number): boolean {
-  const last = event.sessions[event.sessions.length - 1]
-  if (!last) return true
-  const end = new Date(last.utc).getTime() + 2 * 60 * 60 * 1000
-  return end < now
+  if (!event.sessions || event.sessions.length === 0) return true
+  // 检查所有赛段中最晚结束的那个，不依赖数组顺序
+  const lastEnd = Math.max(
+    ...event.sessions.map((s) => new Date(s.utc).getTime() + 2 * 60 * 60 * 1000)
+  )
+  return lastEnd < now
 }
 
 /** 事件是否正在进行中（当前时间在某个场次的开始和结束之间） */
@@ -123,6 +136,24 @@ export function countdown(utc: string, now: number) {
   const minutes = Math.floor((abs % 3600000) / 60000)
   const seconds = Math.floor((abs % 60000) / 1000)
   return { days, hours, minutes, seconds, past }
+}
+
+/** 检测场次是否为夜赛（当地时间 20:00-06:00） */
+export function isNightRace(utc: string, timeZone: string): boolean {
+  const p = partsInZone(utc, timeZone)
+  const hour = parseInt(p.hour, 10)
+  return hour >= 20 || hour < 6
+}
+
+/** 天气类型图标映射 */
+export const WEATHER_ICONS: Record<string, string> = {
+  clear: "sun",
+  partly_cloudy: "cloud-sun",
+  cloudy: "cloud",
+  rainy: "cloud-rain",
+  stormy: "cloud-lightning",
+  snowy: "snowflake",
+  foggy: "wind",
 }
 
 export const SERIES_META: Record<
