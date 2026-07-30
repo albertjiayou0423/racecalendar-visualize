@@ -107,7 +107,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
                     ? "进行中"
                     : sessionPast
                     ? "已结束"
-                    : sessionCountdown && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 30
+                    : sessionCountdown && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 60
                     ? "即将开始"
                     : "未开始"}
                 </span>
@@ -122,7 +122,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
                   <span className="ml-1 font-mono tabular-nums">{formatDateTime(s.utc, event.tz)}</span>
                 </div>
               </div>
-              {sessionCountdown && !sessionPast && !sessionLive && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 30 && (
+              {sessionCountdown && !sessionPast && !sessionLive && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 60 && (
                 <div className="mt-2 flex items-center gap-1 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-600">
                   <Clock className="size-3" />
                   {sessionCountdown.minutes}分 {sessionCountdown.seconds}秒后开始
