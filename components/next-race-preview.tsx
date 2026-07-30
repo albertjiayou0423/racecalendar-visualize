@@ -39,8 +39,13 @@ function getCountdownStage(seconds: number): CountdownStage {
   return "far"
 }
 
-// 全局记录：本会话是否已触发过开赛撒花/音效（避免从其他页面返回时重复触发）
-let hasTriggeredLiveEffect = false
+// 使用 sessionStorage 记录是否已触发过开赛撒花/音效（避免从其他页面返回时重复触发）
+function hasTriggeredLive(): boolean {
+  try { return sessionStorage.getItem("race-live-triggered") === "1" } catch { return false }
+}
+function markLiveTriggered(): void {
+  try { sessionStorage.setItem("race-live-triggered", "1") } catch {}
+}
 
 export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const first = firstSession(event)
@@ -71,15 +76,15 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   useEffect(() => {
     if (live) {
       // 只在首次进入 LIVE 时触发一次，本会话不重复触发
-      if (!hasTriggeredLiveEffect) {
-        hasTriggeredLiveEffect = true
+      if (!hasTriggeredLive()) {
+        markLiveTriggered()
         play("start")
         burst(event.series, "grand")
       }
       prevStageRef.current = "past"
       return
     }
-    // 不在 live 时重置全局标记，保持已触发状态直到会话结束
+    // 不在 live 时重置标记，保持已触发状态直到会话结束
 
     const prev = prevStageRef.current
     if (prev !== stage) {
@@ -173,14 +178,13 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
           {/* 里程碑彩蛋覆盖层 */}
           {milestoneVisible ? (
-            <div className="mt-1 flex items-center gap-2" style={{ minHeight: "2.5rem" }}>
+            <div className="mt-1" style={{ minHeight: "2.5rem" }}>
               <span
                 className="animate-in fade-in slide-in-from-left-4 text-2xl font-bold duration-700"
                 style={{ color: milestoneColor, textShadow: `0 0 20px ${milestoneColor}44` }}
               >
                 {milestoneText}
               </span>
-              <span className="text-xs text-muted-foreground">（倒计时恢复中…）</span>
             </div>
           ) : (
           <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
