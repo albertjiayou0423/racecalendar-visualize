@@ -17,6 +17,7 @@ import {
   formatDateTime,
   formatTime,
   isLive,
+  isPast,
   mainSession,
   offsetLabel,
 } from "@/lib/format"
@@ -38,7 +39,7 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
       </span>
     )
   }
-  
+
   const live = isLive(event, now)
   if (live) {
     return (
@@ -51,15 +52,18 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
       </span>
     )
   }
-  
-  const c = countdown(first.utc, now)
-  if (c.past) {
+
+  // 使用 isPast 检查整个赛事是否已结束（所有赛段都结束）
+  const past = isPast(event, now)
+  if (past) {
     return (
       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
         已结束
       </span>
     )
   }
+
+  const c = countdown(first.utc, now)
   const soon = c.days === 0
   const urgent = c.days === 0 && c.hours === 0 && c.minutes < 30
   return (

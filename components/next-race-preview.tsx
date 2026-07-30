@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Clock, MapPin, Calendar, Trophy, Maximize2 } from "lucide-react"
+import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
 import type { RaceEvent, Series } from "@/lib/types"
 import {
   countdown,
@@ -187,7 +187,11 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
               </span>
             </div>
           ) : (
-          <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
+          <div
+            className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums cursor-pointer"
+            onClick={() => !live && setImmersiveOpen(true)}
+            title={!live ? "点击进入沉浸式倒计时" : undefined}
+          >
             {live ? (
               <span className="flex items-center gap-2 text-2xl text-red-500">
                 <span className="relative flex h-3 w-3">
@@ -208,16 +212,6 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           )}
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
             <span>{formatDateTime(first.utc, BEIJING_TZ)} 北京时间</span>
-            {!live && (
-              <button
-                onClick={() => setImmersiveOpen(true)}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                title="进入沉浸式倒计时模式"
-              >
-                <Maximize2 className="size-3" />
-                沉浸式
-              </button>
-            )}
           </div>
         </div>
       ) : null}
