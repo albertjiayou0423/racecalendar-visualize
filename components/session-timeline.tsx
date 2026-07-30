@@ -221,7 +221,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
       </div>
 
       {/* 赛段列表 */}
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 space-y-1.5">
         {sessions.map((s, i) => {
           const sessionStart = new Date(s.utc).getTime()
           const sessionEnd = sessionStart + getSessionDuration(s)
@@ -235,65 +235,83 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
             <div
               key={i}
               className={cn(
-                "relative rounded-lg border p-3 transition-all",
+                "relative rounded-lg border transition-all",
                 s.isMain
-                  ? "border-primary/30 bg-primary/5"
+                  ? "border-primary/40 bg-primary/[0.07]"
                   : sessionPast
-                  ? "border-border/50 bg-muted/30"
-                  : "border-border bg-secondary/30",
-                sessionLive && "border-red-500/40 bg-red-500/5"
+                  ? "border-border/40 bg-muted/20"
+                  : "border-border/60 bg-secondary/20",
+                sessionLive && "border-red-500/50 bg-red-500/[0.07]",
+                "hover:bg-secondary/30"
               )}
             >
               {/* 左侧色条 */}
               <div
-                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full"
-                style={{ backgroundColor: sessionPast ? colors.dim : colors.base }}
+                className={cn(
+                  "absolute left-0 top-2 bottom-2 w-1 rounded-full transition-opacity",
+                  sessionPast && "opacity-40"
+                )}
+                style={{ backgroundColor: colors.base }}
               />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {s.isMain && <span className="text-xs font-bold text-primary">正赛</span>}
-                  {sessionLive && (
-                    <span className="flex items-center gap-1 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+              <div className="px-3 py-2.5 pl-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {s.isMain && (
+                      <span className="shrink-0 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                        正赛
                       </span>
-                      LIVE
+                    )}
+                    {sessionLive && (
+                      <span className="shrink-0 flex items-center gap-1 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+                        </span>
+                        LIVE
+                      </span>
+                    )}
+                    <span className={cn(
+                      "text-sm font-medium truncate",
+                      sessionPast ? "text-muted-foreground" : "text-foreground"
+                    )}>
+                      {s.name}
+                    </span>
+                    {s.tentative && (
+                      <span className="shrink-0 text-[10px] text-amber-500">（估计）</span>
+                    )}
+                  </div>
+                  <span className={cn(
+                    "shrink-0 text-[11px]",
+                    sessionLive ? "text-red-500 font-medium" : "text-muted-foreground"
+                  )}>
+                    {sessionLive
+                      ? "进行中"
+                      : sessionPast
+                      ? "已结束"
+                      : sessionCountdown && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 60
+                      ? "即将开始"
+                      : "未开始"}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-4 text-[11px] text-muted-foreground">
+                  <span className="font-mono tabular-nums">
+                    {formatDateTime(s.utc, BEIJING_TZ)}
+                    <span className="ml-1 text-[10px]">北京</span>
+                  </span>
+                  {event.tz !== BEIJING_TZ && (
+                    <span className="font-mono tabular-nums opacity-70">
+                      {formatDateTime(s.utc, event.tz)}
+                      <span className="ml-1 text-[10px]">当地</span>
                     </span>
                   )}
-                  <span className={cn("text-sm font-medium", sessionPast && "text-muted-foreground")}>
-                    {s.name}
-                  </span>
-                  {s.tentative && (
-                    <span className="text-[10px] text-amber-600">（估计）</span>
-                  )}
                 </div>
-                <span className={cn("text-xs text-muted-foreground", sessionLive && "text-red-500 font-medium")}>
-                  {sessionLive
-                    ? "进行中"
-                    : sessionPast
-                    ? "已结束"
-                    : sessionCountdown && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 60
-                    ? "即将开始"
-                    : "未开始"}
-                </span>
+                {sessionCountdown && !sessionPast && !sessionLive && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 60 && (
+                  <div className="mt-2 flex items-center gap-1 rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
+                    <Clock className="size-3" />
+                    {sessionCountdown.minutes}分 {sessionCountdown.seconds}秒后开始
+                  </div>
+                )}
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">北京</span>
-                  <span className="ml-1 font-mono tabular-nums">{formatDateTime(s.utc, BEIJING_TZ)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">当地</span>
-                  <span className="ml-1 font-mono tabular-nums">{formatDateTime(s.utc, event.tz)}</span>
-                </div>
-              </div>
-              {sessionCountdown && !sessionPast && !sessionLive && sessionCountdown.days === 0 && sessionCountdown.hours === 0 && sessionCountdown.minutes < 60 && (
-                <div className="mt-2 flex items-center gap-1 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-600">
-                  <Clock className="size-3" />
-                  {sessionCountdown.minutes}分 {sessionCountdown.seconds}秒后开始
-                </div>
-              )}
             </div>
           )
         })}

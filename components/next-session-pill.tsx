@@ -1,11 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { Clock } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { countdown, formatDateTime, isLive, isPast } from "@/lib/format"
-import { BEIJING_TZ } from "@/lib/format"
-import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
+import { countdown, isPast } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type CountdownStage = "far" | "today" | "soon" | "urgent" | "final" | "past"
@@ -33,32 +31,33 @@ interface NextSessionPillProps {
   now: number
 }
 
-/** 找到下一个未结束的 session */
+/** 找到下一个未结束的 session（正在进行或未开始） */
 function findNextSession(event: RaceEvent, now: number) {
   for (const s of event.sessions) {
     const start = new Date(s.utc).getTime()
     const end = start + 2 * 60 * 60 * 1000
-    if (now < end) {
-      const live = now >= start && now <= end
-      return { session: s, start, end, live }
+    // 只返回正在进行或未开始的 session
+    if (now < start) {
+      // 未开始
+      return { session: s, start, end, live: false }
     }
+    if (now >= start && now <= end) {
+      // 正在进行
+      return { session: s, start, end, live: true }
+    }
+    // 已结束，继续找下一个
   }
   return null
 }
 
 export function NextSessionPill({ event, now }: NextSessionPillProps) {
-  const { play } = useRaceSound()
-  const { burst } = useConfettiBurst()
-  const prevStageRef = useRef<CountdownStage>("far")
-  const triggeredRef = useRef(false)
   const [visible, setVisible] = useState(false)
 
   const next = findNextSession(event, now)
   const past = isPast(event, now)
-  const live = isLive(event, now)
 
   useEffect(() => {
-    // 滚动超过 100px 后显示吸顶胶囊
+    // 滚动超过 120px 后显示吸顶胶囊
     const onScroll = () => setVisible(window.scrollY > 120)
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
@@ -69,33 +68,6 @@ export function NextSessionPill({ event, now }: NextSessionPillProps) {
   const c = countdown(next.session.utc, now)
   const totalSeconds = c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
   const stage = getCountdownStage(totalSeconds)
-
-  useEffect(() => {
-    if (next?.live) {
-      if (!triggeredRef.current) {
-        triggeredRef.current = true
-        play("start")
-        burst(event.series, "grand")
-      }
-      prevStageRef.current = "past"
-      return
-    }
-    triggeredRef.current = false
-
-    const prev = prevStageRef.current
-    if (prev !== stage) {
-      if (stage === "final" && prev !== "final") {
-        play("tick")
-      }
-      prevStageRef.current = stage
-    }
-  }, [stage, next?.live, burst, play, event.series])
-
-  useEffect(() => {
-    if (stage !== "final" || next?.live) return
-    const id = setInterval(() => play("tick"), 1000)
-    return () => clearInterval(id)
-  }, [stage, next?.live, play])
 
   return (
     <div

@@ -39,6 +39,9 @@ function getCountdownStage(seconds: number): CountdownStage {
   return "far"
 }
 
+// 全局记录：本会话是否已触发过开赛撒花/音效（避免从其他页面返回时重复触发）
+let hasTriggeredLiveEffect = false
+
 export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const first = firstSession(event)
   const meta = SERIES_META[event.series]
@@ -47,7 +50,6 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const [immersiveOpen, setImmersiveOpen] = useState(false)
   const [milestoneVisible, setMilestoneVisible] = useState(true)
   const prevStageRef = useRef<CountdownStage>("far")
-  const firstTriggerRef = useRef(false)
 
   if (!first) return null
 
@@ -68,15 +70,16 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
 
   useEffect(() => {
     if (live) {
-      if (!firstTriggerRef.current) {
-        firstTriggerRef.current = true
+      // 只在首次进入 LIVE 时触发一次，本会话不重复触发
+      if (!hasTriggeredLiveEffect) {
+        hasTriggeredLiveEffect = true
         play("start")
         burst(event.series, "grand")
       }
       prevStageRef.current = "past"
       return
     }
-    firstTriggerRef.current = false
+    // 不在 live 时重置全局标记，保持已触发状态直到会话结束
 
     const prev = prevStageRef.current
     if (prev !== stage) {
