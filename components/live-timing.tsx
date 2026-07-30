@@ -26,6 +26,12 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
 
   const fetchData = useCallback(async () => {
     if (!isExpanded) return
+    // WRC 无真实计时 API，直接走官方链接兜底，避免无效轮询
+    if (series === "WRC") {
+      setData(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -45,11 +51,13 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
     }
   }, [series, isExpanded])
 
-  // 首次加载 + 轮询
+  // 首次加载 + 轮询（WRC 不轮询）
   useEffect(() => {
     if (isExpanded) {
       fetchData()
-      intervalRef.current = setInterval(fetchData, 10000) // 每10秒刷新
+      if (series !== "WRC") {
+        intervalRef.current = setInterval(fetchData, 10000) // 每10秒刷新
+      }
     }
     return () => {
       if (intervalRef.current) {
@@ -57,11 +65,35 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
         intervalRef.current = null
       }
     }
-  }, [isExpanded, fetchData])
+  }, [isExpanded, fetchData, series])
 
   if (!isExpanded) return null
 
   const officialLink = SERIES_LINKS[series]
+
+  // WRC 直接显示官方链接卡片，不显示 loading
+  if (series === "WRC") {
+    return (
+      <div className="border-t border-border bg-card px-4 py-6">
+        <div className="flex flex-col items-center gap-3">
+          <Activity className="size-5 text-primary" />
+          <p className="text-sm font-medium">{eventName} Live Timing</p>
+          <p className="text-xs text-muted-foreground text-center">
+            WRC 实时计时需在 wrc.com 官方页面查看
+          </p>
+          <a
+            href={officialLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <ExternalLink className="size-4" />
+            前往官方 Live Timing
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   // 如果正在加载且没有数据，显示加载状态
   if (loading && !data) {
