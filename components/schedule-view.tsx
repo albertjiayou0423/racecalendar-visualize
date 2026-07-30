@@ -2,20 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, LayoutGrid, List, Radio, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, Flag, ImageIcon } from "lucide-react"
-import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
+import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon } from "lucide-react"
+import type { ScheduleResponse } from "@/lib/types"
 import {
     BEIJING_TZ,
     SERIES_META,
-    countdown,
     formatDateTime,
     formatTime,
-    firstSession,
     isPast,
-    isLive,
     mainSession,
   } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
@@ -97,112 +93,6 @@ function BeijingClock({ now }: { now: number }) {
         <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, BEIJING_TZ)}</div>
       </div>
     </div>
-  )
-}
-
-function NextUp({ event, now }: { event: RaceEvent; now: number }) {
-  const meta = SERIES_META[event.series]
-  const first = firstSession(event)
-  const main = mainSession(event)
-  if (!first) return null
-  const c = countdown(first.utc, now)
-  const flag = countryCodeToFlag(event.countryCode)
-  const live = isLive(event, now)
-
-  return (
-    <section
-      className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6"
-      aria-label="下一场赛事"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-1"
-        style={{ backgroundColor: live ? "#ef4444" : meta.color }}
-        aria-hidden
-      />
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span
-          className="rounded px-2 py-0.5 font-bold"
-          style={{ backgroundColor: live ? "#ef4444" : meta.color, color: "#fff" }}
-        >
-          {live ? "LIVE" : meta.label}
-        </span>
-        <span>{live ? "进行中" : meta.full}</span>
-        <span>·</span>
-        <span>{live ? "当前赛事" : "下一场赛事"}</span>
-      </div>
-
-      <h2 className="mt-3 flex items-center gap-2 text-pretty text-2xl font-bold leading-tight sm:text-3xl">
-        {flag ? <span aria-hidden>{flag}</span> : null}
-        {event.name}
-        {live && (
-          <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
-            </span>
-            LIVE
-          </span>
-        )}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {event.circuit} · {event.locality}，{event.country}
-      </p>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
-        <div>
-          <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
-          <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
-            {live ? (
-              <span className="flex items-center gap-2 text-2xl text-red-500">
-                <span className="relative flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-                </span>
-                正在进行
-              </span>
-            ) : c.past ? (
-              <span className="text-2xl text-muted-foreground">已结束</span>
-            ) : (
-              <>
-                <TimeBlock value={c.days} unit="天" />
-                <TimeBlock value={c.hours} unit="时" />
-                <TimeBlock value={c.minutes} unit="分" />
-                <TimeBlock value={c.seconds} unit="秒" />
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5 text-sm sm:items-end">
-          <div className="flex items-center gap-1.5">
-            <Clock className="size-4 text-primary" aria-hidden />
-            <span className="font-medium">开赛时间</span>
-            <span className="font-mono tabular-nums">{formatDateTime(first.utc, BEIJING_TZ)}</span>
-            <span className="text-muted-foreground">北京</span>
-          </div>
-          {main && main !== first && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Trophy className="size-3.5" aria-hidden />
-              <span className="text-xs">主赛事：{formatDateTime(main.utc, BEIJING_TZ)}</span>
-            </div>
-          )}
-          {event.broadcaster ? (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Radio className="size-4 text-primary" aria-hidden />
-              <span>直播：{event.broadcaster.name}</span>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function TimeBlock({ value, unit }: { value: number; unit: string }) {
-  return (
-    <span className="flex items-baseline">
-      <span className="text-3xl sm:text-4xl">{String(value).padStart(2, "0")}</span>
-      <span className="ml-0.5 mr-2 text-sm text-muted-foreground">{unit}</span>
-    </span>
   )
 }
 
@@ -567,13 +457,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
         <div className="flex flex-col gap-4">
           <LastRaceResults />
-          <NextRacePreview event={nextUp} />
+          <NextRacePreview event={nextUp} now={now} />
         </div>
       ) : null}
 
       {/* 下一场高亮 */}
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series !== "F1" ? (
-        <NextRacePreview event={nextUp} />
+        <NextRacePreview event={nextUp} now={now} />
       ) : null}
 
       <div className="transition-all duration-300 ease-out animate-fade-in">
