@@ -45,6 +45,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const { burst } = useConfettiBurst()
   const { play } = useRaceSound()
   const [immersiveOpen, setImmersiveOpen] = useState(false)
+  const [milestoneVisible, setMilestoneVisible] = useState(true)
   const prevStageRef = useRef<CountdownStage>("far")
   const firstTriggerRef = useRef(false)
 
@@ -58,6 +59,12 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const totalSeconds =
     c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
   const stage = getCountdownStage(totalSeconds)
+
+  // 页面加载时显示里程碑彩蛋，7秒后自动消失
+  useEffect(() => {
+    const timer = setTimeout(() => setMilestoneVisible(false), 7000)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     if (live) {
@@ -85,6 +92,28 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
     const id = setInterval(() => play("tick"), 1000)
     return () => clearInterval(id)
   }, [stage, live, play])
+
+  // 里程碑提示文案
+  const milestoneText = live
+    ? "GO! \uD83D\uDD25"
+    : stage === "final"
+      ? "最后倒计时！"
+      : stage === "urgent"
+        ? "即将开始 \u23F3"
+        : stage === "soon"
+          ? "半小时内开赛"
+          : stage === "today"
+            ? "今天开赛 \uD83C\uDFC1"
+            : "赛事倒计时中\u23F1"
+  const milestoneColor = live
+    ? "#ef4444"
+    : stage === "final"
+      ? "#ef4444"
+      : stage === "urgent"
+        ? "#f97316"
+        : stage === "soon"
+          ? "#eab308"
+          : accentColor
 
   return (
     <section
@@ -139,6 +168,18 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
       {!past ? (
         <div className="mt-4 rounded-xl bg-muted/30 p-4">
           <div className="text-xs text-muted-foreground">{live ? "赛事进行中" : "距开赛"}</div>
+          {/* 里程碑彩蛋覆盖层 */}
+          {milestoneVisible ? (
+            <div className="mt-1 flex items-center gap-2" style={{ minHeight: "2.5rem" }}>
+              <span
+                className="animate-in fade-in slide-in-from-left-4 text-2xl font-bold duration-700"
+                style={{ color: milestoneColor, textShadow: `0 0 20px ${milestoneColor}44` }}
+              >
+                {milestoneText}
+              </span>
+              <span className="text-xs text-muted-foreground">（倒计时恢复中…）</span>
+            </div>
+          ) : (
           <div className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums">
             {live ? (
               <span className="flex items-center gap-2 text-2xl text-red-500">
@@ -157,6 +198,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
               </>
             )}
           </div>
+          )}
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
             <span>{formatDateTime(first.utc, BEIJING_TZ)} 北京时间</span>
             {!live && (
