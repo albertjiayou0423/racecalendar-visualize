@@ -11,6 +11,19 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.1.0",
+    date: "2026-07-29",
+    items: [
+      { type: "feat", text: "倒计时阶段化字号放大：首页大号倒计时随剩余时间临近动态放大（≤10分钟放大、≤1分钟红色脉冲）" },
+      { type: "feat", text: "开赛撒花特效：赛事开始瞬间触发 canvas-confetti 彩带，各系列配色（F1红/WRC蓝/FE青），仅在前台时触发" },
+      { type: "feat", text: "短促提示音：倒计时≤60秒每秒滴答提示，开赛/完赛有不同音效，基于 Web Audio API 合成，仅在前台播放" },
+      { type: "feat", text: "全屏沉浸式开赛模式：临近开赛可进入全屏，数字滚动动画 + 赛道配色渐变背景，ESC 退出" },
+      { type: "feat", text: "多场次联动倒计时：新增横向时间轴 + 场次列表，自动聚焦当前/下一场，移动端横向滚动 + 桌面端双列适配" },
+      { type: "fix", text: "修复 next-race-preview 倒计时归零卡在 00:00:00 的 bug，归零后正确切换到进行中/已结束" },
+      { type: "fix", text: "统一'即将开始'阈值为 30 分钟（原 session-timeline 为 60 分钟不一致）" },
+    ],
+  },
+  {
     version: "v2.0.2",
     date: "2026-07-29",
     items: [
@@ -204,8 +217,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v2.0.2</span>
-          <span className="text-sm text-muted-foreground">修复更新</span>
+          <span className="text-3xl font-bold">v2.1.0</span>
+          <span className="text-sm text-muted-foreground">倒计时体验升级</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -237,7 +250,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.0.2" && (
+                {entry.version === "v2.1.0" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

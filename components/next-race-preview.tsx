@@ -1,19 +1,33 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
+import { Clock, MapPin, Calendar } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { firstSession, formatDateTime, formatTime, SERIES_META } from "@/lib/format"
+import { firstSession, formatDateTime, SERIES_META, isLive, isPast } from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
 import { PredictionVote } from "@/components/prediction-vote"
+import { MultiSessionCountdown } from "@/components/multi-session-countdown"
+import { cn } from "@/lib/utils"
 
 interface NextRacePreviewProps {
   event: RaceEvent
+  now?: number
 }
 
-export function NextRacePreview({ event }: NextRacePreviewProps) {
+export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const first = firstSession(event)
   const meta = SERIES_META[event.series]
+  const [localNow, setLocalNow] = useState<number>(now ?? 0)
+
+  // 如果未传入 now，本地维护时间
+  useEffect(() => {
+    if (now !== undefined) return
+    setLocalNow(Date.now())
+    const timer = setInterval(() => setLocalNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [now])
+
+  const currentTime = now ?? localNow
 
   return (
     <section
@@ -60,7 +74,7 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
         <div className="mt-4 rounded-xl bg-muted/30 p-4">
           <div className="text-xs text-muted-foreground">距开赛</div>
           <div className="mt-1 font-mono text-2xl font-bold tabular-nums">
-            <Countdown targetTime={first.utc} />
+            <Countdown targetTime={first.utc} event={event} />
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
             {formatDateTime(first.utc, BEIJING_TZ)} 北京时间
@@ -71,44 +85,15 @@ export function NextRacePreview({ event }: NextRacePreviewProps) {
       {/* 预测投票 */}
       <PredictionVote event={event} />
 
+      {/* 多场次联动倒计时（替换原简陋列表，支持移动端横向滚动 + 状态联动） */}
       <div className="mt-4">
-        <div className="text-xs font-medium text-muted-foreground mb-2">赛程安排</div>
-        <div className="space-y-1.5">
-          {event.sessions.slice(0, 6).map((session, idx) => {
-            const sessionPast = new Date(session.utc).getTime() < Date.now()
-            return (
-              <div
-                key={idx}
-                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                  sessionPast ? "opacity-50" : ""
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {session.isMain ? (
-                    <Trophy className="size-3.5 text-primary" />
-                  ) : (
-                    <Clock className="size-3.5 text-muted-foreground" />
-                  )}
-                  <span className="font-medium">{session.name}</span>
-                </div>
-                <div className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {formatTime(session.utc, BEIJING_TZ)}
-                </div>
-              </div>
-            )
-          })}
-          {event.sessions.length > 6 && (
-            <div className="text-center text-xs text-muted-foreground pt-1">
-              还有 {event.sessions.length - 6} 场...
-            </div>
-          )}
-        </div>
+        <MultiSessionCountdown event={event} now={currentTime} />
       </div>
     </section>
   )
 }
 
-function Countdown({ targetTime }: { targetTime: string }) {
+function Countdown({ targetTime, event }: { targetTime: string; event: RaceEvent }) {
   const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
@@ -121,14 +106,33 @@ function Countdown({ targetTime }: { targetTime: string }) {
     return <span>--:--:--</span>
   }
 
-  const diff = Math.max(0, new Date(targetTime).getTime() - now)
+  // 修复归零卡死 bug：归零后切换到 LIVE / 已结束状态
+  if (isLive(event, now)) {
+    return (
+      <span className="flex items-center gap-1.5 text-red-500">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+        </span>
+        进行中
+      </span>
+    )
+  }
+  if (isPast(event, now)) {
+    return <span className="text-muted-foreground">已结束</span>
+  }
+
+  const diff = new Date(targetTime).getTime() - now
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
   const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
+  // 统一阈值：≤30 分钟标红脉冲
+  const urgent = days === 0 && hours === 0 && minutes < 30
+
   return (
-    <span>
+    <span className={cn("tabular-nums", urgent && "text-red-500 animate-pulse")}>
       {days > 0 && `${days}天 `}
       {String(hours).padStart(2, "0")}:{String(minutes).padStart(2, "0")}:
       {String(seconds).padStart(2, "0")}
