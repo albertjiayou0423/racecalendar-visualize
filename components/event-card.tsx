@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart, Moon } from "lucide-react"
 import Link from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
@@ -17,6 +17,7 @@ import {
   formatDateTime,
   formatTime,
   isLive,
+  isNightRace,
   isPast,
   mainSession,
   nextSession,
@@ -35,7 +36,7 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
   const live = isLive(event, now)
   if (live) {
     return (
-      <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-xs font-semibold text-white">
+      <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-xs font-semibold text-white" aria-live="polite" aria-label="赛事进行中">
         <span className="relative flex h-1.5 w-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/75" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
@@ -49,31 +50,36 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
   const past = isPast(event, now)
   if (past) {
     return (
-      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="赛事已结束">
         已结束
       </span>
     )
   }
 
   // 使用下一个未结束的赛段计算倒计时
-  const next = nextSession(event, now)
-  if (!next) {
+  const nextResult = nextSession(event, now)
+  if (!nextResult) {
     return (
-      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="赛程待定">
         赛程待定
       </span>
     )
   }
 
-  const c = countdown(next.utc, now)
+  const c = countdown(nextResult.session.utc, now)
   const soon = c.days === 0
   const urgent = c.days === 0 && c.hours === 0 && c.minutes < 30
+  const countdownLabel = c.days > 0
+    ? `${c.days}天 ${c.hours}时 ${c.minutes}分后开赛`
+    : `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后开赛`
   return (
     <span
       className={cn(
         "rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums",
         urgent ? "bg-red-500 text-white animate-pulse" : soon ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
       )}
+      aria-live="polite"
+      aria-label={countdownLabel}
     >
       {c.days > 0 ? `${c.days}天 ` : ""}
       {c.hours}时 {c.minutes}分{c.days === 0 ? ` ${c.seconds}秒` : ""}后
@@ -107,17 +113,18 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [showDetail, setShowDetail] = useState(false)
   const meta = SERIES_META[event.series]
   const main = mainSession(event)
-  const next = nextSession(event, now) ?? firstSession(event)
+  const nextResult = nextSession(event, now)
+  const next = nextResult?.session ?? firstSession(event)
   const flag = countryCodeToFlag(event.countryCode)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions)
   const hasTentative = event.tentative === true
 
-  const isLiveNow = event.sessions.some((s) => {
+  const isLiveNow = useMemo(() => event.sessions.some((s) => {
     const start = new Date(s.utc).getTime()
     const end = start + 2 * 60 * 60 * 1000
     return now >= start && now <= end
-  })
+  }), [event, now])
 
   const toggleDay = (date: string) => {
     setOpenDays((prev) => {
@@ -312,6 +319,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                               <span className="flex items-center gap-1.5 text-sm">
                                 {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                                 <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
+                                {isNightRace(s.utc, event.tz) && (
+                                  <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
+                                )}
                                 {s.tentative ? (
                                   <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
                                 ) : null}

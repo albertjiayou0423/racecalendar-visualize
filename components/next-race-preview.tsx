@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Clock, MapPin, Calendar, Trophy, Moon, CloudRain, Sun, HelpCircle } from "lucide-react"
 import type { RaceEvent, Series } from "@/lib/types"
 import {
   countdown,
@@ -10,6 +10,7 @@ import {
   formatTime,
   isLive,
   isPast,
+  isNightRace,
   SERIES_META,
 } from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
@@ -48,24 +49,55 @@ function markLiveTriggered(): void {
 }
 
 export function NextRacePreview({ event, now }: NextRacePreviewProps) {
-  const target = nextSession(event, now)
+  const targetResult = nextSession(event, now)
   const meta = SERIES_META[event.series]
   const { burst } = useConfettiBurst()
   const { play } = useRaceSound()
   const [immersiveOpen, setImmersiveOpen] = useState(false)
   const [milestoneVisible, setMilestoneVisible] = useState(true)
+  const [showHelp, setShowHelp] = useState(false)
   const prevStageRef = useRef<CountdownStage>("far")
 
-  if (!target) return null
+  if (!targetResult) return null
 
+  const target = targetResult.session
   const c = countdown(target.utc, now)
-  const live = isLive(event, now)
+  const live = targetResult.live || isLive(event, now)
   const past = isPast(event, now)
   const accentColor = SERIES_ACCENT[event.series]
+  const isNight = isNightRace(target.utc, event.tz)
 
   const totalSeconds =
     c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
   const stage = getCountdownStage(totalSeconds)
+
+  // 进入沉浸式模式
+  const enterImmersive = useCallback(() => {
+    if (!live && !past) {
+      setImmersiveOpen(true)
+    }
+  }, [live, past])
+
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 忽略输入框中的按键
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault()
+        enterImmersive()
+      } else if (e.key === "?" || e.key === "/") {
+        e.preventDefault()
+        setShowHelp((v) => !v)
+      } else if (e.key === "Escape") {
+        setShowHelp(false)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [enterImmersive])
 
   // 页面加载时显示里程碑彩蛋，7秒后自动消失
   useEffect(() => {
@@ -84,7 +116,6 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
       prevStageRef.current = "past"
       return
     }
-    // 不在 live 时重置标记，保持已触发状态直到会话结束
 
     const prev = prevStageRef.current
     if (prev !== stage) {
@@ -145,6 +176,20 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
         <span>第 {event.round} 轮</span>
         <span>·</span>
         <span>{live ? "当前赛事" : "下一站"}</span>
+        {isNight && (
+          <span className="flex items-center gap-1 text-indigo-400" title="夜赛">
+            <Moon className="size-3" />
+            <span>夜赛</span>
+          </span>
+        )}
+        <button
+          onClick={() => setShowHelp((v) => !v)}
+          className="ml-auto rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="键盘快捷键帮助"
+          title="键盘快捷键"
+        >
+          <HelpCircle className="size-3.5" />
+        </button>
       </div>
 
       <h2 className="mt-3 flex items-center gap-2 text-pretty text-xl font-bold leading-tight sm:text-2xl">
@@ -157,6 +202,9 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
             </span>
             LIVE
           </span>
+        )}
+        {isNight && (
+          <Moon className="size-4 text-indigo-400" title="夜赛" aria-label="夜赛" />
         )}
       </h2>
 
@@ -188,9 +236,18 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
             </div>
           ) : (
           <div
-            className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums cursor-pointer"
-            onClick={() => !live && setImmersiveOpen(true)}
-            title={!live ? "点击进入沉浸式倒计时" : undefined}
+            className="mt-1 flex items-baseline gap-1 font-mono font-bold tabular-nums cursor-pointer select-none"
+            onClick={enterImmersive}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                enterImmersive()
+              }
+            }}
+            role="button"
+            tabIndex={!live ? 0 : -1}
+            aria-label={!live ? `点击或按 F 键进入沉浸式倒计时` : "赛事进行中"}
+            title={!live ? "点击进入沉浸式倒计时 (F)" : undefined}
           >
             {live ? (
               <span className="flex items-center gap-2 text-2xl text-red-500">
@@ -212,6 +269,11 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           )}
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
             <span>{formatDateTime(target.utc, BEIJING_TZ)} 北京时间</span>
+            {!live && !past && (
+              <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                F
+              </kbd>
+            )}
           </div>
         </div>
       ) : null}
@@ -220,10 +282,19 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
       <PredictionVote event={event} />
 
       <div className="mt-4">
-        <div className="text-xs font-medium text-muted-foreground mb-2">赛程安排</div>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-xs font-medium text-muted-foreground">赛程安排</div>
+          <button
+            onClick={() => setShowHelp((v) => !v)}
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            快捷键: F 沉浸式 · ? 帮助
+          </button>
+        </div>
         <div className="space-y-1.5">
           {event.sessions.slice(0, 6).map((session, idx) => {
             const sessionPast = new Date(session.utc).getTime() < now
+            const sessionIsNight = isNightRace(session.utc, event.tz)
             return (
               <div
                 key={idx}
@@ -238,9 +309,14 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
                     <Clock className="size-3.5 text-muted-foreground" />
                   )}
                   <span className="font-medium">{session.name}</span>
+                  {sessionIsNight && (
+                    <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
+                  )}
                 </div>
-                <div className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {formatTime(session.utc, BEIJING_TZ)}
+                <div className="flex items-center gap-2">
+                  <div className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {formatTime(session.utc, BEIJING_TZ)}
+                  </div>
                 </div>
               </div>
             )
@@ -252,6 +328,40 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           )}
         </div>
       </div>
+
+      {/* 快捷键帮助 */}
+      {showHelp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowHelp(false)}
+          role="dialog"
+          aria-label="键盘快捷键帮助"
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl border border-border bg-card p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-4 text-lg font-bold">键盘快捷键</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span>进入沉浸式倒计时</span>
+                <kbd className="rounded border border-border bg-background px-2 py-1 text-xs font-mono">F</kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>显示/隐藏帮助</span>
+                <kbd className="rounded border border-border bg-background px-2 py-1 text-xs font-mono">?</kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>关闭对话框</span>
+                <kbd className="rounded border border-border bg-background px-2 py-1 text-xs font-mono">Esc</kbd>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">
+              提示：在非输入框状态下使用快捷键
+            </p>
+          </div>
+        </div>
+      )}
 
       {immersiveOpen && (
         <ImmersiveCountdown

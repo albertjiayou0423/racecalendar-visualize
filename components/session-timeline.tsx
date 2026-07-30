@@ -46,8 +46,8 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
   if (event.sessions.length === 0) return null
 
   const sessions = event.sessions
-  const firstSessionStart = new Date(sessions[0].utc).getTime()
-  const lastSessionEnd = new Date(sessions[sessions.length - 1].utc).getTime() + getSessionDuration(sessions[sessions.length - 1])
+  const firstSessionStart = Math.min(...sessions.map((s) => new Date(s.utc).getTime()))
+  const lastSessionEnd = Math.max(...sessions.map((s) => new Date(s.utc).getTime() + getSessionDuration(s)))
   const totalDuration = lastSessionEnd - firstSessionStart
 
   // 找到当前正在进行的 session

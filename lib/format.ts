@@ -90,7 +90,8 @@ export function nextSession(event: RaceEvent, now: number) {
   for (const s of event.sessions) {
     const start = new Date(s.utc).getTime()
     const end = start + 2 * 60 * 60 * 1000
-    if (now <= end) return s // 未开始或正在进行
+    if (now < start) return { session: s, live: false }
+    if (now >= start && now <= end) return { session: s, live: true }
   }
   return null
 }
@@ -135,6 +136,24 @@ export function countdown(utc: string, now: number) {
   const minutes = Math.floor((abs % 3600000) / 60000)
   const seconds = Math.floor((abs % 60000) / 1000)
   return { days, hours, minutes, seconds, past }
+}
+
+/** 检测场次是否为夜赛（当地时间 20:00-06:00） */
+export function isNightRace(utc: string, timeZone: string): boolean {
+  const p = partsInZone(utc, timeZone)
+  const hour = parseInt(p.hour, 10)
+  return hour >= 20 || hour < 6
+}
+
+/** 天气类型图标映射 */
+export const WEATHER_ICONS: Record<string, string> = {
+  clear: "sun",
+  partly_cloudy: "cloud-sun",
+  cloudy: "cloud",
+  rainy: "cloud-rain",
+  stormy: "cloud-lightning",
+  snowy: "snowflake",
+  foggy: "wind",
 }
 
 export const SERIES_META: Record<
