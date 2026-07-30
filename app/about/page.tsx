@@ -11,6 +11,20 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.1.0",
+    date: "2026-07-30",
+    items: [
+      { type: "fix", text: "周视图重复 EventCard：点击某天后详情面板按赛事去重，修复同一天多场次导致重复渲染同一张赛事卡片" },
+      { type: "fix", text: "WRC LiveTiming 动态 slug 同步：爬虫合并结果时同步更新 eventSlug/liveTimingUrl，修复官方 slug 变更后详情页指向 404" },
+      { type: "fix", text: "WRC 详情页 LiveTiming 改为外跳按钮：放弃 iframe 代理（WRC SPA 无法渲染），改为稳定的外跳官方页面入口" },
+      { type: "fix", text: "WRC 卡片内停用桩轮询：不再每 10 秒请求无效的 WRC 计时数据，直接显示官方链接卡片" },
+      { type: "feat", text: "新增 /playground 交互测试台：可随时触发撒花特效、提示音试听、倒计时阶段化字号、沉浸式开赛模式，不影响正式页面" },
+      { type: "ui", text: "撒花特效改为屏幕两侧齐射，各系列专属配色（F1 红/WRC 蓝/FE 青）" },
+      { type: "ui", text: "沉浸式开赛模式改为纯黑背景，数字滚动动画 + 归零两侧撒花" },
+      { type: "ui", text: "提示音改为柔和钟琴/颂钵音色（多谐波叠加 + 低通滤波 + 长衰减），消除电音感" },
+    ],
+  },
+  {
     version: "v2.0.2",
     date: "2026-07-29",
     items: [
@@ -204,8 +218,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v2.0.2</span>
-          <span className="text-sm text-muted-foreground">修复更新</span>
+          <span className="text-3xl font-bold">v2.1.0</span>
+          <span className="text-sm text-muted-foreground">周视图修复 + WRC LiveTiming + 测试台</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -237,7 +251,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.0.2" && (
+                {entry.version === "v2.1.0" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
