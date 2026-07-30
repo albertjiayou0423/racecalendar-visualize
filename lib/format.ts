@@ -85,12 +85,24 @@ export function firstSession(event: RaceEvent) {
   return event.sessions[0]
 }
 
+/** 下一个未结束的场次（正在进行或未开始），没有则返回 null */
+export function nextSession(event: RaceEvent, now: number) {
+  for (const s of event.sessions) {
+    const start = new Date(s.utc).getTime()
+    const end = start + 2 * 60 * 60 * 1000
+    if (now <= end) return s // 未开始或正在进行
+  }
+  return null
+}
+
 /** 事件是否已结束（所有场次都已结束） */
 export function isPast(event: RaceEvent, now: number): boolean {
-  const last = event.sessions[event.sessions.length - 1]
-  if (!last) return true
-  const end = new Date(last.utc).getTime() + 2 * 60 * 60 * 1000
-  return end < now
+  if (!event.sessions || event.sessions.length === 0) return true
+  // 检查所有赛段中最晚结束的那个，不依赖数组顺序
+  const lastEnd = Math.max(
+    ...event.sessions.map((s) => new Date(s.utc).getTime() + 2 * 60 * 60 * 1000)
+  )
+  return lastEnd < now
 }
 
 /** 事件是否正在进行中（当前时间在某个场次的开始和结束之间） */

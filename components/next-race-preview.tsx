@@ -5,7 +5,7 @@ import { Clock, MapPin, Calendar, Trophy } from "lucide-react"
 import type { RaceEvent, Series } from "@/lib/types"
 import {
   countdown,
-  firstSession,
+  nextSession,
   formatDateTime,
   formatTime,
   isLive,
@@ -48,7 +48,7 @@ function markLiveTriggered(): void {
 }
 
 export function NextRacePreview({ event, now }: NextRacePreviewProps) {
-  const first = firstSession(event)
+  const target = nextSession(event, now)
   const meta = SERIES_META[event.series]
   const { burst } = useConfettiBurst()
   const { play } = useRaceSound()
@@ -56,9 +56,9 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const [milestoneVisible, setMilestoneVisible] = useState(true)
   const prevStageRef = useRef<CountdownStage>("far")
 
-  if (!first) return null
+  if (!target) return null
 
-  const c = countdown(first.utc, now)
+  const c = countdown(target.utc, now)
   const live = isLive(event, now)
   const past = isPast(event, now)
   const accentColor = SERIES_ACCENT[event.series]
@@ -211,7 +211,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           </div>
           )}
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{formatDateTime(first.utc, BEIJING_TZ)} 北京时间</span>
+            <span>{formatDateTime(target.utc, BEIJING_TZ)} 北京时间</span>
           </div>
         </div>
       ) : null}
@@ -255,7 +255,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
 
       {immersiveOpen && (
         <ImmersiveCountdown
-          targetTime={first.utc}
+          targetTime={target.utc}
           series={event.series}
           onClose={() => setImmersiveOpen(false)}
         />

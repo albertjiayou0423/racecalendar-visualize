@@ -19,6 +19,7 @@ import {
   isLive,
   isPast,
   mainSession,
+  nextSession,
   offsetLabel,
 } from "@/lib/format"
 import { countryCodeToFlag } from "@/lib/tz"
@@ -31,15 +32,6 @@ interface DayGroup {
 }
 
 function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
-  const first = firstSession(event)
-  if (!first) {
-    return (
-      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-        赛程待定
-      </span>
-    )
-  }
-
   const live = isLive(event, now)
   if (live) {
     return (
@@ -63,7 +55,17 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
     )
   }
 
-  const c = countdown(first.utc, now)
+  // 使用下一个未结束的赛段计算倒计时
+  const next = nextSession(event, now)
+  if (!next) {
+    return (
+      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        赛程待定
+      </span>
+    )
+  }
+
+  const c = countdown(next.utc, now)
   const soon = c.days === 0
   const urgent = c.days === 0 && c.hours === 0 && c.minutes < 30
   return (
@@ -105,7 +107,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [showDetail, setShowDetail] = useState(false)
   const meta = SERIES_META[event.series]
   const main = mainSession(event)
-  const first = firstSession(event)
+  const next = nextSession(event, now) ?? firstSession(event)
   const flag = countryCodeToFlag(event.countryCode)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions)
@@ -199,20 +201,20 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
           {/* 开赛时间 + 倒计时 */}
           <div className="flex items-center justify-between gap-3 sm:w-56 sm:shrink-0 sm:flex-col sm:items-end">
-            {first ? (
+            {next ? (
               <div className="text-right">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Clock className="size-3.5" aria-hidden />
                   <span>开赛 · 北京时间</span>
                 </div>
                 <div className="font-mono text-sm font-semibold tabular-nums">
-                  {formatDateTime(first.utc, BEIJING_TZ)}
+                  {formatDateTime(next.utc, BEIJING_TZ)}
                 </div>
               </div>
             ) : (
               <span className="text-sm text-muted-foreground">赛程待定</span>
             )}
-            {first ? <CountdownPill event={event} now={now} /> : null}
+            {next ? <CountdownPill event={event} now={now} /> : null}
           </div>
         </div>
 
@@ -333,7 +335,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               })}
             </div>
             <p className="px-4 py-2 text-[11px] text-muted-foreground">
-              首个场次：{first ? formatDateTime(first.utc, BEIJING_TZ) : "—"}（北京时间）
+              首个场次：{firstSession(event) ? formatDateTime(firstSession(event).utc, BEIJING_TZ) : "—"}（北京时间）
               <span className="ml-2">·</span>
               {event.series === "WRC" ? (
                 hasTentative ? (
