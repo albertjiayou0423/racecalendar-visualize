@@ -50,15 +50,20 @@ function ConfettiDemo() {
   const fire = useCallback(() => {
     const colors = SERIES_COLORS[series]
     const opts = { spread: 70, startVelocity: 38, ticks: 90, zIndex: 9999, colors, disableForReducedMotion: true }
+    // 屏幕两侧齐射：左侧向右斜上（angle 0-60），右侧向左斜上（angle 120-180）
     if (intensity === "grand") {
-      confetti({ ...opts, particleCount: 100, origin: { x: 0.2, y: 0.6 }, angle: 60 })
-      confetti({ ...opts, particleCount: 100, origin: { x: 0.8, y: 0.6 }, angle: 120 })
-      setTimeout(() => confetti({ ...opts, particleCount: 80, origin: { y: 0.5 }, spread: 100 }), 150)
+      confetti({ ...opts, particleCount: 110, origin: { x: 0, y: 0.7 }, angle: 45, spread: 80 })
+      confetti({ ...opts, particleCount: 110, origin: { x: 1, y: 0.7 }, angle: 135, spread: 80 })
+      setTimeout(() => {
+        confetti({ ...opts, particleCount: 90, origin: { x: 0, y: 0.6 }, angle: 30, spread: 60 })
+        confetti({ ...opts, particleCount: 90, origin: { x: 1, y: 0.6 }, angle: 150, spread: 60 })
+      }, 180)
     } else if (intensity === "normal") {
-      confetti({ ...opts, particleCount: 60, origin: { x: 0.3, y: 0.6 }, angle: 60 })
-      confetti({ ...opts, particleCount: 60, origin: { x: 0.7, y: 0.6 }, angle: 120 })
+      confetti({ ...opts, particleCount: 70, origin: { x: 0, y: 0.7 }, angle: 45, spread: 70 })
+      confetti({ ...opts, particleCount: 70, origin: { x: 1, y: 0.7 }, angle: 135, spread: 70 })
     } else {
-      confetti({ ...opts, particleCount: 30, origin: { y: 0.5 }, spread: 50 })
+      confetti({ ...opts, particleCount: 35, origin: { x: 0, y: 0.7 }, angle: 50, spread: 50 })
+      confetti({ ...opts, particleCount: 35, origin: { x: 1, y: 0.7 }, angle: 130, spread: 50 })
     }
   }, [series, intensity])
 
@@ -114,6 +119,57 @@ function ConfettiDemo() {
 function SoundDemo() {
   const audioCtxRef = useRef<AudioContext | null>(null)
 
+  /**
+   * 合成柔和钟琴音：基频 + 2 个泛音叠加，经低通滤波 + 长衰减包络，
+   * 模拟马林巴/颂钵音色，避免电音感。
+   * @param partials 谐波 [{freq, gain, detune}]
+   * @param dur 总时长（秒）
+   * @param masterGain 总音量
+   * @param fromFreq 起始基频（用于开赛上扬/完赛下沉的滑音）
+   * @param toFreq 结束基频
+   */
+  const playTone = useCallback((
+    partials: { freq: number; gain: number }[],
+    dur: number,
+    masterGain: number,
+    fromFreq?: number,
+    toFreq?: number,
+  ) => {
+    const ctx = audioCtxRef.current
+    if (!ctx) return
+    const now = ctx.currentTime
+
+    // 低通滤波，去掉高频毛刺，让音色更圆润
+    const filter = ctx.createBiquadFilter()
+    filter.type = "lowpass"
+    filter.frequency.setValueAtTime(2400, now)
+    filter.Q.value = 0.6
+
+    const master = ctx.createGain()
+    master.gain.setValueAtTime(0, now)
+    master.gain.linearRampToValueAtTime(masterGain, now + 0.015) // 起音
+    master.gain.exponentialRampToValueAtTime(0.0001, now + dur) // 长尾衰减
+    filter.connect(master).connect(ctx.destination)
+
+    partials.forEach((p, i) => {
+      const osc = ctx.createOscillator()
+      osc.type = "sine" // 最柔和的波形
+      // 如果有滑音（开赛/完赛），按基频比例同步滑
+      const baseFrom = fromFreq ?? p.freq
+      const baseTo = toFreq ?? p.freq
+      const ratio = p.freq / (fromFreq ?? partials[0].freq)
+      osc.frequency.setValueAtTime(baseFrom * ratio, now)
+      if (fromFreq && toFreq && fromFreq !== toFreq) {
+        osc.frequency.exponentialRampToValueAtTime(baseTo * ratio, now + dur * 0.7)
+      }
+      const g = ctx.createGain()
+      g.gain.value = p.gain
+      osc.connect(g).connect(filter)
+      osc.start(now)
+      osc.stop(now + dur)
+    })
+  }, [])
+
   const play = useCallback((type: "tick" | "chime" | "start" | "finish") => {
     try {
       if (!audioCtxRef.current) {
@@ -125,41 +181,62 @@ function SoundDemo() {
       if (!ctx) return
       if (ctx.state === "suspended") ctx.resume()
 
-      const presets: Record<string, { freq: number; dur: number; type: OscillatorType; gain: number; sweep?: number }> = {
-        tick: { freq: 880, dur: 0.08, type: "sine", gain: 0.04 },
-        chime: { freq: 1046, dur: 0.18, type: "sine", gain: 0.06 },
-        start: { freq: 660, dur: 0.35, type: "triangle", gain: 0.08, sweep: 1320 },
-        finish: { freq: 1320, dur: 0.45, type: "sine", gain: 0.07, sweep: 660 },
+      if (type === "tick") {
+        // 滴答：极短木鱼感，基频 + 高泛音，短衰减
+        playTone(
+          [{ freq: 1318, gain: 1 }, { freq: 2637, gain: 0.3 }],
+          0.18, 0.05,
+        )
+      } else if (type === "chime") {
+        // 清脆钟琴：C6 + E6 双音和弦，中等衰减
+        playTone(
+          [
+            { freq: 1046, gain: 0.9 }, // C6
+            { freq: 1318, gain: 0.6 }, // E6
+            { freq: 2093, gain: 0.25 }, // C7 泛音
+          ],
+          0.6, 0.07,
+        )
+      } else if (type === "start") {
+        // 开赛：从 C5 上行到 C6，三音叠加，长衰减，有"渐入"仪式感
+        playTone(
+          [
+            { freq: 523, gain: 0.9 },  // C5
+            { freq: 659, gain: 0.5 },  // E5
+            { freq: 1046, gain: 0.35 }, // C6 泛音
+          ],
+          1.0, 0.09,
+          523, 1046,
+        )
+      } else if (type === "finish") {
+        // 完赛：从 E6 下行到 C5，柔和颂钵感，最长衰减
+        playTone(
+          [
+            { freq: 1318, gain: 0.85 }, // E6
+            { freq: 1046, gain: 0.5 },  // C6
+            { freq: 523, gain: 0.35 },  // C5 泛音
+          ],
+          1.3, 0.08,
+          1318, 523,
+        )
       }
-      const p = presets[type]
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = p.type
-      osc.frequency.setValueAtTime(p.freq, ctx.currentTime)
-      if (p.sweep) osc.frequency.linearRampToValueAtTime(p.sweep, ctx.currentTime + p.dur)
-      gain.gain.setValueAtTime(0, ctx.currentTime)
-      gain.gain.linearRampToValueAtTime(p.gain, ctx.currentTime + 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + p.dur)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + p.dur)
     } catch {
       // 静默失败
     }
-  }, [])
+  }, [playTone])
 
   const sounds: { type: "tick" | "chime" | "start" | "finish"; label: string; desc: string }[] = [
-    { type: "tick", label: "滴答", desc: "≤60秒每秒提示" },
-    { type: "chime", label: "清脆短音", desc: "通用提示" },
-    { type: "start", label: "开赛音效", desc: "上扬 660→1320Hz" },
-    { type: "finish", label: "完赛音效", desc: "下沉 1320→660Hz" },
+    { type: "tick", label: "滴答", desc: "木鱼感短音" },
+    { type: "chime", label: "钟琴和弦", desc: "C+E 双音柔和" },
+    { type: "start", label: "开赛", desc: "C5→C6 上扬长尾" },
+    { type: "finish", label: "完赛", desc: "E6→C5 颂钵下沉" },
   ]
 
   return (
     <DemoCard
       title="提示音"
       icon={<Volume2 className="size-5 text-primary" />}
-      description="Web Audio API 合成音效，无需音频文件。点击试听。"
+      description="Web Audio 合成柔和钟琴/颂钵音色（多谐波叠加 + 低通滤波 + 长衰减），无电音感。点击试听。"
     >
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {sounds.map((s) => (
@@ -170,7 +247,7 @@ function SoundDemo() {
           >
             <Volume2 className="size-4 text-primary" />
             <span className="text-xs font-medium">{s.label}</span>
-            <span className="text-[10px] text-muted-foreground">{s.desc}</span>
+            <span className="text-[10px] text-muted-foreground text-center">{s.desc}</span>
           </button>
         ))}
       </div>
@@ -184,6 +261,7 @@ function SoundDemo() {
 function CountdownStageDemo() {
   const [seconds, setSeconds] = useState(90)
   const [running, setRunning] = useState(false)
+  const [series, setSeries] = useState<keyof typeof SERIES_COLORS>("F1")
 
   useEffect(() => {
     if (!running) return
@@ -202,23 +280,43 @@ function CountdownStageDemo() {
   const stage = getStage(seconds)
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
+  // 紧急阶段用赛事主色（取配色数组第二个，略亮一点）
+  const accentColor = SERIES_COLORS[series][1]
+  const accentStyle = (stage === "final" || stage === "urgent")
+    ? { color: accentColor, textShadow: `0 0 24px ${accentColor}55` }
+    : undefined
 
   return (
     <DemoCard
       title="倒计时阶段化字号"
       icon={<Clock className="size-5 text-primary" />}
-      description="剩余时间越少字号越大、变红。模拟首页大倒计时效果。"
+      description="剩余时间越少字号越大，最后阶段使用赛事配色（非固定红色）。"
     >
       <div className="flex flex-col items-center gap-4 py-2">
+        <div className="flex flex-wrap justify-center gap-1.5">
+          {(["F1", "WRC", "FE", "Neutral"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSeries(s)}
+              className={cn(
+                "rounded-lg border px-3 py-1 text-xs font-medium transition-colors",
+                series === s ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
         <div className="flex items-baseline gap-1 font-mono font-bold tabular-nums">
           <span
             className={cn(
               "transition-all duration-500",
-              stage === "final" ? "text-5xl sm:text-6xl text-red-500 animate-pulse" :
-              stage === "urgent" ? "text-4xl sm:text-5xl text-red-500" :
+              stage === "final" ? "text-5xl sm:text-6xl animate-pulse" :
+              stage === "urgent" ? "text-4xl sm:text-5xl" :
               stage === "soon" ? "text-3xl sm:text-4xl" :
               "text-3xl sm:text-4xl"
             )}
+            style={accentStyle}
           >
             {String(mins).padStart(2, "0")}
           </span>
@@ -226,11 +324,12 @@ function CountdownStageDemo() {
           <span
             className={cn(
               "transition-all duration-500",
-              stage === "final" ? "text-5xl sm:text-6xl text-red-500 animate-pulse" :
-              stage === "urgent" ? "text-4xl sm:text-5xl text-red-500" :
+              stage === "final" ? "text-5xl sm:text-6xl animate-pulse" :
+              stage === "urgent" ? "text-4xl sm:text-5xl" :
               stage === "soon" ? "text-3xl sm:text-4xl" :
               "text-3xl sm:text-4xl"
             )}
+            style={accentStyle}
           >
             {String(secs).padStart(2, "0")}
           </span>
@@ -239,7 +338,7 @@ function CountdownStageDemo() {
         <span className="rounded-full bg-secondary px-3 py-0.5 text-xs text-muted-foreground">
           阶段：{stageLabel(stage)}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <button
             onClick={() => setRunning((r) => !r)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -352,10 +451,13 @@ function ImmersiveOverlay({ targetSeconds, onClose }: { targetSeconds: number; o
     }
   }, [onClose])
 
-  // 归零撒花
+  // 归零撒花（屏幕两侧齐射）
   useEffect(() => {
     if (remaining === 0) {
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: SERIES_COLORS.F1, disableForReducedMotion: true, zIndex: 10000 })
+      const colors = SERIES_COLORS.F1
+      const opts = { spread: 70, startVelocity: 38, ticks: 90, zIndex: 10000, colors, disableForReducedMotion: true }
+      confetti({ ...opts, particleCount: 100, origin: { x: 0, y: 0.7 }, angle: 45 })
+      confetti({ ...opts, particleCount: 100, origin: { x: 1, y: 0.7 }, angle: 135 })
     }
   }, [remaining])
 
@@ -364,10 +466,8 @@ function ImmersiveOverlay({ targetSeconds, onClose }: { targetSeconds: number; o
 
   return (
     <div
-      className="fixed inset-0 z-[9998] flex flex-col items-center justify-center transition-opacity"
-      style={{ background: "radial-gradient(ellipse at center, #ef444422 0%, #0a0a0e 70%)" }}
+      className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-black"
     >
-      <div className="absolute inset-0 -z-10 opacity-30" style={{ backgroundColor: "#ef4444", filter: "blur(120px)", transform: "scale(1.5)" }} aria-hidden />
       <button
         onClick={onClose}
         className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
