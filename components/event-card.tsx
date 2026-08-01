@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart, Moon } from "lucide-react"
 import Link from "next/link"
 import { LiveTiming } from "./live-timing"
 import { WeatherCard } from "./weather-card"
 import { WikipediaImage } from "./wikipedia-image"
 import { CircuitImage } from "./circuit-image"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import {
   BEIJING_TZ,
@@ -111,7 +112,35 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const [showLiveTiming, setShowLiveTiming] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
+  const articleRef = useRef<HTMLElement>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
+  const [inView, setInView] = useState(false)
+  useFocusTrap(detailRef, showDetail)
   const meta = SERIES_META[event.series]
+
+  // 卡片进入视口时淡入（尊重 reduced-motion）
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setInView(true)
+      return
+    }
+    const el = articleRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setInView(true)
+            obs.disconnect()
+            break
+          }
+        }
+      },
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
   const main = mainSession(event)
   const nextResult = nextSession(event, now)
   const next = nextResult?.session ?? firstSession(event)
@@ -151,7 +180,17 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
   return (
     <>
-      <article className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-muted-foreground/30 hover:shadow-md">
+      <article
+        ref={articleRef}
+        data-event-card
+        tabIndex={0}
+        className={cn(
+          "overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-muted-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          inView
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-2",
+        )}
+      >
         {/* 顶部 LIVE 条 */}
         {isLiveNow && (
           <div className="flex items-center justify-center gap-2 bg-red-500 px-4 py-1.5">
@@ -418,8 +457,12 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
           {/* 模态框内容 */}
           <div
+            ref={detailRef}
             className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`赛事详情：${event.name}`}
           >
             {/* 头部 */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 px-5 py-4 backdrop-blur">
