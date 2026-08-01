@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "赛道时刻 · WRC / F1 / FE 赛程时间表",
     short_name: "赛道时刻",
     description:
