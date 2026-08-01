@@ -1,0 +1,26 @@
+{
+  "predictions": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "ai_usage": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "push_subscriptions": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "service_health_log": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "crawl_snapshots": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "crawl_quota": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "event_overrides": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  },
+  "feedbacks": {
+    "error": "Cannot read properties of undefined (reading 'cnt')"
+  }
+}

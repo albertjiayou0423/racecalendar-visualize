@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { X } from "lucide-react"
 import { useConfettiBurst } from "@/lib/countdown-hooks"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 import type { Series } from "@/lib/types"
 
 const SERIES_COLORS: Record<Series, string> = {
@@ -26,6 +27,10 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
   const [remaining, setRemaining] = useState(() => Math.max(0, targetMs - Date.now()))
   const { burst } = useConfettiBurst()
   const triggeredRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // 焦点陷阱：限制 Tab 在沉浸式容器内循环
+  useFocusTrap(containerRef, true)
 
   // 每秒更新
   useEffect(() => {
@@ -49,11 +54,15 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
     }
   }, [onClose])
 
-  // 归零触发撒花（仅一次）
+  // 归零触发撒花 + 震动反馈（仅一次）
   useEffect(() => {
     if (remaining === 0 && !triggeredRef.current) {
       triggeredRef.current = true
       burst(series, "grand")
+      // 移动端短震反馈
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(10)
+      }
     }
   }, [remaining, burst, series])
 
@@ -62,7 +71,14 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
   const accentColor = SERIES_COLORS[series]
 
   return (
-    <div className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-black">
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-black"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="沉浸式倒计时"
+    >
       <button
         onClick={onClose}
         className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
@@ -71,7 +87,10 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
         <X className="size-5" />
       </button>
 
-      <div className="flex flex-col items-center px-4 text-center">
+      <div
+        className="flex flex-col items-center px-4 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
         {remaining === 0 ? (
           <span
             className="text-5xl font-bold sm:text-7xl animate-pulse"

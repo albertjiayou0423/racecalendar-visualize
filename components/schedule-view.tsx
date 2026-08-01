@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon } from "lucide-react"
+import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
 import type { ScheduleResponse } from "@/lib/types"
 import {
     BEIJING_TZ,
@@ -72,13 +72,32 @@ const TIME_TABS: { key: TimeFilter; label: string }[] = [
   { key: "past", label: "已结束" },
 ]
 
-/** 每秒刷新的当前时间戳 */
+/** 每秒刷新的当前时间戳（标签页隐藏时暂停以降低后台 CPU） */
 function useNow(serverTime: number) {
   const [now, setNow] = useState<number>(serverTime)
   useEffect(() => {
     setNow(Date.now())
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
+    let id: ReturnType<typeof setInterval> | null = setInterval(() => setNow(Date.now()), 1000)
+    const start = () => {
+      if (id) return
+      setNow(Date.now())
+      id = setInterval(() => setNow(Date.now()), 1000)
+    }
+    const stop = () => {
+      if (id) {
+        clearInterval(id)
+        id = null
+      }
+    }
+    const onVisibility = () => {
+      if (document.hidden) stop()
+      else start()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      stop()
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
   }, [])
   return now
 }
@@ -170,6 +189,58 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     return () => window.removeEventListener("scroll", onScroll)
   }, [isMobile])
 
+  // 回到顶部按钮：滚动超过 1 屏显示
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > window.innerHeight)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  // 全局键盘快捷键：/ 聚焦搜索 · j/k 列表焦点 · 1/2/3 切换视图
+  useEffect(() => {
+    const moveListFocus = (dir: 1 | -1) => {
+      const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-event-card]"))
+      if (cards.length === 0) return
+      const current = document.activeElement as HTMLElement | null
+      const currentIdx = cards.findIndex((c) => c === current || c.contains(current))
+      const nextIdx = currentIdx < 0 ? 0 : Math.max(0, Math.min(cards.length - 1, currentIdx + dir))
+      const target = cards[nextIdx]
+      target?.focus()
+      target?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    }
+    const handleKeydown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const tag = target?.tagName
+      const inField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable
+      if (inField) return
+      if (e.key === "/") {
+        e.preventDefault()
+        const input = document.getElementById("search-input") as HTMLInputElement | null
+        input?.focus()
+        input?.select()
+      } else if (e.key === "j") {
+        e.preventDefault()
+        moveListFocus(1)
+      } else if (e.key === "k") {
+        e.preventDefault()
+        moveListFocus(-1)
+      } else if (e.key === "1") {
+        e.preventDefault()
+        setView("list")
+      } else if (e.key === "2") {
+        e.preventDefault()
+        setView("week")
+      } else if (e.key === "3") {
+        e.preventDefault()
+        setView("month")
+      }
+    }
+    window.addEventListener("keydown", handleKeydown)
+    return () => window.removeEventListener("keydown", handleKeydown)
+  }, [])
+
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
 
@@ -244,10 +315,12 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         <div className={cn("relative transition-all", filterStuck && isMobile && "hidden")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
+            id="search-input"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索赛事名称、国家、城市..."
+            aria-label="搜索赛事"
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -566,6 +639,18 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           的为估计时间）。转播信息仅供参考，请以对应平台节目单为准。
         </p>
       </footer>
+
+      {/* 回到顶部 */}
+      {showBackToTop ? (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-4 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-lg transition-all hover:bg-secondary hover:border-muted-foreground/40"
+          aria-label="回到顶部"
+        >
+          <ArrowUp className="size-4" />
+        </button>
+      ) : null}
     </div>
   )
 }

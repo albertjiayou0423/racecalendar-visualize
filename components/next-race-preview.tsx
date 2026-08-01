@@ -88,7 +88,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
       if (e.key === "f" || e.key === "F") {
         e.preventDefault()
         enterImmersive()
-      } else if (e.key === "?" || e.key === "/") {
+      } else if (e.key === "?") {
         e.preventDefault()
         setShowHelp((v) => !v)
       } else if (e.key === "Escape") {
@@ -112,6 +112,10 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
         markLiveTriggered()
         play("start")
         burst(event.series, "grand")
+        // 移动端短震反馈
+        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          navigator.vibrate(10)
+        }
       }
       prevStageRef.current = "past"
       return
@@ -288,7 +292,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
             onClick={() => setShowHelp((v) => !v)}
             className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
           >
-            快捷键: F 沉浸式 · ? 帮助
+            快捷键: F 沉浸式 · / 搜索 · ? 帮助
           </button>
         </div>
         <div className="space-y-1.5">
@@ -346,6 +350,10 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
               <div className="flex items-center justify-between">
                 <span>进入沉浸式倒计时</span>
                 <kbd className="rounded border border-border bg-background px-2 py-1 text-xs font-mono">F</kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>聚焦搜索框</span>
+                <kbd className="rounded border border-border bg-background px-2 py-1 text-xs font-mono">/</kbd>
               </div>
               <div className="flex items-center justify-between">
                 <span>显示/隐藏帮助</span>
