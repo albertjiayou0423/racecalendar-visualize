@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
-import type { ScheduleResponse } from "@/lib/types"
+import type { ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
     SERIES_META,
@@ -134,9 +134,18 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
 
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const now = useNow(serverTime)
-  const { data, error, isLoading } = useSWR("/api/schedule", fetcher, {
+  const [cachedSchedule, setCachedSchedule] = useState<ScheduleResponse | undefined>()
+  useEffect(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null")
+      if (Array.isArray(cached?.events) && Array.isArray(cached?.sources)) setCachedSchedule(cached)
+    } catch { /* Invalid or unavailable browser cache. */ }
+  }, [])
+  const { data, error, isLoading: requestLoading } = useSWR("/api/schedule", fetcher, {
     revalidateOnFocus: false,
+    fallbackData: cachedSchedule,
   })
+  const isLoading = requestLoading && !data
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [view, setView] = useState<ViewMode>("list")
