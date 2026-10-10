@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth"
 import { NextResponse } from "next/server"
 import {
   getAllOverrides,
@@ -5,17 +6,10 @@ import {
   deleteEventOverride,
 } from "@/lib/crawl-store"
 
-/** 认证校验：验证 admin_auth cookie */
-function checkAuth(request: Request): NextResponse | null {
-  if (request.cookies.get("admin_auth")?.value !== "true") {
-    return NextResponse.json({ ok: false, message: "未授权" }, { status: 401 })
-  }
-  return null
-}
 
 /** 获取所有覆盖列表 */
 export async function GET(request: Request) {
-  const authErr = checkAuth(request)
+  const authErr = requireAdmin(request)
   if (authErr) return authErr
 
   const overrides = await getAllOverrides()
@@ -24,7 +18,7 @@ export async function GET(request: Request) {
 
 /** 创建/更新覆盖 */
 export async function POST(request: Request) {
-  const authErr = checkAuth(request)
+  const authErr = requireAdmin(request)
   if (authErr) return authErr
 
   let body: { eventId: string; data: Record<string, unknown> }
@@ -48,7 +42,7 @@ export async function POST(request: Request) {
 
 /** 删除覆盖 */
 export async function DELETE(request: Request) {
-  const authErr = checkAuth(request)
+  const authErr = requireAdmin(request)
   if (authErr) return authErr
 
   let body: { eventId: string }

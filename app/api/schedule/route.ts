@@ -1,17 +1,17 @@
-import { NextResponse } from "next/server"
-import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
+import { connection, NextResponse } from "next/server"
+import { refreshSeries } from "@/lib/schedule-fetch"
 import { buildWrcEvents } from "@/lib/wrc-data"
-import { initCrawlTables, saveCrawlSnapshot, saveWrcSnapshotMerged, getLatestSnapshot, getEventOverride, getCrawlQuota, incrementCrawlCount } from "@/lib/crawl-store"
+import { initCrawlTables, getLatestSnapshot, getEventOverride, getCrawlQuota } from "@/lib/crawl-store"
 import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 
 export const revalidate = 3600
 export const maxDuration = 300
 
-/** 每日爬取上限 */
-const CRAWL_DAILY_LIMIT = 10
 
 export async function GET() {
+  // Fetch only during a request; production builds must not crawl an entire season.
+  await connection()
   // 初始化爬虫表（幂等）
   await initCrawlTables()
 
@@ -29,9 +29,9 @@ export async function GET() {
   // 根据配额决定是否实际爬取，还是使用快照
   // WRC 始终尝试爬取（官网爬虫不消耗配额），仅在配额充足时启用 API fallback
   const [f1Result, feResult, wrcResult] = await Promise.all([
-    quotaChecks[0] ? fetchAndSave("F1", fetchF1) : loadFromSnapshot("F1"),
-    quotaChecks[1] ? fetchAndSave("FE", fetchFe) : loadFromSnapshot("FE"),
-    fetchAndSave("WRC", () => fetchWrc({ allowApiFallback: wrcAllowApi })),
+    quotaChecks[0] ? refreshSeries("F1") : loadFromSnapshot("F1"),
+    quotaChecks[1] ? refreshSeries("FE") : loadFromSnapshot("FE"),
+    refreshSeries("WRC", wrcAllowApi),
   ])
 
   const f1 = f1Result.result
@@ -53,25 +53,21 @@ export async function GET() {
         series: "F1",
         label: "Jolpica F1 API（Ergast 兼容）",
         ok: f1.ok,
-        note: f1.ok
-          ? f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"
-          : f1.note,
+        note: f1.note || (f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"),
       },
       {
         series: "WRC",
         label: "WRC 官方 itinerary（爬取 / ocblacktop fallback）",
         ok: wrc.ok,
         note: wrc.ok
-          ? wrcResult.fromCache ? "使用持久化快照数据" : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
+          ? wrcResult.fromCache ? (wrc.note || "使用持久化快照数据") : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
           : "爬取失败，使用估计时间（以官方 itinerary 为准）",
       },
       {
         series: "FE",
         label: "Formula E 官方 API（pulselive）",
         ok: fe.ok,
-        note: fe.ok
-          ? feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"
-          : fe.note,
+        note: fe.note || (feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"),
       },
     ],
     fetchedAt: new Date().toISOString(),
@@ -91,55 +87,13 @@ async function canCrawlToday(series: Series): Promise<boolean> {
   }
 }
 
-/** 爬取并保存快照 */
-async function fetchAndSave(
-  series: Series,
-  fetcher: () => Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource?: "scraped" | "api" | "mixed" }>
-): Promise<{ result: { events: RaceEvent[]; ok: boolean; note?: string }; fromCache: boolean }> {
-  try {
-    const result = await fetcher()
-    if (result.ok && result.events.length > 0) {
-      // WRC 使用合并保存：爬取失败的赛事保留上次真实数据
-      if (series === "WRC") {
-        await saveWrcSnapshotMerged(result, "schedule-api")
-      } else {
-        await saveCrawlSnapshot(series, result, "schedule-api")
-      }
-      
-      if (series === "WRC") {
-        if (result.dataSource === "api") {
-          await incrementCrawlCount(series)
-          console.log(`WRC: 使用 ocblacktop API，消耗配额`)
-        } else if (result.dataSource === "mixed") {
-          await incrementCrawlCount(series)
-          console.log(`WRC: 混合数据（含 API），消耗配额`)
-        } else {
-          console.log(`WRC: 使用官网爬虫数据，不消耗配额`)
-        }
-      } else {
-        await incrementCrawlCount(series)
-      }
-    }
-    return { result, fromCache: false }
-  } catch (err) {
-    const cached = await loadFromSnapshot(series)
-    if (cached.result.ok) {
-      return cached
-    }
-    return {
-      result: { events: [], ok: false, note: err instanceof Error ? err.message : "数据获取失败" },
-      fromCache: false,
-    }
-  }
-}
-
 /** 从快照加载数据 */
 async function loadFromSnapshot(
   series: Series
 ): Promise<{ result: { events: RaceEvent[]; ok: boolean; note?: string }; fromCache: boolean }> {
   try {
     const snapshot = await getLatestSnapshot(series)
-    if (snapshot?.data?.events && snapshot.data.events.length > 0) {
+    if (snapshot?.data?.ok && snapshot.data.events?.length > 0) {
       return {
         result: {
           events: snapshot.data.events,

@@ -1,5 +1,7 @@
 "use client"
 
+import { DatabaseInspector } from "@/components/database-inspector"
+
 import { useState, useEffect, useCallback } from "react"
 import {
   Activity, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Clock,
@@ -44,7 +46,7 @@ interface Override {
   updatedAt: string
 }
 
-type TabId = "status" | "crawl" | "overrides" | "preview" | "feedback"
+type TabId = "status" | "crawl" | "overrides" | "preview" | "feedback" | "database"
 
 // ─── 常量 ───────────────────────────────────────────────
 
@@ -55,10 +57,11 @@ const SERVICE_LABELS: Record<string, { name: string; color: string }> = {
 }
 
 const TABS: { id: TabId; label: string; icon: typeof Server }[] = [
-  { id: "status", label: "服务状态", icon: Server },
+  { id: "status", label: "快照状态", icon: Server },
   { id: "crawl", label: "爬虫管理", icon: Zap },
   { id: "overrides", label: "数据覆盖", icon: Database },
   { id: "preview", label: "数据预览", icon: Eye },
+  { id: "database", label: "数据库检查", icon: Database },
   { id: "feedback", label: "用户建议", icon: MessageSquare },
 ]
 
@@ -174,20 +177,28 @@ export function AdminPanel() {
     }
   }
 
-  const handleLogout = () => {
-    document.cookie = "admin_auth=; max-age=0; path=/"
+  const handleLogout = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/auth", { method: "DELETE" })
+      if (!response.ok) throw new Error("退出失败")
+    } catch {
+      alert("退出失败，请检查网络后重试")
+      return
+    }
     setAuthenticated(false)
     setStatus(null)
     setCrawlStatus(null)
     setOverrides([])
     setPreviewData(null)
     setSnapshotData(null)
-  }
+    setFeedbacks([])
+    setHealthHistory([])
+  }, [])
 
   // 统一处理 API 响应，401 时自动登出
-  const handleApiResponse = async (res: Response) => {
+  const handleApiResponse = useCallback(async (res: Response) => {
     if (res.status === 401) {
-      handleLogout()
+      await handleLogout()
       throw new Error("登录已过期，请重新登录")
     }
     if (!res.ok) {
@@ -195,7 +206,7 @@ export function AdminPanel() {
       throw new Error(data.message || `请求失败 (${res.status})`)
     }
     return res.json()
-  }
+  }, [handleLogout])
 
   // ─── 服务状态 ─────────────────────────────────────────
 
@@ -203,20 +214,20 @@ export function AdminPanel() {
     setLoading(true)
     try {
       const res = await fetch("/api/admin/status")
-      const data = await res.json()
+      const data = await handleApiResponse(res)
       setStatus(data)
     } catch (e) {
       console.error("Failed to fetch status:", e)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [handleApiResponse])
 
   const fetchHealthHistory = useCallback(async () => {
     setHealthLoading(true)
     try {
       const res = await fetch("/api/admin/health-history?hours=24")
-      const data = await res.json()
+      const data = await handleApiResponse(res)
       if (data.ok) {
         // 按时间分组聚合
         const map = new Map<string, Record<string, number>>()
@@ -245,7 +256,7 @@ export function AdminPanel() {
     } finally {
       setHealthLoading(false)
     }
-  }, [])
+  }, [handleApiResponse])
 
   // ─── 爬虫管理 ─────────────────────────────────────────
 
@@ -258,7 +269,7 @@ export function AdminPanel() {
       console.error("Failed to fetch crawl status:", e)
       setCrawlStatus(null)
     }
-  }, [])
+  }, [handleApiResponse])
 
   const triggerCrawl = async (series: Series) => {
     setCrawling(series)
@@ -289,7 +300,7 @@ export function AdminPanel() {
       console.error("Failed to fetch overrides:", e)
       setOverrides([])
     }
-  }, [])
+  }, [handleApiResponse])
 
   const startEditOverride = (eventId: string, existingData?: Record<string, any>) => {
     setEditingOverride(eventId)
@@ -348,7 +359,7 @@ export function AdminPanel() {
     } finally {
       setPreviewLoading(false)
     }
-  }, [])
+  }, [handleApiResponse])
 
   const fetchSnapshot = async (series: Series) => {
     setSnapshotLoading(true)
@@ -376,7 +387,7 @@ export function AdminPanel() {
     } finally {
       setFeedbackLoading(false)
     }
-  }, [])
+  }, [handleApiResponse])
 
   const deleteFeedback = async (id: number) => {
     if (!confirm("确定删除这条反馈？")) return
@@ -530,6 +541,7 @@ export function AdminPanel() {
             onRefresh={() => fetchPreview(previewSeries)}
           />
         )}
+        {activeTab === "database" && <DatabaseInspector onUnauthorized={handleLogout} />}
         {activeTab === "feedback" && (
           <FeedbackTab
             feedbacks={feedbacks}
@@ -563,7 +575,7 @@ function StatusTab({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Activity className="size-4" />
-          服务状态
+          快照状态 · 不触发抓取
         </div>
         <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading || healthLoading} className="gap-2">
           <RefreshCw className={cn("size-4", (loading || healthLoading) && "animate-spin")} />
@@ -629,7 +641,7 @@ function StatusTab({
               </div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <CheckCircle className="size-3 text-emerald-500" />
-                系统运行正常
+                数据状态仅反映已有快照
               </div>
             </div>
           </div>
@@ -738,7 +750,7 @@ function CrawlTab({
                       <span className="font-medium">{series} 爬虫</span>
                       {info.lastFetch && (
                         <span className="text-xs text-muted-foreground">
-                          上次爬取：{formatTime(info.lastFetch)}
+                          最近成功：{formatTime(info.lastFetch)}
                         </span>
                       )}
                     </div>
@@ -782,7 +794,7 @@ function CrawlTab({
                     <Button
                       size="sm"
                       onClick={() => onTrigger(series)}
-                      disabled={isCrawling || info.quotaUsed >= info.quotaLimit}
+                      disabled={isCrawling || (series !== "WRC" && info.quotaUsed >= info.quotaLimit)}
                       className="gap-1"
                     >
                       {isCrawling ? (

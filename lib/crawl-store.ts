@@ -63,6 +63,7 @@ export async function saveCrawlSnapshot(
     `
   } catch (err) {
     console.error("保存爬取快照失败:", err)
+    throw err
   }
 }
 
@@ -114,6 +115,9 @@ export async function getLatestSnapshot(
       SELECT data, fetched_at, source
       FROM crawl_snapshots
       WHERE series = ${series}
+        AND data->>'ok' = 'true'
+        AND jsonb_typeof(data->'events') = 'array'
+        AND data->'events' <> '[]'::jsonb
       ORDER BY fetched_at DESC
       LIMIT 1
     `
@@ -162,7 +166,7 @@ export async function incrementCrawlCount(
     return { count: rows[0].count, limit: CRAWL_LIMIT }
   } catch (err) {
     console.error("递增爬取计数失败:", err)
-    return { count: 0, limit: CRAWL_LIMIT }
+    throw err
   }
 }
 

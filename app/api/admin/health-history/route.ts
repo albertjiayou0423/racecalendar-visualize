@@ -1,7 +1,10 @@
+import { requireAdmin } from "@/lib/admin-auth"
 import { NextResponse } from "next/server"
 import { getSql } from "@/lib/db"
 
 export async function GET(request: Request) {
+  const authErr = requireAdmin(request)
+  if (authErr) return authErr
   const sql = getSql()
   if (!sql) {
     return NextResponse.json({ ok: false, message: "数据库不可用" }, { status: 503 })

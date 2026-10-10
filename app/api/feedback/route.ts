@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth"
 import { NextRequest, NextResponse } from "next/server"
 import { initFeedbackTable, saveFeedback, getFeedbacks, deleteFeedback } from "@/lib/crawl-store"
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       email: body.email,
       browser: body.browser,
       system: body.system,
-      ip: request.ip || request.headers.get("x-forwarded-for") || "unknown",
+      ip: request.headers.get("x-forwarded-for") || "unknown",
       userAgent: request.headers.get("user-agent") || undefined,
     })
 
@@ -49,10 +50,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = request.cookies.get("admin_auth")
-    if (auth?.value !== "true") {
-      return NextResponse.json({ error: "未授权" }, { status: 401 })
-    }
+    const authErr = requireAdmin(request)
+    if (authErr) return authErr
 
     await initFeedbackTable()
     const feedbacks = await getFeedbacks(100)
@@ -65,10 +64,8 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = request.cookies.get("admin_auth")
-    if (auth?.value !== "true") {
-      return NextResponse.json({ error: "未授权" }, { status: 401 })
-    }
+    const authErr = requireAdmin(request)
+    if (authErr) return authErr
 
     const { id } = await request.json()
     if (!id) {

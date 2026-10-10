@@ -15,6 +15,7 @@
 - 当前开发分支是 `dev/data-pipeline`，后续任务可继续使用或按任务建立新分支。
 - 部署使用 Vercel Hobby 免费版。用户已配置 Vercel 环境变量；这不代表本地或 Preview 环境也已配置，不要擅自覆盖线上变量。
 - 用户会提供绑定开发分支的 Vercel 部署链接。用于部署的提交需推送到该开发分支；推送后预留约两分钟，再检查部署链接和版本。两分钟只是预期构建时间，不是部署成功的证据。
+- 部署检查链接：`https://racecalendar-visualize.vercel.app/`。浏览器权限被拒绝时不得绕过；可检查 GitHub 的部署状态，但不能将状态成功等同实际页面已验证。
 
 ## 代码地图
 
@@ -26,6 +27,9 @@
 - `lib/wrc-data.ts`：硬编码 WRC 2026 日历和估计赛段。
 - `lib/crawl-store.ts`：Neon 快照、配额、人工覆盖。
 - `lib/db.ts`：数据库连接及其他业务表初始化。
+- `lib/admin-session.ts` / `lib/admin-auth.ts`：签名管理员会话及服务端授权。
+- `app/api/admin/database/route.ts` / `components/database-inspector.tsx`：业务表只读检查。
+- `lib/fetch-with-snapshot.ts` / `lib/schedule-fetch.ts`：首页与后台共用的失败回退、成功持久化及计数策略。
 - `lib/tz.ts`、`lib/format.ts`：UTC 转换和北京时间展示。
 - `public/sw.js`：PWA 缓存；`public/circuits/`：实际使用的赛道图。
 - 数据链路细节与已知问题见 `docs/data-flow.md`。
@@ -44,15 +48,16 @@
 
 - 服务端环境变量：`DATABASE_URL`、`ADMIN_PASSWORD`、`OCBLACKTOP_API_KEY`、`NVIDIA_NIM_API_KEY`。
 - 本地变量放 `.env.local`，不能提交密钥、数据库连接密码、真实用户数据，也不能复制到文档或日志。不要将服务端密钥改成 `NEXT_PUBLIC_*`。
-- 仓库现有预测接口和数据库脚本存在硬编码凭据，不能沿用或传播这些默认值；相关功能开发前改用环境变量。凭据轮换需要在服务商和部署环境完成。
+- 预测接口和数据库脚本已移除硬编码凭据，`.env` 已停止跟踪；历史提交曾包含凭据，应在服务商轮换并更新部署变量，不能恢复这些默认值。
 - 没有 `DATABASE_URL` 时，数据库功能降级：快照/覆盖不可用、配额不持久化。不要把降级结果当成持久化成功。
-- 后台当前依赖 `admin_auth=true` cookie 的薄弱检查；新增管理接口时使用可验证的服务端认证，不复制该模式。
+- 后台使用 `ADMIN_PASSWORD` 签名的随机会话，有效期一小时。旧 `admin_auth=true` 无效；新增管理接口必须调用 `requireAdmin`，私有响应禁止缓存。
 
 ## 开发与验证
 
 常用命令：`pnpm install --frozen-lockfile`、`pnpm dev`、`pnpm exec tsc --noEmit`、`pnpm build`。
 
-- 当前没有测试脚本；`pnpm lint` 引用 eslint，但 package.json 未声明 eslint，也没有已提交的 ESLint 配置。不能宣称 lint 已通过。
+- 使用 Node 24 运行 `pnpm test`，测试覆盖认证、数据失败回退、数据库只读查询与分页。`pnpm lint` 引用 eslint，但 package.json 未声明 eslint，也没有已提交的 ESLint 配置。不能宣称 lint 已通过。
+- 完整类型检查目前有原有问题，包括未被使用、内容损坏的 `lib/circuit-db.ts` 及其他页面类型错误；报告实际限制，不能只看忽略类型的构建结果。
 - `next.config.mjs` 开启 `typescript.ignoreBuildErrors`，所以构建通过不代表类型检查通过。分别报告类型检查和构建结果，区分原有错误与新增错误。
 - 文档和低影响改动做相应静态检查即可；数据逻辑改动覆盖成功、部分失败、全失败、无数据库、快照与配额耗尽、估计标记、时区边界等相关路径。
 - UI 改动检查手机和桌面视图、加载/空数据/错误状态；保留中文产品文案与现有风格。

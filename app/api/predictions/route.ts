@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSqlOrFail, initDb, isDbAvailable, checkAiQuota, incrementAiUsage } from "@/lib/db"
 
-const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY || "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"
+const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY
 const AI_DAILY_LIMIT = 50
 
 interface PredictionRequest {
@@ -115,6 +115,10 @@ export async function POST(request: Request) {
         quotaRemaining: 0,
         error: `今日 AI 预测次数已用完（${AI_DAILY_LIMIT}次/天），使用默认预测`
       })
+    }
+
+    if (!NVIDIA_NIM_API_KEY) {
+      return NextResponse.json({ eventId, predictions: generateDefaultPredictions(series), modelUsed: "fallback", generatedAt: new Date().toISOString(), error: "AI 服务未配置，使用默认预测" })
     }
 
     const prompt = `你是赛车运动分析师。请根据历史数据、车手表现、赛道特性预测 ${series} ${eventName} 的比赛结果。
