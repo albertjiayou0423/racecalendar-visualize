@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { SWRegister } from '@/components/sw-register'
+import { UsageGuide } from '@/components/usage-guide'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
       <body className="antialiased font-sans">
         {children}
+        <UsageGuide />
         <SWRegister />
       </body>
     </html>

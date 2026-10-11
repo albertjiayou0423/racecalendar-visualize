@@ -11,6 +11,17 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.2.1",
+    date: "2026-10-11",
+    items: [
+      { type: "feat", text: "新增首次访问使用指南，分步介绍赛历、赛事详情、积分榜、历史赛果、壁纸及赛道数据库；同一浏览器仅自动显示一次，可跳过或随时从底部胶囊重新打开" },
+      { type: "ui", text: "底部胶囊新增「使用指南」，版本入口更新为「v2.2.1 · 版本与更新」；其他公开页面也提供使用指南入口" },
+      { type: "fix", text: "WRC 估计赛段统一显示「时间待确认」，不展示具体估计时间；保留已确认赛段的历史时间" },
+      { type: "perf", text: "赛历优先读取已有快照，后台更新过期数据；WRC 抓取增加并发限制、时间预算与请求复用" },
+      { type: "feat", text: "后台新增只读数据库检查及 WRC 抓取诊断，方便人工核查数据和排查失败" },
+    ],
+  },
+  {
     version: "v2.1.0",
     date: "2026-07-30",
     items: [
@@ -218,7 +229,7 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v2.1.0</span>
+          <span className="text-3xl font-bold">v2.2.1</span>
           <span className="text-sm text-muted-foreground">周视图修复 + WRC LiveTiming + 测试台</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -251,7 +262,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.1.0" && (
+                {entry.version === "v2.2.1" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

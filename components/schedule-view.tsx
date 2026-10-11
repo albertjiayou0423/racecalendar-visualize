@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
+import { UsageGuideButton } from "@/components/usage-guide"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
 import type { ScheduleResponse, Series } from "@/lib/types"
 import {
@@ -220,6 +221,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       target?.scrollIntoView({ behavior: "smooth", block: "nearest" })
     }
     const handleKeydown = (e: KeyboardEvent) => {
+      if (document.querySelector("dialog[open]")) return
       const target = e.target as HTMLElement
       const tag = target?.tagName
       const inField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable
@@ -629,8 +631,9 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.1.0 · 更新日志
+            v2.2.1 · 版本与更新
           </Link>
+        <UsageGuideButton />
         <Link
           href="/developer"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
