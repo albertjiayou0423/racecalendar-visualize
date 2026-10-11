@@ -1,5 +1,7 @@
 "use client"
 
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { ExternalLink } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { formatTime, mainSession } from "@/lib/format"
@@ -64,7 +66,7 @@ export function WatchInfo({ event }: WatchInfoProps) {
         </div>
       )}
 
-      {main && (
+      {main && !isEstimatedWrcSession(event, main) && (
         <div className="mt-4 pt-4 border-t border-border">
           <h3 className="text-xs font-medium text-muted-foreground">比赛日天气</h3>
           <WeatherCard

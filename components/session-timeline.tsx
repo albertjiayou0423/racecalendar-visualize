@@ -1,5 +1,7 @@
 "use client"
 
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { useRef, useEffect } from "react"
 import { Clock } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
@@ -130,6 +132,24 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
   }, [hasSessions, centerIdx])
 
   if (!hasSessions) return null
+  if (sessions.some(s => isEstimatedWrcSession(event, s))) {
+    return (
+      <section className="mt-4 rounded-xl border border-border bg-card p-5">
+        <h2 className="text-sm font-semibold">赛段安排</h2>
+        <p className="mt-2 text-xs text-muted-foreground">估计赛段的具体时间待确认，以官方行程为准。</p>
+        <ul className="mt-3 space-y-2">
+          {sessions.map((session, index) => (
+            <li key={index} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm">
+              <span>{session.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {isEstimatedWrcSession(event, session) ? "时间待确认" : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地）`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 
   return (
     <section className="mt-4 rounded-xl border border-border bg-card p-5">

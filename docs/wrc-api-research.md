@@ -39,3 +39,13 @@ https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT
 旧开源 WRC-API 的 README 只说明较老年份数据且依赖抓取 eWRC，未确认当前服务仍运行，不推荐作为主要生产来源。参考：[作者仓库](https://github.com/nathanjliu/WRC-API)。
 
 结论：官网公开 Feed 是目前实测成功的行程来源；Blacktop 可作为需要密钥的免费基础数据候选。实时计时仍需另行确认当前官方请求链路，本轮未把未验证接口投入生产。
+
+## 2026-10-11 第三方无 token 接口复查
+
+- Rally Times：https://www.rallytimes.live/ 。页面的公开脚本使用 https://api.rallytimes.live/api/v1 。不携带 Authorization、API Key、Cookie 或 X-User-Id 测试 GET /rallies 返回 200，共 19 条赛事，包含 WRC 2026。
+- GET /rallies/wrcris-26/itinerary 不携带认证返回 200 JSON；赛段开始记录 t=StageStart，赛段编号 c、名称 p、UTC 时间 d、顺序 o。样例 SS1 日期 2026-10-01T14:05:00Z；这里只验证原始返回，不代表已确认日期正确。
+- 页面脚本还使用 /rallies/{id}/stages、/rallies/{id}/stages/{stage}/results、/splits 等；未逐个测试。不应将公开可访问等同官方允许第三方复用，未发现开发者文档、限额、服务承诺或 API 使用授权。当前仅记录候选，不接入生产链路。
+- nathanjliu/WRC-API：https://github.com/nathanjliu/WRC-API 。开源抓取 eWRC 的 Express 服务；README 日历覆盖仅 2014-2022，测试 Heroku /api/rally/getids?year=2026 返回 404。不是已验证可用的当前托管 API。
+- RallySafe：https://results-api.statusas.com/documentation/index.html 。Swagger 可读，但 GET /api/seasons 返回 401；契约声明 Bearer JWT，不符合无需 token。
+- OpenWRC：https://github.com/jixy2012/OpenWRC 。README 明确是官方 WRC API 到本地 SQLite 的 Python 数据工具，不是独立第三方托管服务。
+- Blacktop：https://blacktop.live/api/wrc 。免费套餐仍要求 x-api-key，不符合无需 token。

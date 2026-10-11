@@ -1,5 +1,7 @@
 "use client"
 
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { useState, useEffect, useMemo, useRef } from "react"
 import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart, Moon } from "lucide-react"
 import Link from "next/link"
@@ -358,7 +360,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                               <span className="flex items-center gap-1.5 text-sm">
                                 {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                                 <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
-                                {isNightRace(s.utc, event.tz) && (
+                                {!isEstimatedWrcSession(event, s) && isNightRace(s.utc, event.tz) && (
                                   <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
                                 )}
                                 {s.tentative ? (
@@ -366,13 +368,12 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                                 ) : null}
                               </span>
                               <span className="text-right font-mono font-medium tabular-nums text-foreground text-sm">
-                                {s.tentative ? "约 " : ""}
-                                {formatTime(s.utc, BEIJING_TZ)}
+                                {isEstimatedWrcSession(event, s) ? "时间待确认" : `${s.tentative ? "约 " : ""}${formatTime(s.utc, BEIJING_TZ)}`}
                               </span>
                             </div>
                             <div className="hidden sm:flex mt-0.5 justify-end">
                               <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                                当地 {formatTime(s.utc, event.tz)}
+                                {isEstimatedWrcSession(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)}`}
                               </span>
                             </div>
                           </li>
@@ -384,11 +385,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               })}
             </div>
             <p className="px-4 py-2 text-[11px] text-muted-foreground">
-              首个场次：{firstSession(event) ? formatDateTime(firstSession(event).utc, BEIJING_TZ) : "—"}（北京时间）
+              首个场次：{firstSession(event) ? isEstimatedWrcSession(event, firstSession(event)) ? "时间待确认" : formatDateTime(firstSession(event).utc, BEIJING_TZ) : "—"}（北京时间）
               <span className="ml-2">·</span>
               {event.series === "WRC" ? (
                 hasTentative ? (
-                  <span className="ml-2">赛段时间为估计值，以官方 itinerary 为准</span>
+                  <span className="ml-2">赛段时间待确认，以官方 itinerary 为准</span>
                 ) : (
                   <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 itinerary</span>
                 )
@@ -400,7 +401,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             </p>
 
             {/* 天气预报 */}
-            {main && (
+            {main && !isEstimatedWrcSession(event, main) && (
               <div className="border-t border-border/50 px-4 py-3">
                 <WeatherCard
                   city={event.locality}
@@ -509,7 +510,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               ) : null}
 
               {/* 天气预报 */}
-              {main && (
+              {main && !isEstimatedWrcSession(event, main) && (
                 <div className="rounded-xl border border-border/30 bg-background/50 p-4">
                   <WeatherCard
                     city={event.locality}

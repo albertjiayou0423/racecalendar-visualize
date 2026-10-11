@@ -1,5 +1,7 @@
 "use client"
 
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { Bell, Calendar, Clock, MapPin } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, countdown, formatDateTime, isLive, isPast, mainSession } from "@/lib/format"
@@ -19,10 +21,11 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
   const live = isLive(event, now)
   const past = isPast(event, now)
   const status = live ? "进行中" : past ? "已结束" : "即将开始"
-  const mainCountdown = main ? countdown(main.utc, now) : null
+  const estimated = !!main && isEstimatedWrcSession(event, main)
+  const mainCountdown = main && !estimated ? countdown(main.utc, now) : null
 
   const downloadCalendar = () => {
-    if (!main) return
+    if (!main || estimated) return
     const start = new Date(main.utc)
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
     const ics = [
@@ -96,13 +99,13 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
             <div>
               <div className="text-xs text-muted-foreground">北京时间</div>
               <div className="text-lg font-bold font-mono tabular-nums">
-                {formatDateTime(main.utc, BEIJING_TZ)}
+                {estimated ? "时间待确认" : formatDateTime(main.utc, BEIJING_TZ)}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">当地时间</div>
               <div className="text-lg font-bold font-mono tabular-nums">
-                {formatDateTime(main.utc, event.tz)}
+                {estimated ? "时间待确认" : formatDateTime(main.utc, event.tz)}
               </div>
             </div>
           </div>
@@ -133,7 +136,9 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
       <div className="mt-5 flex gap-3">
         <button
           onClick={onSetNotification}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          disabled={estimated}
+          title={estimated ? "赛段时间待确认后可设置提醒" : undefined}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Bell className="size-4" />
           设置正赛提醒
@@ -142,9 +147,9 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
           onClick={downloadCalendar}
           className={cn(
             "flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors",
-            main ? "hover:bg-secondary" : "opacity-50 cursor-not-allowed"
+            main && !estimated ? "hover:bg-secondary" : "opacity-50 cursor-not-allowed"
           )}
-          disabled={!main}
+          disabled={!main || estimated}
         >
           <Calendar className="size-4" />
           加入日历
