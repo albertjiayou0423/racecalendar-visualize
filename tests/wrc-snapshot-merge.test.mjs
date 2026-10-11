@@ -43,6 +43,27 @@ test('invalid historical times and ambiguous stage identities are not reused', (
 import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+test('snapshot write failure propagates once without repeating a database insert', async () => {
+  let writes = 0
+  const failure = new Error('database unavailable')
+  const sql = async strings => {
+    if (strings.join('?').includes('INSERT INTO crawl_snapshots')) {
+      writes++
+      throw failure
+    }
+    return []
+  }
+  const source = ts.transpileModule(fs.readFileSync('lib/crawl-store.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText
+  const exports = {}
+  vm.runInNewContext(source, { exports,
+    require: name => name === './db' ? { getSql: () => sql } : { mergeWrcSnapshotEvents },
+    console: { error() {} },
+  })
+  await assert.rejects(exports.saveWrcSnapshotMerged({ ok: true, events: [] }, 'fixture'), error => error === failure)
+  assert.equal(writes, 1)
+})
 test('snapshot store persists merged confirmed sessions and updates response provenance', async () => {
   const old = event([session('SS1 Road', false)])
   const writes = []

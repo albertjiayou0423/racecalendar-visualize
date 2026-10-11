@@ -87,12 +87,11 @@ export async function saveWrcSnapshotMerged(
     if (newData.note) newData.note = newData.note.replace(/\d+ 场仍有待确认赛段/, pendingCount ? `${pendingCount} 场仍有待确认赛段` : "输出赛段均有已确认时间")
     if (merged.retainedSessions) newData.note = `${newData.note || "WRC 数据更新"}；保留 ${merged.retainedSessions} 个已确认赛段的历史时间`
 
-    await saveCrawlSnapshot("WRC", newData, source)
   } catch (err) {
-    console.error("WRC 合并快照保存失败:", err)
-    // 合并失败也要保存原始数据
-    await saveCrawlSnapshot("WRC", newData, source)
+    console.error("WRC 快照合并失败:", err)
+    // 合并失败仍保存本次数据；数据库写入失败交给调用方处理。
   }
+  await saveCrawlSnapshot("WRC", newData, source)
 }
 
 /** 获取指定系列的最新快照 */
