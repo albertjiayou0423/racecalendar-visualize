@@ -14,6 +14,16 @@ vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
 
+test('HTML stages need an explicit day and never inherit a guessed rally start date', () => {
+  const context = { exports: {}, require: () => ({}), process: { env: {} }, console: { log() {}, error() {} } }
+  vm.runInNewContext(source + '\nexports.html = parseItineraryFromHtml;', context)
+  assert.equal(context.exports.html('<p>09:00: Special Stage Road</p>', '2026-07-09'), null)
+  assert.equal(context.exports.html('<script>09:00: Special Stage Road</script>', '2026-07-09'), null)
+  const days = context.exports.html('<div class="day">Friday, 2nd January 2027<p>09:00: SS1 Road</p></div>', '2026-12-31')
+  assert.deepEqual(Array.from(days[0].date), [2027, 1, 2])
+  assert.equal(exports.convert(days, 'UTC', 'fixture')[0].utc, '2027-01-02T09:00:00.000Z')
+})
+
 test('prerender cache extraction tolerates HTML attribute ordering and validates JSON object shape', () => {
   const context = { exports: {}, require: () => ({}), process: { env: {} }, console: { error() {} } }
   vm.runInNewContext(source + '\nexports.extract = extractPrerenderCache;', context)

@@ -243,14 +243,11 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
   while ((dayMatch = dayPattern.exec(cleanHtml)) !== null) {
     const dayContent = dayMatch[1]
     
-    const dateTextMatch = dayContent.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+    const dateTextMatch = dayContent.match(/(?:[A-Za-z]+,?\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\b/i)
     if (!dateTextMatch) continue
     
-    const day = parseInt(dateTextMatch[2], 10)
-    const month = MONTH_MAP[dateTextMatch[3]]
-    const [startY] = fallbackDate.split("-").map(Number)
-    
-    if (!month) continue
+    const date = parseDateText(dateTextMatch[0], fallbackDate)
+    if (!date.every(Number.isFinite)) continue
     
     const stages: { time: string; name: string; isPowerStage: boolean }[] = []
     
@@ -275,28 +272,7 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
     }
     
     if (stages.length > 0) {
-      daySections.push({ date: [startY, month, day], stages })
-    }
-  }
-  
-  if (daySections.length === 0) {
-    const allStagePattern = /(\d{1,2}:\d{2}):\s*([^<\n]+)/g
-    const allStages: { time: string; name: string; isPowerStage: boolean }[] = []
-    let match
-    
-    while ((match = allStagePattern.exec(cleanHtml)) !== null) {
-      const time = match[1].padStart(5, "0")
-      const name = match[2].trim()
-      if (!name || name.length < 3 || name.length > 120) continue
-      if (name.includes("UTC") || name.includes("Version") || name.includes("Stage") || name.includes("km")) {
-        const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
-        allStages.push({ time, name, isPowerStage })
-      }
-    }
-    
-    if (allStages.length > 0) {
-      const [y, m, d] = fallbackDate.split("-").map(Number)
-      daySections.push({ date: [y, m, d], stages: allStages })
+      daySections.push({ date, stages })
     }
   }
   
