@@ -395,20 +395,17 @@ function pickDateField(obj: any, ...keys: string[]): string | undefined {
 }
 
 function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim()
+  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim()
 }
 
 function rallyNameMatches(a: string, b: string): boolean {
-  const na = normalizeName(a)
-  const nb = normalizeName(b)
-  if (na === nb) return true
-  // 互相包含：如 "WRC Rallye Monte-Carlo" vs "Rallye Monte-Carlo"
-  if (na.includes(nb) || nb.includes(na)) return true
-  // 取词袋交集，至少 2 个词相同
-  const sa = new Set(na.split(" "))
-  const sb = new Set(nb.split(" "))
-  const common = [...sa].filter((w) => sb.has(w) && w.length > 2)
-  return common.length >= 2
+  const na = normalizeName(a), nb = normalizeName(b)
+  if (!na || !nb) return false
+  const ignored = new Set(["wrc", "rally", "rallye", "rallying", "world", "championship", "the", "de", "del", "of"])
+  const tokens = (name: string) => new Set(name.split(" ").filter(word => word.length > 2 && !ignored.has(word) && !/^\d+$/.test(word)))
+  const sa = tokens(na), sb = tokens(nb)
+  if (!sa.size || !sb.size) return false
+  return [...sa].some(word => sb.has(word))
 }
 
 interface OcblacktopRallySummary {
@@ -451,26 +448,37 @@ function parseStageTime(stage: OcblacktopStage, rallyTz: string): { utc: string;
   const name = pickString(stage, "name", "title") ?? "赛段"
   const isMain = !!(stage?.isPowerStage ?? stage?.powerStage ?? name.toLowerCase().includes("power stage"))
 
-  // 优先使用明确的 UTC 时间
-  const utcStr = pickDateField(stage, "scheduledStartTimeUtc", "scheduledStart", "scheduledStartTime", "startTime")
-  if (utcStr) {
-    const d = new Date(utcStr)
-    if (!isNaN(d.getTime())) return { utc: d.toISOString(), isMain }
+  const parse = (text: string, assumeUtc: boolean): string | null => {
+    const m = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})?$/i)
+    if (!m) return null
+    const [y, month, day, hour, minute, second] = m.slice(1, 7).map(value => Number(value || 0))
+    const date = new Date(Date.UTC(y, month - 1, day))
+    if (date.getUTCFullYear() !== y || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day
+      || hour > 23 || minute > 59 || second > 59) return null
+    const fraction = Number((m[7] || "").padEnd(3, "0"))
+    try {
+      if (m[8] || assumeUtc) {
+        const parsed = new Date(m[8] ? text : text + "Z")
+        return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null
+      }
+      return new Date(zonedWallTimeToUtc(y, month, day, hour, minute, rallyTz).getTime() + second * 1000 + fraction).toISOString()
+    } catch { return null }
   }
-
-  // 尝试组合 date + time，按 rally 时区解释
+  const explicitUtc = pickDateField(stage, "scheduledStartTimeUtc")
+  if (explicitUtc) {
+    const utc = parse(explicitUtc, true)
+    if (utc) return { utc, isMain }
+  }
+  const timestamp = pickDateField(stage, "scheduledStart", "scheduledStartTime", "startTime")
+  if (timestamp) {
+    const utc = parse(timestamp, false)
+    if (utc) return { utc, isMain }
+  }
   const dateStr = pickDateField(stage, "date")
   const timeStr = pickString(stage, "time")
-  if (dateStr && timeStr) {
-    const base = new Date(dateStr)
-    if (!isNaN(base.getTime())) {
-      const m = timeStr.match(/(\d{1,2}):(\d{2})/)
-      if (m) {
-        const [y, mo, d] = [base.getFullYear(), base.getMonth() + 1, base.getDate()]
-        const utc = zonedWallTimeToUtc(y, mo, d, Number(m[1]), Number(m[2]), rallyTz)
-        return { utc: utc.toISOString(), isMain }
-      }
-    }
+  if (dateStr && timeStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const utc = parse(`${dateStr}T${timeStr}`, false)
+    if (utc) return { utc, isMain }
   }
 
   return null
@@ -524,11 +532,21 @@ async function tryOcblacktopFallback(
 ): Promise<RaceSession[] | null> {
   if (!ocblacktopRallies || ocblacktopRallies.length === 0) return null
 
-  const match = ocblacktopRallies.find((r) => {
+  const matches = ocblacktopRallies.filter((r) => {
     const candidate = pickString(r, "name")
-    return candidate && rallyNameMatches(candidate, rally.name)
+    if (!candidate || !rallyNameMatches(candidate, rally.eventSlug || rally.name)) return false
+    const namedYear = candidate.match(/\b(20\d{2})\b/)?.[1]
+    const rallyYear = rally.startDate.slice(0, 4)
+    if (namedYear && namedYear !== rallyYear) return false
+    const candidateDate = pickDateField(r, "dateStart", "startDate")
+    if (candidateDate) {
+      const difference = Math.abs(Date.parse(candidateDate) - Date.parse(rally.startDate))
+      if (!Number.isFinite(difference) || difference > 7 * 86400000) return false
+    }
+    return true
   })
 
+  const match = matches.length === 1 ? matches[0] : null
   if (!match?.id) {
     console.log(`ocblacktop: no name match for ${rally.name}`)
     return null

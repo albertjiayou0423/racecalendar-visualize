@@ -8,7 +8,7 @@ const source = ts.transpileModule(fs.readFileSync('lib/wrc-puppeteer.ts', 'utf8'
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 const exports = {}
-vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.date = parseDateText; exports.cache = parseItineraryFromCache; exports.offset = itineraryUtcOffset;', {
+vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.date = parseDateText; exports.cache = parseItineraryFromCache; exports.offset = itineraryUtcOffset; exports.stageTime = parseStageTime;', {
   exports, require: name => name === './tz' ? timezone : {}, process: { env: {} }, console: { log() {}, error() {} },
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
@@ -68,4 +68,47 @@ test('FAQ UTC and GMT offsets override rally timezone without double conversion'
   }
   assert.equal(Number.isNaN(exports.offset('Itinerary UTC+25')), true)
   assert.equal(exports.convert(exports.cache(faq('Itinerary UTC+25'), '2026-07-09'), 'UTC', 'fixture').length, 0)
+})
+
+// These regressions must never select another rally merely through generic words.
+test('third-party rally matching rejects empty names and generic WRC rally overlap', () => {
+  const context = { exports: {}, require: () => ({}), process: { env: {} } }
+  vm.createContext(context)
+  vm.runInContext(source + '\nexports.match = rallyNameMatches;', context)
+  const match = context.exports.match
+  assert.equal(match('WRC Rally Monte Carlo', '芬兰拉力赛'), false)
+  assert.equal(match('WRC Rally Monte Carlo', 'wrc-rally-finland-2026'), false)
+  assert.equal(match('Rally', 'WRC Rally'), false)
+  assert.equal(match('WRC Rally Chile Bio Bío', 'wrc-rally-chile-bio-bio-2026'), true)
+  assert.equal(match('WRC Secto Rally Finland', 'wrc-secto-rally-finland-2026'), true)
+})
+
+test('third-party timestamps distinguish explicit UTC, offset ISO and local wall time', () => {
+  const tz = 'Europe/Helsinki'
+  assert.equal(exports.stageTime({ scheduledStartTimeUtc: '2026-07-10T09:00:00' }, tz).utc, '2026-07-10T09:00:00.000Z')
+  assert.equal(exports.stageTime({ scheduledStartTime: '2026-07-10T09:00:00' }, tz).utc, '2026-07-10T06:00:00.000Z')
+  assert.equal(exports.stageTime({ startTime: '2026-07-10T09:00:00+02:00' }, tz).utc, '2026-07-10T07:00:00.000Z')
+  assert.equal(exports.stageTime({ date: '2026-07-10', time: '09:00:12.125' }, tz).utc, '2026-07-10T06:00:12.125Z')
+  for (const stage of [
+    { date: '2026-02-29', time: '09:00' },
+    { date: '2026-07-10', time: '25:61' },
+    { startTime: '2026-02-30T09:00:00Z' },
+    { startTime: '2026-07-10' },
+  ]) assert.equal(exports.stageTime(stage, tz), null)
+})
+test('ambiguous and wrong-year third-party rallies do not request detail data', async () => {
+  const calls = []
+  const context = { exports: {}, calls, require: () => ({}), process: { env: {} }, console: { log() {} } }
+  vm.createContext(context)
+  vm.runInContext(source + `
+    fetchOcblacktopRallyDetail = async id => { calls.push(id); return null };
+    exports.fallback = tryOcblacktopFallback;
+  `, context)
+  const rally = { name: '芬兰拉力赛', eventSlug: 'wrc-secto-rally-finland-2026', startDate: '2026-08-07' }
+  await context.exports.fallback(rally, [{ id: 'old', name: 'Rally Finland', dateStart: '2025-08-07' }])
+  await context.exports.fallback(rally, [{ id: 'named-old', name: 'Rally Finland 2025' }])
+  await context.exports.fallback(rally, [{ id: 'a', name: 'Rally Finland' }, { id: 'b', name: 'WRC Rally Finland' }])
+  assert.equal(calls.length, 0)
+  await context.exports.fallback(rally, [{ id: 'current', name: 'Rally Finland', dateStart: '2026-08-06' }])
+  assert.deepEqual(calls, ['current'])
 })
