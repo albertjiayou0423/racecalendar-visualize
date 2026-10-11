@@ -1,5 +1,5 @@
 import { prioritizeWrcRallies } from "./wrc-crawl-order"
-import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired } from "./wrc-request-budget"
+import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired, memoizeWrcData } from "./wrc-request-budget"
 import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
@@ -565,7 +565,11 @@ async function tryOcblacktopFallback(
 
 // ============ 直接调用 WRC Feed API (最可靠的方案) ============
 
-async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
+function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
+  return memoizeWrcData(`feed:${uriSlug}:${startDate}`, () => fetchItineraryFromFeedApiUncached(uriSlug, startDate))
+}
+
+async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
   const feedUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${encodeURIComponent(uriSlug)}&page[limit]=1&rb3Locale=en&rb3Schema=v1:inlineContent`
   console.log(`WRC: calling feed API: ${feedUrl.substring(0, 120)}...`)
 
@@ -671,7 +675,11 @@ function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): strin
 // ============ 新方案：WRC Feed API 直接多 slug 尝试 + mainSubPage 补充 ============
 
 /** 通用 JSON API fetch（带完整浏览器头） */
-async function fetchJsonApi(url: string): Promise<any | null> {
+function fetchJsonApi(url: string): Promise<any | null> {
+  return memoizeWrcData(`json:${url}`, () => fetchJsonApiUncached(url))
+}
+
+async function fetchJsonApiUncached(url: string): Promise<any | null> {
   try {
     const res = await fetchWithinWrcBudget(url, {
       headers: WRC_API_HEADERS,
