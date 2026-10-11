@@ -56,6 +56,8 @@
 
 每场官网行程按以下次序尝试：
 
+0. 先读取赛事官网页面，发现 itinerary URL（无法发现时使用标准路径），读取并解析行程 HTML / 预渲染缓存。成功获得有效场次就直接返回，不调用 feed 回退。页面访问失败或没有可用赛段时间，才进入以下回退链路；feed 为最高优先级。
+
 1. 并行尝试四种 itinerary slug，请求官方 feed 的 `event-details` / `inlineContent`。解析 FAQ 中的日期和赛段时间。
 2. 全部失败时读取 mainSubPage 补充信息用于日志，然后进入旧链路。
 3. 获取赛事首页 HTML：直接请求 → `_escaped_fragment_=` 页面 → PhantomJsCloud 渲染服务。

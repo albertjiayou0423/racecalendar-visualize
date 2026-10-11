@@ -798,21 +798,38 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
 
 // ============ 主爬取函数 ============
 
+/** Official HTML first; Feed API is the highest-priority fallback. */
 async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
-  // 新方案优先：通过 pageTabs API 获取正确的 slug（不再猜测）
-  console.log(`WRC: trying v2 approach (pageTabs API) for ${eventSlug}`)
-  const v2Result = await scrapeWrcItineraryV2(eventSlug, tz, startDate)
-  if (v2Result && v2Result.length > 0) {
-    return v2Result
-  }
-  console.log(`WRC: v2 approach failed, falling back to original approach`)
+  const primary = await scrapeOfficialItineraryPage(eventSlug, tz, startDate)
+  if (primary?.sessions.length) return primary.sessions
 
+  const feed = await scrapeWrcItineraryV2(eventSlug, tz, startDate)
+  if (feed?.length) return feed
+
+  return scrapeWrcItineraryLegacy(eventSlug, tz, startDate, primary?.homeHtml)
+}
+
+async function scrapeOfficialItineraryPage(eventSlug: string, tz: string, startDate: string): Promise<{ sessions: RaceSession[]; homeHtml: string | null }> {
+  const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
+  const homeHtml = await fetchDirect(homeUrl, 0)
+  if (!homeHtml) return { sessions: [], homeHtml: null }
+  const homeCache = extractPrerenderCache(homeHtml)
+  const itineraryUrl = (homeCache && extractItineraryUrlFromCache(homeCache))
+    || `${homeUrl}/itinerary-${eventSlug}`
+  const html = await fetchDirect(itineraryUrl, 0)
+  if (!html) return { sessions: [], homeHtml }
+  const cache = extractPrerenderCache(html)
+  const days = (cache && parseItineraryFromCache(cache, startDate)) || parseItineraryFromHtml(html, startDate)
+  return { sessions: days?.length ? convertDaysToSessions(days, tz, eventSlug) : [], homeHtml }
+}
+
+async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate: string, existingHomeHtml?: string | null): Promise<RaceSession[] | null> {
   // 原有方案作为 fallback
   const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
   console.log(`WRC: fetching ${homeUrl}`)
 
   // Step 1: Fetch homepage (try direct, then with _escaped_fragment_ for SSR)
-  let homeHtml = await fetchDirect(homeUrl)
+  let homeHtml = existingHomeHtml || await fetchDirect(homeUrl)
   if (!homeHtml || !homeHtml.includes("rb3-prerender-data-cache")) {
     console.log(`WRC: direct fetch no cache, trying _escaped_fragment_ for ${homeUrl}`)
     homeHtml = await fetchDirect(`${homeUrl}?_escaped_fragment_=`)
