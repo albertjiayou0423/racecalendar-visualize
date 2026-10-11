@@ -11,7 +11,7 @@ const source = ts.transpileModule(fs.readFileSync('components/usage-guide.tsx', 
 }).outputText
 
 function mount(storage = new Map(), pathname = '/') {
-  const state = [], effects = [], timers = [], listeners = new Map()
+  const state = [], effects = [], timers = [], listeners = new Map(), navigations = []
   let cursor = 0
   const exports = {}
   const window = { addEventListener: (key, callback) => listeners.set(key, callback), removeEventListener: key => listeners.delete(key),
@@ -23,13 +23,13 @@ function mount(storage = new Map(), pathname = '/') {
     require: name => name === 'react' ? {
       useState: initial => { const index = cursor++; if (!(index in state)) state[index] = initial; return [state[index], value => { state[index] = value }] },
       useRef: () => ({ current: null }), useCallback: callback => callback, useEffect: work => effects.push(work),
-    } : name === '@/lib/usage-guide' ? guide : name === 'next/navigation' ? { usePathname: () => pathname }
+    } : name === '@/lib/usage-guide' ? guide : name === 'next/navigation' ? { usePathname: () => pathname, useRouter: () => ({ push: path => navigations.push(path) }) }
       : name === 'lucide-react' ? { BookOpen: () => null, X: () => null } : require(name),
   })
   cursor = 0
   const tree = exports.UsageGuide()
   for (const effect of effects.splice(0)) effect()
-  return { state, timers, storage, tree, reopen: () => exports.UsageGuideButton().props.onClick(),
+  return { state, timers, storage, tree, navigations, reopen: () => exports.UsageGuideButton().props.onClick(),
     render: () => { cursor = 0; return exports.UsageGuide() } }
 }
 
@@ -56,19 +56,44 @@ test('public deep links receive the guide but admin pages do not auto-open it', 
   assert.equal(admin.tree.props.children[0], false)
 })
 
-test('each public page has its own element targets and manual reopening starts the local tour', () => {
+test('each public page has its own targets without footer capsule lessons', () => {
   const home = guide.getGuideSteps('/')
   assert.equal(home[0].selector, '#search-input')
   for (const page of ['/event/fixture', '/results', '/standings', '/wallpaper', '/circuits', '/about']) {
     const steps = guide.getGuideSteps(page)
-    assert.ok(steps.length >= 2)
-    assert.equal(steps.at(-1).selector, '[data-guide="usage-launcher"]')
+    assert.ok(steps.length >= 1)
+    assert.ok(steps.every(step => !step.selector.includes('usage-launcher') && !step.selector.startsWith('a[href=')))
     assert.notEqual(steps[0].selector, home[0].selector)
     const mounted = mount(new Map([['racecalendar:usage-guide-seen', '1']]), page)
     mounted.reopen()
     assert.equal(mounted.state[0], true)
     assert.equal(mounted.state[1], 0)
+    assert.equal(mounted.state[5], null)
   }
+})
+
+function elements(tree, predicate) {
+  if (!tree || typeof tree !== 'object') return []
+  if (Array.isArray(tree)) return tree.flatMap(child => elements(child, predicate))
+  return [...(predicate(tree) ? [tree] : []), ...elements(tree.props?.children, predicate)]
+}
+test('guide opens a chooser, navigates to selected pages, and teaches cards without page navigation', () => {
+  const mounted = mount()
+  mounted.reopen()
+  let buttons = elements(mounted.render(), node => node.type === 'button')
+  assert.equal(buttons.filter(button => guide.GUIDE_CHOICES.some(choice => choice.key === button.key)).length, 7)
+  buttons.find(button => button.key === 'cards').props.onClick()
+  assert.equal(mounted.state[5], 'cards')
+  assert.deepEqual(mounted.navigations, [])
+  assert.equal(guide.CARD_GUIDE_STEPS.length, 7)
+  assert.deepEqual(guide.CARD_GUIDE_STEPS.map(step => step.demo), ['summary', 'time', 'expand', 'sessions', 'source', 'live', 'details'])
+  buttons = elements(mounted.render(), node => node.type === 'button')
+  buttons.find(button => button.props.children === '选择其他指南').props.onClick()
+  buttons = elements(mounted.render(), node => node.type === 'button')
+  buttons.find(button => button.key === 'standings').props.onClick()
+  assert.deepEqual(mounted.navigations, ['/standings'])
+  mounted.reopen()
+  assert.equal(mounted.state[5], null)
 })
 
 test('guide panel stays within desktop and mobile viewports and moves above bottom targets', () => {

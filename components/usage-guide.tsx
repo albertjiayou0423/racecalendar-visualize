@@ -1,9 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { BookOpen, X } from "lucide-react"
-import { getGuideSteps, guidePanelPosition, type GuideRect } from "@/lib/usage-guide"
+import { CARD_GUIDE_STEPS, GUIDE_CHOICES, getGuideSteps, guidePanelPosition, type GuideRect } from "@/lib/usage-guide"
 
 const SEEN_KEY = "racecalendar:usage-guide-seen"
 const OPEN_EVENT = "racecalendar:open-usage-guide"
@@ -17,19 +17,22 @@ export function UsageGuideButton() {
 
 export function UsageGuide() {
   const pathname = usePathname()
+  const router = useRouter()
   const dialog = useRef<HTMLDialogElement>(null)
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<GuideRect | null>(null)
   const [viewport, setViewport] = useState({ width: 1024, height: 768 })
   const [panelHeight, setPanelHeight] = useState(240)
+  const [selected, setSelected] = useState<string | null>(null)
   const panel = useRef<HTMLDivElement>(null)
-  const steps = getGuideSteps(pathname)
+  const steps = selected === "cards" ? CARD_GUIDE_STEPS : selected === "details" ? CARD_GUIDE_STEPS.slice(-1) : getGuideSteps(pathname)
   useEffect(() => { setStep(0); setRect(null) }, [pathname])
   const show = useCallback(() => {
     shownThisSession = true
     try { localStorage.setItem(SEEN_KEY, "1") } catch { /* Session guard still prevents repeat opens. */ }
     setStep(0)
+    setSelected(null)
     setOpen(true)
   }, [])
 
@@ -57,6 +60,13 @@ export function UsageGuide() {
   const current = steps[Math.min(step, steps.length - 1)]
   useEffect(() => {
     if (!open) return
+    const update = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
+  }, [open])
+  useEffect(() => {
+    if (!open || !selected || current.demo) { setRect(null); return }
     let target: HTMLElement | null = null
     let frame = 0
     const measure = () => {
@@ -85,27 +95,49 @@ export function UsageGuide() {
     window.addEventListener("resize", update)
     window.addEventListener("scroll", update, true)
     return () => { observer.disconnect(); resize.disconnect(); window.clearTimeout(timeout); cancelAnimationFrame(frame); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true) }
-  }, [open, step, pathname, current.selector, steps.length])
+  }, [open, selected, step, pathname, current.selector, current.demo, steps.length])
 
   useEffect(() => {
     if (!open || !panel.current) return
     const element = panel.current
+    element.scrollTop = 0
     const resize = new ResizeObserver(() => setPanelHeight(element.getBoundingClientRect().height))
     resize.observe(element)
     setPanelHeight(element.getBoundingClientRect().height)
     return () => resize.disconnect()
-  }, [open, step])
+  }, [open, step, selected, pathname])
 
-  const position = guidePanelPosition(rect, viewport, panelHeight)
+  const position = guidePanelPosition(selected && !current.demo ? rect : null, viewport, panelHeight, !selected || current.demo ? 640 : 360)
   return <>
     {pathname !== "/" && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && <div className="fixed bottom-4 right-4 z-40 rounded-full bg-background shadow-lg"><UsageGuideButton /></div>}
     <dialog ref={dialog} aria-labelledby="usage-guide-title" aria-describedby="usage-guide-description" onCancel={() => setOpen(false)} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">
       {rect ? <div aria-hidden="true" className="pointer-events-none fixed rounded-xl border-2 border-primary" style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.72)" }} /> : <div aria-hidden="true" className="fixed inset-0 bg-black/70" />}
       <div ref={panel} className="fixed overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" style={position}>
-        <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">本页指南 · {step + 1} / {steps.length}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="min-h-10 min-w-10 rounded-full p-2 hover:bg-secondary"><X className="mx-auto size-4" /></button></div>
-        <div aria-live="polite" aria-atomic="true"><h2 id="usage-guide-title" className="mt-2 text-lg font-semibold">{current.title}</h2><p id="usage-guide-description" className="mt-3 text-sm leading-relaxed text-muted-foreground">{current.description}</p></div>
-        <div className="mt-5 flex items-center justify-between gap-2"><button type="button" onClick={() => step ? setStep(step - 1) : setOpen(false)} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">{step ? "上一步" : "跳过"}</button><button type="button" onClick={() => step === steps.length - 1 ? setOpen(false) : setStep(step + 1)} className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">{step === steps.length - 1 ? "完成" : "下一步"}</button></div>
+        <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">{selected ? `功能指南 · ${step + 1} / ${steps.length}` : "欢迎使用赛车日历"}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="min-h-10 min-w-10 rounded-full p-2 hover:bg-secondary"><X className="mx-auto size-4" /></button></div>
+        <div aria-live="polite" aria-atomic="true"><h2 id="usage-guide-title" className="mt-2 text-lg font-semibold">{selected ? current.title : "你想先了解哪个界面？"}</h2><p id="usage-guide-description" className="mt-3 text-sm leading-relaxed text-muted-foreground">{selected ? current.description : "选择感兴趣的功能开始。页面指南会带你前往对应界面，赛事卡片与详情使用弹出示例讲解；随时可以回来选择其他内容。"}</p></div>
+        {!selected ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{GUIDE_CHOICES.map(choice => <button key={choice.key} type="button" onClick={() => { setStep(0); setRect(null); setSelected(choice.key); if (choice.path && choice.path !== pathname) router.push(choice.path) }} className="rounded-xl border border-border p-4 text-left transition-colors hover:border-primary hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary"><span className="block font-medium">{choice.label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{choice.detail}</span></button>)}</div> : current.demo ? <GuideEventCardExample key={current.demo} active={current.demo} /> : null}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+          {selected ? <><button type="button" onClick={() => { setSelected(null); setStep(0); setRect(null) }} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">选择其他指南</button><div className="flex gap-2"><button type="button" onClick={() => step ? setStep(step - 1) : setOpen(false)} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">{step ? "上一步" : "跳过"}</button><button type="button" onClick={() => step === steps.length - 1 ? setSelected(null) : setStep(step + 1)} className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">{step === steps.length - 1 ? "完成并返回选择" : "下一步"}</button></div></> : <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">暂时跳过</button>}
+        </div>
       </div>
     </dialog>
   </>
+}
+
+function GuideEventCardExample({ active }: { active: string }) {
+  const [expanded, setExpanded] = useState(active !== "summary" && active !== "time" && active !== "expand")
+  const [dayOpen, setDayOpen] = useState(active === "sessions")
+  const [liveOpen, setLiveOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(active === "details")
+  const zone = (name: string) => `rounded-lg border-2 p-3 ${active === name ? "border-primary bg-primary/10" : "border-transparent"}`
+  return <section aria-label="赛事卡片教学示例" className="mt-4 space-y-2 rounded-xl border border-border bg-background p-3">
+    <p className="text-xs font-medium text-muted-foreground">教学示例 · 所有时间、天气和计时数据均为虚构</p>
+    <div className={zone("summary")}><div className="flex items-center gap-3"><span className="rounded-lg bg-red-500 px-3 py-2 text-sm font-bold text-white">F1</span><div><p className="text-xs text-muted-foreground">第 1 站 · 示例</p><h3 className="font-semibold">示例大奖赛</h3><p className="text-xs text-muted-foreground">示例赛道 · 示例城市</p></div></div></div>
+    <div className={zone("time")}><p className="text-xs text-muted-foreground">下个场次 · 北京时间</p><p className="font-mono text-sm">周日 20:00</p><span className="mt-1 inline-block rounded-full bg-secondary px-3 py-1 text-xs">2时 30分后 · 示例倒计时</span></div>
+    <div className={zone("source")}><p className="text-xs">转播：待核对 · 官网：查看官方赛程</p>{active === "source" && <div className="mt-2 rounded-lg bg-secondary p-3 text-sm"><p>WRC 示例 · 估计</p><p className="mt-1 text-muted-foreground">SS1 示例赛段 · 时间待确认</p></div>}</div>
+    <div className={zone("expand")}><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} className="min-h-11 rounded-lg bg-secondary px-3 text-sm">赛事详情（示例）</button><button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="min-h-11 rounded-lg bg-secondary px-3 text-sm">{expanded ? "收起" : "详细"}</button></div></div>
+    {expanded && <div className={zone("sessions")}><button type="button" onClick={() => setDayOpen(!dayOpen)} aria-expanded={dayOpen} className="flex min-h-11 w-full items-center justify-between text-sm"><span>周日 · 2 个场次</span><span>{dayOpen ? "收起日期" : "展开日期"}</span></button>{dayOpen && <div className="space-y-2 text-sm"><div className="flex justify-between gap-2"><span>练习赛</span><span>北京 17:00 <span className="hidden sm:inline">· 当地 10:00</span></span></div><div className="flex justify-between gap-2 rounded bg-primary/10 p-2"><span>🏆 正赛</span><span>北京 20:00 <span className="hidden sm:inline">· 当地 13:00</span></span></div></div>}</div>}
+    {expanded && active === "live" && <div className={zone("live")}><p className="text-sm">天气示例 · 晴 24°C · 预报可能变化</p><button type="button" onClick={() => setLiveOpen(!liveOpen)} aria-expanded={liveOpen} className="mt-2 min-h-11 w-full rounded-lg bg-secondary px-3 text-left text-sm">LIVE · Live Timing {liveOpen ? "收起" : "展开"}</button>{liveOpen && <p className="mt-2 text-sm">示例车手 A · 第 1 位 · 圈速 1:30.000</p>}</div>}
+    {detailsOpen && <div className={zone("details")}><h4 className="text-sm font-semibold">赛事详情示例</h4><p className="mt-2 text-xs leading-relaxed text-muted-foreground">实际详情页还可查看完整场次、当地时间、赛道资料与观赛信息。</p><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-lg bg-secondary px-3 py-2 text-xs">设置正赛提醒 · 需通知权限</span><span className="rounded-lg bg-secondary px-3 py-2 text-xs">加入日历 · 下载文件</span></div></div>}
+  </section>
 }
