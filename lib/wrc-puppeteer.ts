@@ -44,7 +44,7 @@ async function fetchDirect(url: string, retries: number = 2): Promise<string | n
         }
         return null
       }
-      return res.text()
+      return await res.text()
     } catch (e) {
       if (i < retries && !wrcBudgetExpired()) {
         console.log(`Direct fetch error for ${url}, retrying...`, e)

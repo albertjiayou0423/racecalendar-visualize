@@ -12,6 +12,33 @@ vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.
   exports, require: name => name === './tz' ? timezone : {}, process: { env: {} }, console: { log() {}, error() {} },
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
+
+test('direct HTML fetch retries body failures and preserves permanent HTTP rejection behavior', async () => {
+  let calls = 0
+  let mode = 'recover'
+  const context = { exports: {}, AbortSignal, process: { env: {} },
+    setTimeout: callback => { callback(); return 0 }, console: { log() {}, error() {} },
+    require: name => name === './wrc-request-budget' ? {
+      wrcBudgetExpired: () => false,
+      fetchWithinWrcBudget: async () => {
+        calls++
+        return { ok: mode !== 'forbidden', status: 403, text: async () => {
+          if (mode === 'broken' || calls === 1) throw new Error('body disconnected')
+          return 'valid HTML'
+        } }
+      },
+    } : {},
+  }
+  vm.runInNewContext(source + '\nexports.direct = fetchDirect;', context)
+  assert.equal(await context.exports.direct('fixture'), 'valid HTML')
+  assert.equal(calls, 2)
+  calls = 0; mode = 'broken'
+  assert.equal(await context.exports.direct('fixture'), null)
+  assert.equal(calls, 3)
+  calls = 0; mode = 'forbidden'
+  assert.equal(await context.exports.direct('fixture'), null)
+  assert.equal(calls, 1)
+})
 test('official itinerary rejects rollover dates, invalid hours and minutes, and empty labels', () => {
   const sessions = exports.convert([
     { date: [2026, 2, 29], stages: [stage('09:00')] },
