@@ -52,6 +52,27 @@ test('English ordinal dates and explicit years do not inherit the wrong rally ye
   assert.deepEqual(Array.from(exports.date('Friday, 2 January 2027', '2026-12-31')), [2027, 1, 2])
   assert.deepEqual(Array.from(exports.date('2026-10-01', '2025-01-01')), [2026, 10, 1])
 })
+
+test('legacy HTML fallback continues after invalid SSR and itinerary page times', async () => {
+  const calls = []
+  const context = { exports: {}, calls, process: { env: {} }, console: { log() {}, error() {} },
+    require: name => name === './tz' ? timezone : {} }
+  vm.createContext(context)
+  vm.runInContext(source + `
+    extractPrerenderCache = () => ({});
+    extractItineraryUriSlugFromCache = () => 'fixture-itinerary';
+    fetchItineraryFromFeedApi = async () => null;
+    parseItineraryFromCache = () => null;
+    extractItineraryUrlFromCache = () => 'first-page';
+    extractResultsItineraryUrl = () => 'second-page';
+    fetchDirect = async url => { calls.push(url); return 'rb3-prerender-data-cache ' + url };
+    parseItineraryFromHtml = html => [{ date: [2026, 7, 10], stages: [{ name: 'SS1', time: html.includes('second-page') ? '09:00' : '25:61', isPowerStage: false }] }];
+    exports.legacy = scrapeWrcItineraryLegacy;
+  `, context)
+  const sessions = await context.exports.legacy('fixture-2026', 'UTC', '2026-07-10', 'rb3-prerender-data-cache home')
+  assert.equal(sessions[0].utc, '2026-07-10T09:00:00.000Z')
+  assert.deepEqual(calls.slice(-2), ['first-page', 'second-page'])
+})
 test('FAQ UTC and GMT offsets override rally timezone without double conversion', () => {
   const faq = title => ({ feed: { data: { data: { items: [{ type: 'faq', title, elements: [{
     question: [{ variant: 'text', text: 'Friday, 10 July 2026' }],

@@ -946,7 +946,7 @@ async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate
   }
 
   // Step 5: 如果还是失败，尝试旧方案（PhantomJsCloud 渲染 itinerary 页面）
-  if ((!days || days.length === 0) && homeCache) {
+  if ((!days || convertDaysToSessions(days, tz, eventSlug).length === 0) && homeCache) {
     console.log(`WRC: SSR failed, trying old approach with itinerary page`)
     const itineraryUrl = extractItineraryUrlFromCache(homeCache)
     const resultsItineraryUrl = extractResultsItineraryUrl(homeCache, eventSlug)
@@ -970,7 +970,7 @@ async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate
       if (!parsedDays || parsedDays.length === 0) {
         parsedDays = parseItineraryFromHtml(html, startDate)
       }
-      if (parsedDays && parsedDays.length > 0) {
+      if (parsedDays && convertDaysToSessions(parsedDays, tz, eventSlug).length > 0) {
         days = parsedDays
         break
       }
