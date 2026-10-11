@@ -1,5 +1,4 @@
 "use client"
-import { SpoilerGate } from "@/components/viewer-preferences"
 
 import { useEffect, useState } from "react"
 import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag, BarChart3 } from "lucide-react"
@@ -32,8 +31,7 @@ interface ConstructorStanding {
   }
 }
 
-export default function StandingsPage() { return <div className="mx-auto max-w-3xl px-4 py-6"><Link href="/" className="mb-4 block text-sm text-muted-foreground">返回首页</Link><SpoilerGate label="积分榜"><StandingsPageContent /></SpoilerGate></div> }
-function StandingsPageContent() {
+export default function StandingsPage() {
   const [tab, setTab] = useState<StandingTab>("drivers")
   const [drivers, setDrivers] = useState<DriverStanding[]>([])
   const [constructors, setConstructors] = useState<ConstructorStanding[]>([])

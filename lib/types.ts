@@ -78,13 +78,11 @@ export interface RaceEvent {
 }
 
 export interface ScheduleResponse {
-  offline?: boolean
   events: RaceEvent[]
   /** 各系列的数据来源与获取状态 */
   sources: {
     series: Series
     label: string
-    updatedAt?: string
     ok: boolean
     note?: string
   }[]

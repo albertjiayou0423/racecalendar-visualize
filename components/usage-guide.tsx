@@ -1,7 +1,5 @@
 "use client"
 
-import { useViewerPreferences } from "@/components/viewer-preferences"
-import type { Series } from "@/lib/types"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { BookOpen, X } from "lucide-react"
@@ -18,7 +16,6 @@ export function UsageGuideButton() {
 }
 
 export function UsageGuide() {
-  const { preferences, update } = useViewerPreferences()
   const pathname = usePathname()
   const router = useRouter()
   const dialog = useRef<HTMLDialogElement>(null)
@@ -132,7 +129,6 @@ export function UsageGuide() {
       <div ref={panel} className="fixed overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" style={position}>
         <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">{selected ? `功能指南 · ${step + 1} / ${steps.length}` : "欢迎使用赛车日历"}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="min-h-10 min-w-10 rounded-full p-2 hover:bg-secondary"><X className="mx-auto size-4" /></button></div>
         <div aria-live="polite" aria-atomic="true"><h2 id="usage-guide-title" className="mt-2 text-lg font-semibold">{selected ? current.title : "你想先了解哪个界面？"}</h2><p id="usage-guide-description" className="mt-3 text-sm leading-relaxed text-muted-foreground">{selected ? current.description : "选择感兴趣的功能开始。页面指南会带你前往对应界面，赛事卡片直接定位首页最上面的真实赛事；随时可以回来选择其他内容。"}</p></div>
-        {!selected && <fieldset className="mt-4 rounded-xl border border-border p-4"><legend className="px-2 text-sm font-medium">你喜欢看哪些赛事？</legend><p className="mb-3 text-xs text-muted-foreground">选好后首页优先看你关注的赛事，随时可以修改，也可以直接跳过。</p><div className="flex flex-wrap gap-2">{(["F1", "WRC", "FE"] as Series[]).map(s => <button key={s} type="button" aria-pressed={preferences.followed.includes(s)} onClick={() => update({ followed: preferences.followed.includes(s) ? preferences.followed.filter(value => value !== s) : [...preferences.followed, s], onlyFollowed: true })} className={`rounded-full border px-4 py-2 text-sm transition-colors ${preferences.followed.includes(s) ? "bg-foreground text-background" : "text-muted-foreground"}`}>{s}</button>)}</div></fieldset>}
         {!selected ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{GUIDE_CHOICES.map(choice => <button key={choice.key} type="button" onClick={() => { setStep(0); setRect(null); setSelected(choice.key); if (choice.path && choice.path !== pathname) router.push(choice.path) }} className="rounded-xl border border-border p-4 text-left transition-colors hover:border-primary hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary"><span className="block font-medium">{choice.label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{choice.detail}</span></button>)}</div> : null}
         {navigating && <p role="status" className="mt-3 text-xs text-muted-foreground">正在前往对应界面，加载后会定位控件。</p>}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">

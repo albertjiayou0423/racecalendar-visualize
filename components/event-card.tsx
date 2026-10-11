@@ -1,5 +1,4 @@
 "use client"
-import { SpoilerGate } from "@/components/viewer-preferences"
 import { eventSourceLabel } from "@/lib/f1-metadata"
 
 import { isEstimatedWrcSession } from "@/lib/session-time"
@@ -377,7 +376,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                                 {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                                 <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
                                 {!isEstimatedWrcSession(event, s) && isNightRace(s.utc, event.tz) && (
-                                  <Moon className="size-3 text-indigo-400" aria-label="夜赛" />
+                                  <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
                                 )}
                                 {s.tentative ? (
                                   <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
@@ -521,7 +520,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               ) : (event.circuitWikipediaUrl || event.wikipediaUrl) ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold">赛道图片</h4>
-                  <WikipediaImage url={(event.circuitWikipediaUrl || event.wikipediaUrl)!} />
+                  <WikipediaImage url={event.circuitWikipediaUrl || event.wikipediaUrl} />
                 </div>
               ) : null}
 
@@ -557,7 +556,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               )}
 
               {/* 去年冠军 */}
-              {event.lastYearWinner && (<SpoilerGate label="去年冠军">
+              {event.lastYearWinner && (
                 <div className="rounded-lg border border-border bg-secondary/30 p-3">
                   <h4 className="mb-2 text-sm font-semibold">2025 冠军</h4>
                   <div className="flex items-center justify-between">
@@ -568,11 +567,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     <span className="text-sm text-muted-foreground">车队</span>
                     <span className="text-sm font-medium">{event.lastYearWinner.constructor}</span>
                   </div>
-                </div></SpoilerGate>
+                </div>
               )}
 
               {/* 去年最快圈速 */}
-              {event.lastYearFastestLap && (<SpoilerGate label="去年最快圈">
+              {event.lastYearFastestLap && (
                 <div className="rounded-lg border border-border bg-secondary/30 p-3">
                   <h4 className="mb-2 text-sm font-semibold">2025 最快圈速</h4>
                   <div className="flex items-center justify-between">
@@ -587,7 +586,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     <span className="text-sm text-muted-foreground">圈数</span>
                     <span className="text-sm font-medium">第 {event.lastYearFastestLap.lap} 圈</span>
                   </div>
-                </div></SpoilerGate>
+                </div>
               )}
 
               {/* 更多信息（WRC） */}

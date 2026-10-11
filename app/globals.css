@@ -154,7 +154,3 @@
     opacity: 1;
   }
 }
-
-@keyframes spoiler-reveal { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-.spoiler-enter { animation: spoiler-reveal 260ms cubic-bezier(.2,.8,.2,1) both; }
-@media (prefers-reduced-motion: reduce) { .spoiler-enter { animation: none; } }

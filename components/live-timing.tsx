@@ -1,5 +1,4 @@
 "use client"
-import { SpoilerGate } from "@/components/viewer-preferences"
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Activity, Clock, ExternalLink, Flag, Pause, RefreshCw, Shield, Timer, TrendingUp, AlertTriangle } from "lucide-react"
@@ -18,8 +17,7 @@ const SERIES_LINKS: Record<string, string> = {
   WRC: "https://www.wrc.com/en/wrc-plus/live-timing/",
 }
 
-export function LiveTiming(props: LiveTimingProps) { return <SpoilerGate label="实时排名"><LiveTimingContent {...props} /></SpoilerGate> }
-function LiveTimingContent({ series, eventName, isExpanded }: LiveTimingProps) {
+export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
   const [data, setData] = useState<LiveTimingData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -138,7 +136,7 @@ function LiveTimingContent({ series, eventName, isExpanded }: LiveTimingProps) {
           <Activity className="size-5 text-primary" />
           <p className="text-sm font-medium">{eventName} Live Timing</p>
           <p className="text-xs text-muted-foreground">
-            Formula E 实时计时数据
+            {series === "WRC" ? "WRC 实时计时数据" : "Formula E 实时计时数据"}
           </p>
           <a
             href={officialLink}

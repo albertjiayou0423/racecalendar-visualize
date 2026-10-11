@@ -1,5 +1,4 @@
 "use client"
-import { SpoilerGate } from "@/components/viewer-preferences"
 
 import useSWR from "swr"
 import { useState, useEffect, useRef } from "react"
@@ -51,8 +50,7 @@ type ResultsResponse = { season: string; ok: boolean; note?: string } & (
   { series: "F1"; races?: F1Race[] } | { series: "FE"; races?: FeRace[]; results?: Record<string, FeResult[]> }
 )
 
-export default function ResultsPage() { return <div className="mx-auto max-w-3xl px-4 py-6"><Link href="/" className="mb-4 block text-sm text-muted-foreground">返回首页</Link><SpoilerGate label="历史赛果"><ResultsPageContent /></SpoilerGate></div> }
-function ResultsPageContent() {
+export default function ResultsPage() {
   const [series, setSeries] = useState<SeriesType>("F1")
   const [season, setSeason] = useState(() => String(new Date().getFullYear()))
   const [data, setData] = useState<ResultsResponse | null>(null)

@@ -1,5 +1,4 @@
 "use client"
-import { SpoilerGate } from "@/components/viewer-preferences"
 import { eventSourceLabel } from "@/lib/f1-metadata"
 
 import { ChevronDown, ExternalLink } from "lucide-react"
@@ -86,17 +85,17 @@ export function DeepInfo({ event }: DeepInfoProps) {
             </div>
           )}
 
-          {event.lastYearWinner && (<SpoilerGate label="去年冠军">
+          {event.lastYearWinner && (
             <div className="rounded-lg bg-secondary/30 p-3">
               <div className="text-xs font-medium text-muted-foreground">2025 冠军</div>
               <div className="mt-1 text-sm">
                 <span className="font-medium">{event.lastYearWinner.driver}</span>
                 <span className="text-muted-foreground"> · {event.lastYearWinner.constructor}</span>
               </div>
-            </div></SpoilerGate>
+            </div>
           )}
 
-          {event.lastYearFastestLap && (<SpoilerGate label="去年最快圈">
+          {event.lastYearFastestLap && (
             <div className="rounded-lg bg-secondary/30 p-3">
               <div className="text-xs font-medium text-muted-foreground">2025 最快圈速</div>
               <div className="mt-1 text-sm">
@@ -104,7 +103,7 @@ export function DeepInfo({ event }: DeepInfoProps) {
                 <span className="text-muted-foreground"> · {event.lastYearFastestLap.time}</span>
                 <span className="text-muted-foreground"> · 第 {event.lastYearFastestLap.lap} 圈</span>
               </div>
-            </div></SpoilerGate>
+            </div>
           )}
 
           {event.extraInfo && event.extraInfo.length > 0 && (

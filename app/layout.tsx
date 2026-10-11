@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import { ViewerPreferences, SpoilerSwitch } from '@/components/viewer-preferences'
 import { SWRegister } from '@/components/sw-register'
 import { UsageGuide } from '@/components/usage-guide'
 import { ClientCrawl } from '@/components/client-crawl'
@@ -45,13 +44,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
       <body className="antialiased font-sans">
-        <ViewerPreferences>
-        <div className="mx-auto flex max-w-3xl justify-end px-4 pt-4"><SpoilerSwitch /></div>
         {children}
         <UsageGuide />
         <ClientCrawl />
         <SWRegister />
-        </ViewerPreferences>
       </body>
     </html>
   )
