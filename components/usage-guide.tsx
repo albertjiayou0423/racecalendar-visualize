@@ -26,7 +26,9 @@ export function UsageGuide() {
   const [panelHeight, setPanelHeight] = useState(240)
   const [selected, setSelected] = useState<string | null>(null)
   const panel = useRef<HTMLDivElement>(null)
-  const steps = selected === "cards" ? CARD_GUIDE_STEPS : selected === "details" ? CARD_GUIDE_STEPS.slice(-1) : getGuideSteps(pathname)
+  const selectedPath = GUIDE_CHOICES.find(choice => choice.key === selected)?.path
+  const navigating = !!selectedPath && selectedPath !== pathname
+  const steps = selected === "cards" ? CARD_GUIDE_STEPS : selected === "details" ? CARD_GUIDE_STEPS.slice(-1) : getGuideSteps(selectedPath || pathname)
   useEffect(() => { setStep(0); setRect(null) }, [pathname])
   const show = useCallback(() => {
     shownThisSession = true
@@ -66,7 +68,7 @@ export function UsageGuide() {
     return () => window.removeEventListener("resize", update)
   }, [open])
   useEffect(() => {
-    if (!open || !selected || current.demo) { setRect(null); return }
+    if (!open || !selected || current.demo || navigating) { setRect(null); return }
     let target: HTMLElement | null = null
     let frame = 0
     const measure = () => {
@@ -95,7 +97,7 @@ export function UsageGuide() {
     window.addEventListener("resize", update)
     window.addEventListener("scroll", update, true)
     return () => { observer.disconnect(); resize.disconnect(); window.clearTimeout(timeout); cancelAnimationFrame(frame); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true) }
-  }, [open, selected, step, pathname, current.selector, current.demo, steps.length])
+  }, [open, selected, step, pathname, navigating, current.selector, current.demo, steps.length])
 
   useEffect(() => {
     if (!open || !panel.current) return
@@ -116,6 +118,7 @@ export function UsageGuide() {
         <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">{selected ? `功能指南 · ${step + 1} / ${steps.length}` : "欢迎使用赛车日历"}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="min-h-10 min-w-10 rounded-full p-2 hover:bg-secondary"><X className="mx-auto size-4" /></button></div>
         <div aria-live="polite" aria-atomic="true"><h2 id="usage-guide-title" className="mt-2 text-lg font-semibold">{selected ? current.title : "你想先了解哪个界面？"}</h2><p id="usage-guide-description" className="mt-3 text-sm leading-relaxed text-muted-foreground">{selected ? current.description : "选择感兴趣的功能开始。页面指南会带你前往对应界面，赛事卡片与详情使用弹出示例讲解；随时可以回来选择其他内容。"}</p></div>
         {!selected ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{GUIDE_CHOICES.map(choice => <button key={choice.key} type="button" onClick={() => { setStep(0); setRect(null); setSelected(choice.key); if (choice.path && choice.path !== pathname) router.push(choice.path) }} className="rounded-xl border border-border p-4 text-left transition-colors hover:border-primary hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary"><span className="block font-medium">{choice.label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{choice.detail}</span></button>)}</div> : current.demo ? <GuideEventCardExample key={current.demo} active={current.demo} /> : null}
+        {navigating && <p role="status" className="mt-3 text-xs text-muted-foreground">正在前往对应界面，加载后会定位控件。</p>}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
           {selected ? <><button type="button" onClick={() => { setSelected(null); setStep(0); setRect(null) }} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">选择其他指南</button><div className="flex gap-2"><button type="button" onClick={() => step ? setStep(step - 1) : setOpen(false)} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">{step ? "上一步" : "跳过"}</button><button type="button" onClick={() => step === steps.length - 1 ? setSelected(null) : setStep(step + 1)} className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">{step === steps.length - 1 ? "完成并返回选择" : "下一步"}</button></div></> : <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">暂时跳过</button>}
         </div>

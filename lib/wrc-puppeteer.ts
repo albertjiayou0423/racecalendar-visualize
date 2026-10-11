@@ -948,6 +948,17 @@ async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate
 }
 
 /** 将 ItineraryDay[] 转换为 RaceSession[] */
+export function parseClientWrcFeed(json: unknown, event: RaceEvent): RaceEvent[] {
+  const items = (json as any)?.data?.items
+  if (!Array.isArray(items) || items.length > 100 || !event.eventSlug || !event.sessions.length) throw new Error("WRC 响应无效")
+  const fallback = event.sessions[0].utc.slice(0, 10)
+  const days = parseItineraryItems(items, fallback)
+  if (!days) throw new Error("未找到已确认行程")
+  const sessions = convertDaysToSessions(days, event.tz, event.eventSlug)
+  if (!sessions.length || sessions.length > 100 || sessions.some(session => session.name.length > 200)) throw new Error("赛段无效")
+  return [{ ...event, sessions, tentative: false }]
+}
+
 function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: string): RaceSession[] {
   const sessions: RaceSession[] = []
 

@@ -114,6 +114,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const [showLiveTiming, setShowLiveTiming] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
+  const [showClientInfo, setShowClientInfo] = useState(false)
   const articleRef = useRef<HTMLElement>(null)
   const detailRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(false)
@@ -216,10 +217,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           </div>
 
           {/* 名称与地点 */}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" onMouseLeave={() => setShowClientInfo(false)}>
             <h3 className="flex items-center gap-2 text-balance text-base font-semibold leading-tight">
               {flag ? <span aria-hidden>{flag}</span> : null}
               <span className="truncate">{event.name}</span>
+              {event.clientData && <button type="button" aria-label="查看客户端补充数据来源" aria-expanded={showClientInfo} onMouseEnter={() => setShowClientInfo(true)} onClick={() => setShowClientInfo(value => !value)} title={`客户端自动补缺，尚未经服务端独立核验。上传时间：${new Date(event.clientData.uploadedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}；场次：${event.clientData.sessions.join("、")}；来源：${event.clientData.sourceUrl}`} className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-[11px] font-serif text-muted-foreground hover:border-primary hover:text-primary">i</button>}
               {isLiveNow && (
                 <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-500">
                   <span className="relative flex h-1.5 w-1.5">
@@ -230,6 +232,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 </span>
               )}
             </h3>
+            {event.clientData && showClientInfo && <div className="mt-2 rounded-lg border border-border bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground"><p>客户端网络采集，自动补齐缺失场次；尚未经服务端独立核验，仅供参考。</p><p className="mt-1">上传：{new Date(event.clientData.uploadedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p><p>补充：{event.clientData.sessions.join("、")}</p><p className="break-all">来源：{event.clientData.sourceUrl}</p></div>}
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
               <MapPin className="size-3.5 shrink-0" aria-hidden />
               <span className="truncate">
@@ -394,7 +397,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                   <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：WRC 官方 itinerary</span>
                 )
               ) : event.series === "F1" ? (
-                <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：F1 官方公开数据</span>
+                <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：F1 公开数据{event.clientData ? " / 客户端补充" : ""}</span>
               ) : event.series === "FE" ? (
                 <span className="ml-2 text-emerald-600 dark:text-emerald-400">时间来源：Formula E 官方 API</span>
               ) : null}

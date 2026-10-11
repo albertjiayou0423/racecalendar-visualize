@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { SWRegister } from '@/components/sw-register'
 import { UsageGuide } from '@/components/usage-guide'
+import { ClientCrawl } from '@/components/client-crawl'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body className="antialiased font-sans">
         {children}
         <UsageGuide />
+        <ClientCrawl />
         <SWRegister />
       </body>
     </html>

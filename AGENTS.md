@@ -30,6 +30,7 @@
 - `lib/admin-session.ts` / `lib/admin-auth.ts`：签名管理员会话及服务端授权。
 - `app/api/admin/database/route.ts` / `components/database-inspector.tsx`：业务表只读检查。
 - `lib/fetch-with-snapshot.ts` / `lib/schedule-fetch.ts`：首页与后台共用的失败回退、成功持久化及计数策略。
+- `components/client-crawl.tsx` / `app/api/client-crawl/route.ts` / `lib/client-crawl.ts` / `lib/client-crawl-store.ts`：访客网络辅助采集、任务令牌、自动补缺和事务持久化；细节见 `docs/client-crawl.md`。
 - `lib/tz.ts`、`lib/format.ts`：UTC 转换和北京时间展示。
 - `public/sw.js`：PWA 缓存；`public/circuits/`：实际使用的赛道图。
 - 数据链路细节与已知问题见 `docs/data-flow.md`。
@@ -39,6 +40,7 @@
 - 场次时间保存为 UTC ISO 字符串，展示通过明确时区转换；保持北京时间主视图。当地时间转换需考虑夏令时。
 - 保持事件 ID 稳定：人工覆盖、投票和通知依赖 ID。
 - 保留 `tentative` 的真实含义，估计数据不能标成官方已确认数据；系列 `ok` 不等于所有赛事均已确认。
+- 客户端上传只补已知赛事的缺失场次或无效 UTC，不覆盖已有有效时间；保留待核验和客户端来源标记。所有应用快照写入共用系列事务锁，不能绕过锁引入并发覆盖。
 - 新增或修改数据源时同时考虑缓存、超时、失败返回、快照、配额和来源提示，并更新数据链路文档。
 - 人工覆盖目前是顶层浅合并，`sessions` 等数组整体替换；改变合并策略前检查后台编辑和预览。
 - 快照、Next fetch 缓存、SWR、localStorage 和 Service Worker 是不同层，变更刷新逻辑时分别验证。

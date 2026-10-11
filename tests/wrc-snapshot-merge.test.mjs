@@ -53,6 +53,7 @@ test('snapshot write failure propagates once without repeating a database insert
     }
     return []
   }
+  sql.transaction = queries => Promise.all(queries)
   const source = ts.transpileModule(fs.readFileSync('lib/crawl-store.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
@@ -73,6 +74,7 @@ test('snapshot store persists merged confirmed sessions and updates response pro
     if (query.includes('INSERT INTO crawl_snapshots')) writes.push(JSON.parse(values[1]))
     return []
   }
+  sql.transaction = queries => Promise.all(queries)
   const source = ts.transpileModule(fs.readFileSync('lib/crawl-store.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText

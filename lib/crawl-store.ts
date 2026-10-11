@@ -58,10 +58,13 @@ export async function saveCrawlSnapshot(
   if (!sql) return
 
   try {
-    await sql`
-      INSERT INTO crawl_snapshots (series, data, source)
-      VALUES (${series}, ${JSON.stringify(data)}, ${source ?? null})
-    `
+    await sql.transaction([
+      sql`SELECT pg_advisory_xact_lock(1681090, hashtext(${series}))`,
+      sql`
+        INSERT INTO crawl_snapshots (series, data, source, fetched_at)
+        VALUES (${series}, ${JSON.stringify(data)}, ${source ?? null}, clock_timestamp())
+      `,
+    ], { isolationLevel: "ReadCommitted" })
   } catch (err) {
     console.error("保存爬取快照失败:", err)
     throw err

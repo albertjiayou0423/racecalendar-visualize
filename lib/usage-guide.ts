@@ -14,7 +14,7 @@ export const CARD_GUIDE_STEPS: GuideStep[] = [
   { selector: "", demo: "time", title: "开赛时间与赛事状态", description: "首页以北京时间展示下一个场次，倒计时随之更新。LIVE 表示处于预计进行时段，已结束表示所有场次结束；状态来自时间计算，不等同于现场直播确认。" },
   { selector: "", demo: "expand", title: "「详细」展开场次表", description: "点击「详细」展开卡片中的时间表，再点击日期查看当天场次。可以在示例中试一试；「赛事详情」则进入独立页面，是另一个入口。" },
   { selector: "", demo: "sessions", title: "按日期看场次与时区", description: "每个日期可以单独展开或收起。正赛等主场次用底色和奖杯突出；手机主要展示北京时间，桌面还展示当地时间。夜赛图标按当地时间判断。" },
-  { selector: "", demo: "source", title: "转播、官网与 WRC 时间待确认", description: "转播栏提供观赛线索，官网入口便于核对原始赛程。WRC 的「估计」标记表示未确认数据，详细场次只显示「时间待确认」，不要把估计时间当作官方安排。" },
+  { selector: "", demo: "source", title: "转播、来源与 WRC 时间待确认", description: "转播栏提供观赛线索，官网入口便于核对原始赛程。有客户端补缺的卡片会显示小 i，悬停或点击可查看来源与上传时间。WRC 的「估计」标记表示未确认数据，详细场次只显示「时间待确认」，不要把估计时间当作官方安排。" },
   { selector: "", demo: "live", title: "天气与 Live Timing", description: "展开卡片后，已确认主场次可显示天气；天气可能加载中、缺失或失败。预计比赛进行中才显示 Live Timing 入口，打开后查看可用的实时计时，具体数据取决于系列和上游支持。" },
   { selector: "", demo: "details", title: "赛事详情、提醒与日历", description: "真实卡片的「赛事详情」进入独立页面，查看完整安排与观赛资料；那里可以设置主场次提醒或下载日历文件。通知需要浏览器授权；WRC 时间未确认时提醒和日历不可用。" },
 ]

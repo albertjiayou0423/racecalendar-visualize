@@ -15,6 +15,7 @@ const LABELS: Record<string, string> = {
   crawl_snapshots: "抓取快照", crawl_quota: "抓取配额", event_overrides: "人工覆盖",
   service_health_log: "服务检查记录", predictions: "用户投票", ai_usage: "AI 用量",
   feedbacks: "用户反馈", push_subscriptions: "推送订阅",
+  client_crawl_jobs: "客户端采集任务与补缺记录",
 }
 
 function pretty(value: string | null): string {

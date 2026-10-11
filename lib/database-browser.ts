@@ -1,6 +1,6 @@
 export const INSPECTABLE_TABLES = [
   "crawl_snapshots", "crawl_quota", "event_overrides", "service_health_log",
-  "predictions", "ai_usage", "feedbacks", "push_subscriptions",
+  "predictions", "ai_usage", "feedbacks", "push_subscriptions", "client_crawl_jobs",
 ] as const
 
 export function isInspectableTable(name: string): boolean {
@@ -18,5 +18,5 @@ export function pageNumber(value: string | null, fallback: number, maximum: numb
   return Number.isSafeInteger(number) && number >= 1 && number <= maximum ? number : null
 }
 
-export const HIDDEN_COLUMNS = new Set(["endpoint", "p256dh", "auth"])
+export const HIDDEN_COLUMNS = new Set(["endpoint", "p256dh", "auth", "token_hash"])
 export const CELL_LIMIT = 16000
