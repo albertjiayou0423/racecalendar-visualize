@@ -83,10 +83,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false, message: result.result.note || "获取失败，已有快照已保留",
       fromCache: result.fromCache,
+      diagnostics: result.diagnostics,
     }, { status: 502 })
   }
   return NextResponse.json({
     ok: true,
-    data: { series, eventCount: result.result.events.length, fetchedAt: new Date().toISOString(), note: result.result.note },
+    data: { series, eventCount: result.result.events.length, fetchedAt: new Date().toISOString(), note: result.result.note, diagnostics: result.diagnostics },
   })
 }
