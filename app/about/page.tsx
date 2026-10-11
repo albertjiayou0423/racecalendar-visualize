@@ -14,9 +14,8 @@ const changelog: ChangelogEntry[] = [
     version: "v2.2.3",
     date: "2026-10-11",
     items: [
-      { type: "feat", text: "Playground 改为真实组件预览：复用首页筛选、赛事卡片、周历、月历、反馈弹窗和正式倒计时，支持八种隔离数据场景" },
-      { type: "ui", text: "测试台支持手机/桌面视口、动效时长与曲线、减少动态效果和倒计时边界定位；预览不提交反馈、投票或触发数据采集" },
-      { type: "fix", text: "反馈弹窗补齐键盘焦点限制与 Esc 关闭；倒计时提示使用简洁中文，去除 emoji" },
+      { type: "feat", text: "Playground 改为组件 Cheatsheet：逐行列出所有正式组件，每行实时预览、独立可编辑 props 与单独预设胶囊；支持视口和动效调节" },
+      { type: "fix", text: "Playground 预览隔离外部请求、通知权限、反馈提交、提醒设置和 Service Worker，不递归载入组件目录" },
     ],
   },
   {

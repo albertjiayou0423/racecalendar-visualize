@@ -1,5 +1,5 @@
 // 赛道时刻 Service Worker — 离线缓存核心页面
-const CACHE_NAME = "race-calendar-v2.2.3"
+const CACHE_NAME = "race-calendar-v2.2.3-playground-catalog"
 const CORE_ASSETS = ["/", "/about", "/standings", "/circuits"]
 
 self.addEventListener("install", (event) => {

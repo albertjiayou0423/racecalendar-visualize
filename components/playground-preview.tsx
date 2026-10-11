@@ -1,55 +1,101 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
-import { EventCard } from "./event-card"
-import { ScheduleView } from "./schedule-view"
-import { WeekView } from "./week-view"
-import { MonthView } from "./month-view"
-import { NextRacePreview } from "./next-race-preview"
-import { ImmersiveCountdown } from "./immersive-countdown"
-import { FeedbackButton } from "./feedback-button"
+
+import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react"
 import { Button } from "./ui/button"
-import { PlaygroundContext, type PlaygroundScenario } from "./playground-context"
-import { playgroundData, PLAYGROUND_SCENARIOS } from "@/lib/playground-data"
-import type { Series } from "@/lib/types"
+import { PlaygroundContext } from "./playground-context"
+import { playgroundData } from "@/lib/playground-data"
+import { componentCatalog, type CatalogProps } from "@/lib/playground-catalog"
+
+if (typeof window !== "undefined" && window.location.pathname === "/playground/preview") {
+  const nextFetch = window.fetch.bind(window)
+  window.fetch = (input, init) => {
+    const requested = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.href)
+    if (requested.origin === window.location.origin && !requested.pathname.startsWith("/api/")) return nextFetch(input, init)
+    return Promise.reject(new TypeError("Playground preview does not make application or external network requests"))
+  }
+}
+
+const loaders: Record<string, () => Promise<Record<string, unknown>>> = {
+  Button: () => import("./ui/button"), EventCard: () => import("./event-card"), EventHeader: () => import("./event-header"),
+  NextRacePreview: () => import("./next-race-preview"), NextSessionPill: () => import("./next-session-pill"),
+  SessionTimeline: () => import("./session-timeline"), ShareCard: () => import("./share-card"),
+  DeepInfo: () => import("./deep-info"), Highlights: () => import("./highlights"), WatchInfo: () => import("./watch-info"),
+  AIPrediction: () => import("./ai-prediction"), PredictionVote: () => import("./prediction-vote"),
+  WeekView: () => import("./week-view"), MonthView: () => import("./month-view"), StandingsChart: () => import("./standings-chart"),
+  WeatherCard: () => import("./weather-card"), WeatherStrip: () => import("./weather-strip"), LiveTiming: () => import("./live-timing"),
+  OfficialLiveTiming: () => import("./official-live-timing"), CircuitImage: () => import("./circuit-image"),
+  WikipediaImage: () => import("./wikipedia-image"), WallpaperGenerator: () => import("./wallpaper-generator"),
+  ImmersiveCountdown: () => import("./immersive-countdown"), FeedbackButton: () => import("./feedback-button"),
+  FeedbackForm: () => import("./feedback-form"), NotificationManager: () => import("./notification-manager"),
+  EventNotificationManager: () => import("./event-notification-manager"), ScheduleView: () => import("./schedule-view"),
+  PageTransition: () => import("./page-transition"), FeDriverStandings: () => import("./fe-driver-standings"),
+  LastRaceResults: () => import("./last-race-results"), AdminPanel: () => import("./admin-panel"),
+  UsageGuideButton: () => import("./usage-guide"), UsageGuide: () => import("./usage-guide"),
+  ClientCrawl: () => import("./client-crawl"), SWRegister: () => import("./sw-register"),
+  DatabaseInspector: () => import("./database-inspector"),
+}
+const components = Object.fromEntries(Object.entries(loaders).map(([name, loader]) => [name, lazy(async () => {
+  const module = await loader()
+  return { default: module[name] as ComponentType<CatalogProps> }
+})]))
+
+class PreviewBoundary extends Component<{ children: ReactNode; revision: number }, { error: string }> {
+  state = { error: "" }
+  static getDerivedStateFromError(error: Error) { return { error: error.message } }
+  componentDidUpdate(previous: Readonly<{ children: ReactNode; revision: number }>) {
+    if (this.state.error && previous.revision !== this.props.revision) this.setState({ error: "" })
+  }
+  render() { return this.state.error ? <p role="alert" className="rounded-lg border border-destructive p-3 text-sm">参数无法渲染：{this.state.error}。请修正参数或选择预设。</p> : this.props.children }
+}
 
 export function PlaygroundPreview() {
-  const [query, setQuery] = useState<URLSearchParams | null>(null)
+  const [name, setName] = useState("")
+  const [props, setProps] = useState<CatalogProps>({})
   const [now] = useState(() => Date.now())
-  const [running, setRunning] = useState(false)
-  const [elapsed, setElapsed] = useState(0)
-  const [immersive, setImmersive] = useState(false)
-  const [target, setTarget] = useState("")
+  const [settings, setSettings] = useState({ duration: "original", easing: "original", reduced: false })
   const [notice, setNotice] = useState("")
-  useEffect(() => setQuery(new URLSearchParams(window.location.search)), [])
-  useEffect(() => { if (!running) return; const start = Date.now() - elapsed * 1000; const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000); return () => window.clearInterval(timer) }, [running])
-  const rawScenario = query?.get("scenario") || "normal"
-  const scenario = PLAYGROUND_SCENARIOS.includes(rawScenario as PlaygroundScenario) ? rawScenario as PlaygroundScenario : "normal"
-  const data = useMemo(() => playgroundData(scenario, now), [scenario, now])
-  const reduced = query?.get("reduced") === "true"
-  const state = useMemo(() => ({ scenario, now, data, reduced }), [scenario, now, data, reduced])
-  if (!query) return null
-  const duration = ["120", "180", "240", "300", "500"].includes(query.get("duration") || "") ? `${query.get("duration")}ms` : null
-  const easing = ["ease-out", "ease-in-out", "linear"].includes(query.get("easing") || "") ? query.get("easing") : null
-  const seconds = Math.max(0, Math.min(172800, Number(query.get("seconds")) || 0))
-  const series = ["F1", "WRC", "FE"].includes(query.get("series") || "") ? query.get("series") as Series : "F1"
-  const event = data.events.find(e => e.series === series)
-  const countdownEvent = event ? { ...event, sessions: [{ name: "正赛", isMain: true, utc: new Date(now + seconds * 1000).toISOString() }] } : undefined
-  const component = query.get("component")
+  const [closed, setClosed] = useState(false)
+  const [errorRevision, setErrorRevision] = useState(0)
+  const data = useMemo(() => playgroundData("normal", now), [now])
+  const contextNow = typeof props.serverTime === "number" ? props.serverTime : now
+  const state = useMemo(() => ({ scenario: "normal" as const, now: contextNow, data, reduced: settings.reduced }), [contextNow, data, settings.reduced])
+  useEffect(() => {
+    const component = new URLSearchParams(window.location.search).get("component") || "Button"
+    const entry = componentCatalog(now).find(item => item.name === component)
+    if (!entry) { setNotice("没有这个组件"); return }
+    setName(component); setProps(entry.presets[0].props)
+    const receive = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== "playground:props" || event.data.component !== component) return
+      const next = event.data.props
+      if (!next || typeof next !== "object" || Array.isArray(next)) return
+      setProps(next); setErrorRevision(n => n + 1)
+      setSettings({ duration: String(event.data.duration), easing: String(event.data.easing), reduced: event.data.reduced === true })
+    }
+    window.addEventListener("message", receive)
+    window.parent.postMessage({ type: "playground:ready" }, window.location.origin)
+    return () => window.removeEventListener("message", receive)
+  }, [now])
+  const ActualComponent = components[name]
+  const duration = ["120", "180", "240", "300", "500"].includes(settings.duration) ? `${settings.duration}ms` : null
+  const easing = ["ease-out", "ease-in-out", "linear"].includes(settings.easing) ? settings.easing : null
+  const callback = useCallback((callbackName: string) => { setNotice(`${callbackName} 已触发`); if (callbackName === "onClose") setClosed(true) }, [])
+  const callbackProps = useMemo(() => Object.fromEntries(
+    (componentCatalog(now).find(entry => entry.name === name)?.callbacks ?? []).map(key => [key, () => callback(key)]),
+  ), [now, name, callback])
   return <PlaygroundContext.Provider value={state}>
-    <style>{`${duration ? `body * { transition-duration: ${duration} !important; animation-duration: ${duration} !important; }` : ""}${easing ? `body * { transition-timing-function: ${easing} !important; animation-timing-function: ${easing} !important; }` : ""}${reduced ? "body *, body *::before, body *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }" : ""}`}</style>
-    <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">正式组件 · 隔离预览 · 数据为测试场景{notice && <p role="status" className="mt-1 break-all">{notice}</p>}</div>
-    <div onClickCapture={e => { const link = (e.target as HTMLElement).closest("a"); if (link) { e.preventDefault(); e.stopPropagation(); setNotice(`导航预览：${link.getAttribute("href")}。隔离视口保持在测试台。`) } }}>
-    {component === "schedule" ? <ScheduleView serverTime={now} /> : <main className="mx-auto max-w-3xl space-y-4 p-4">
-      {["loading", "error", "empty", "offline"].includes(scenario) && <ScheduleView serverTime={now} />}
-      {!["loading", "error", "empty"].includes(scenario) && <>
-        {component === "card" && event && <EventCard event={event} now={now} />}
-        {component === "week" && <WeekView events={data.events} now={now} />}
-        {component === "month" && <MonthView events={data.events} now={now} />}
-        {component === "feedback" && <FeedbackButton />}
-        {component === "countdown" && countdownEvent && <><div className="flex gap-2"><Button size="sm" onClick={() => setRunning(v => !v)}>{running ? "暂停" : "开始"}</Button><Button variant="outline" size="sm" onClick={() => { setRunning(false); setElapsed(0) }}>重置倒计时</Button></div><NextRacePreview event={countdownEvent} now={now + elapsed * 1000} /></>}
-        {component === "immersive" && <><Button onClick={() => { setTarget(new Date(Date.now() + seconds * 1000).toISOString()); setImmersive(true) }}>进入沉浸式</Button>{immersive && <ImmersiveCountdown targetTime={target} series={series} onClose={() => setImmersive(false)} />}</>}
-      </>}
-    </main>}
-    </div>
+    <style>{`${duration ? `body * { transition-duration: ${duration} !important; animation-duration: ${duration} !important; }` : ""}${easing ? `body * { transition-timing-function: ${easing} !important; animation-timing-function: ${easing} !important; }` : ""}${settings.reduced ? "body *, body *::before, body *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }" : ""}`}</style>
+    <main className="min-w-0 p-3" onClickCapture={event => {
+      const link = (event.target as HTMLElement).closest("a")
+      if (link) { event.preventDefault(); event.stopPropagation(); setNotice(`链接目标：${link.getAttribute("href")}`) }
+    }}>
+      <p className="mb-3 text-xs text-muted-foreground">{name} · 真实组件 / 独立输入{notice && <span role="status" className="mt-1 block break-all">{notice}</span>}</p>
+      <PreviewBoundary revision={errorRevision}><Suspense fallback={<p role="status" className="text-sm">加载组件…</p>}>
+        {name === "PlaygroundPreview" ? <p className="text-xs text-muted-foreground">当前视口就是 PlaygroundPreview 宿主；不递归嵌套。</p>
+          : closed ? <Button size="sm" variant="outline" onClick={() => setClosed(false)}>重新打开 {name}</Button>
+          : ActualComponent ? <ActualComponent {...props} {...callbackProps} /> : null}
+        {["ClientCrawl", "SWRegister"].includes(name) && <p className="text-xs text-muted-foreground">组件已挂载，无可视内容；预览路径不执行后台副作用。</p>}
+        {name === "UsageGuideButton" && components.UsageGuide && <components.UsageGuide />}
+      </Suspense></PreviewBoundary>
+    </main>
   </PlaygroundContext.Provider>
 }

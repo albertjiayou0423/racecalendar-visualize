@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
+import { usePlayground } from "./playground-context"
 import { Bell, BellOff, Check, Settings } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { firstSession, formatTime, SERIES_META } from "@/lib/format"
@@ -34,6 +35,7 @@ type ScheduledNotification = {
 }
 
 export function NotificationManager({ events }: NotificationManagerProps) {
+  const playground = usePlayground()
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [enabled, setEnabled] = useState(false)
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
@@ -42,6 +44,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (playground) return
     if (typeof window !== "undefined" && "Notification" in window) {
       setPermission(Notification.permission)
       const stored = localStorage.getItem(STORAGE_KEY)
@@ -72,7 +75,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   }, [showSettings])
 
   useEffect(() => {
-    if (!enabled || permission !== "granted") {
+    if (playground || !enabled || permission !== "granted") {
       clearAllTimers()
       return
     }
@@ -148,6 +151,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   }
 
   const toggleNotifications = async () => {
+    if (playground) { setEnabled(value => !value); return }
     if (enabled) {
       setEnabled(false)
       localStorage.setItem(STORAGE_KEY, "false")
@@ -171,7 +175,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   const updateSettings = (key: keyof NotificationSettings, value: boolean) => {
     const next = { ...settings, [key]: value }
     setSettings(next)
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next))
+    if (!playground) localStorage.setItem(SETTINGS_KEY, JSON.stringify(next))
   }
 
   if (typeof window === "undefined" || !("Notification" in window)) return null
