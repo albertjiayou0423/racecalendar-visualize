@@ -1,3 +1,4 @@
+import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired } from "./wrc-request-budget"
 import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
@@ -27,8 +28,9 @@ const WRC_API_HEADERS = {
 
 async function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
   for (let i = 0; i <= retries; i++) {
+    if (wrcBudgetExpired()) return null
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithinWrcBudget(url, {
         headers: WRC_HEADERS,
         signal: AbortSignal.timeout(15000),
       })
@@ -42,7 +44,7 @@ async function fetchDirect(url: string, retries: number = 2): Promise<string | n
       }
       return res.text()
     } catch (e) {
-      if (i < retries) {
+      if (i < retries && !wrcBudgetExpired()) {
         console.log(`Direct fetch error for ${url}, retrying...`, e)
         await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
         continue
@@ -76,7 +78,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://phantomjscloud.com/api/browser/v2/${PHANTOMJS_API_KEY}/?request=${encodeURIComponent(JSON.stringify(requestPayload))}`
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(12000) })
+    const res = await fetchWithinWrcBudget(apiUrl, { signal: AbortSignal.timeout(12000) })
 
     if (!res.ok) {
       console.error(`PhantomJsCloud failed: ${res.status} for ${url}`)
@@ -180,8 +182,8 @@ function parseDateText(dateText: string, fallbackDate: string): [number, number,
     const [startY] = fallbackDate.split("-").map(Number)
     if (month) return [startY, month, day]
   }
-  const [y, m, d] = fallbackDate.split("-").map(Number)
-  return [y, m, d]
+  // Unknown dates must not silently become the rally start date.
+  return [NaN, NaN, NaN]
 }
 
 // ============ 从行程页面解析 FAQ 数据 ============
@@ -346,7 +348,7 @@ const OCBLACKTOP_BASE = "https://api.ocblacktop.com"
 async function fetchOcblacktop<T = any>(path: string): Promise<T | null> {
   if (!OCBLACKTOP_API_KEY) return null
   try {
-    const res = await fetch(`${OCBLACKTOP_BASE}${path}`, {
+    const res = await fetchWithinWrcBudget(`${OCBLACKTOP_BASE}${path}`, {
       headers: {
         "X-API-Key": OCBLACKTOP_API_KEY,
         "Accept": "application/json",
@@ -540,7 +542,7 @@ async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Pr
   console.log(`WRC: calling feed API: ${feedUrl.substring(0, 120)}...`)
 
   try {
-    const res = await fetch(feedUrl, {
+    const res = await fetchWithinWrcBudget(feedUrl, {
       headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(15000),
     })
@@ -643,7 +645,7 @@ function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): strin
 /** 通用 JSON API fetch（带完整浏览器头） */
 async function fetchJsonApi(url: string): Promise<any | null> {
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithinWrcBudget(url, {
       headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(12000),
     })
@@ -730,7 +732,7 @@ async function fetchEventHero(eventSlug: string): Promise<{ lat: number; lon: nu
 async function fetchICalEvent(eventSlug: string): Promise<{ startUtc: string; endUtc: string } | null> {
   const url = `https://www.wrc.com/v3/api/ical/en/events/${eventSlug}.ics`
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithinWrcBudget(url, {
       headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(10000),
     })
@@ -944,20 +946,26 @@ function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: stri
 
   for (const day of days) {
     const [y, m, d] = day.date
+    const calendarDate = new Date(Date.UTC(y, m - 1, d))
+    if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)
+      || calendarDate.getUTCFullYear() !== y || calendarDate.getUTCMonth() !== m - 1 || calendarDate.getUTCDate() !== d) continue
     for (const stage of day.stages) {
       const [h, min] = stage.time.split(":").map(Number)
-      if (isNaN(h) || isNaN(min)) continue
+      if (!/^\d{1,2}:\d{2}$/.test(stage.time) || !Number.isInteger(h) || !Number.isInteger(min)
+        || h < 0 || h > 23 || min < 0 || min > 59 || !stage.name.trim()) continue
       sessions.push({
         name: stage.name,
         utc: zonedWallTimeToUtc(y, m, d, h, min, tz).toISOString(),
         isMain: stage.isPowerStage,
+        tentative: false,
       })
     }
   }
 
-  sessions.sort((a, b) => a.utc.localeCompare(b.utc))
-  console.log(`WRC: parsed ${sessions.length} sessions for ${eventSlug}`)
-  return sessions
+  const unique = sessions.filter((session, i) => sessions.findIndex(other => other.utc === session.utc && other.name === session.name) === i)
+  unique.sort((a, b) => a.utc.localeCompare(b.utc))
+  console.log(`WRC: parsed ${unique.length} sessions for ${eventSlug}`)
+  return unique
 }
 
 // ============ WRC 赛事列表 ============
@@ -1070,7 +1078,12 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
 
 // ============ 主函数 ============
 
-export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+  // Leave room for snapshot persistence before the route's 300-second limit.
+  return withWrcRequestBudget(180000, () => fetchWrcWithinBudget(options))
+}
+
+async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
   const allowApiFallback = options?.allowApiFallback ?? true
   const fallbackEvents = buildWrcEvents()
   const events: RaceEvent[] = [...fallbackEvents]
@@ -1185,6 +1198,7 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
   }
 
   const parts: string[] = []
+  if (wrcBudgetExpired()) parts.push("抓取达到时间上限，保留已获取结果")
   if (successCount > 0) parts.push(`${successCount} 场官网爬取成功`)
   if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop API`)
   if (errors.length > 0) parts.push(`${errors.length} 场使用估计数据（${errors.join(", ")}）`)

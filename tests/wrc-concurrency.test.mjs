@@ -1,3 +1,4 @@
+import * as requestBudget from "../lib/wrc-request-budget.ts"
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mapSettledWithConcurrency } from '../lib/wrc-concurrency.ts'
@@ -35,7 +36,7 @@ function crawl({ fail = false, allow = true } = {}) {
     exports, calls, rallies, fail,
     process: { env: { OCBLACKTOP_API_KEY: 'fixture-only' } },
     console: { log() {}, error() {} },
-    require: name => name === './wrc-concurrency' ? { mapSettledWithConcurrency }
+    require: name => name === './wrc-request-budget' ? requestBudget : name === './wrc-concurrency' ? { mapSettledWithConcurrency }
       : name === './wrc-data' ? { buildWrcEvents: () => events, buildWrcLiveTimingUrl: () => 'fixture' } : {},
   }
   vm.createContext(context)
