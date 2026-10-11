@@ -22,6 +22,9 @@ test('HTML stages need an explicit day and never inherit a guessed rally start d
   const days = context.exports.html('<div class="day">Friday, 2nd January 2027<p>09:00: SS1 Road</p></div>', '2026-12-31')
   assert.deepEqual(Array.from(days[0].date), [2027, 1, 2])
   assert.equal(exports.convert(days, 'UTC', 'fixture')[0].utc, '2027-01-02T09:00:00.000Z')
+  assert.equal(context.exports.html('<div class="day">Friday, 10 July 2027<p>09:00: SS1 Road</p></div>', '2026-07-09'), null)
+  const offset = context.exports.html('<div class="day">Friday, 10 July 2026 (UTC+02:00)<p>09:00: SS1 Road</p></div>', '2026-07-09')
+  assert.equal(exports.convert(offset, 'Europe/Helsinki', 'fixture')[0].utc, '2026-07-10T07:00:00.000Z')
 })
 
 test('prerender cache extraction tolerates HTML attribute ordering and validates JSON object shape', () => {
