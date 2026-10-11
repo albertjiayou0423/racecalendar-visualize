@@ -1,10 +1,10 @@
 "use client"
+import { beijingWeek, isoWeek, weekMonday } from "@/lib/iso-week"
 
 import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, X, CalendarDays, Clock } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, firstSession, formatTime, formatDateTime } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 import { EventCard } from "./event-card"
 
@@ -23,14 +23,7 @@ function dayKeyInBeijing(utc: string): string {
 }
 
 function getWeekDates(cursor: { y: number; w: number }): string[] {
-  const { y, w } = cursor
-  const jan1 = new Date(Date.UTC(y, 0, 1))
-  const dayOfWeek = jan1.getUTCDay()
-  const firstMonday = new Date(jan1)
-  firstMonday.setUTCDate(jan1.getUTCDate() + ((8 - dayOfWeek) % 7 || 7))
-  const weekStart = new Date(firstMonday)
-  weekStart.setUTCDate(firstMonday.getUTCDate() + (w - 1) * 7)
-  
+  const weekStart = weekMonday(cursor)
   const dates: string[] = []
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart)
@@ -58,20 +51,7 @@ interface WeekViewProps {
 }
 
 export function WeekView({ events, now }: WeekViewProps) {
-  const currentWeek = useMemo(() => {
-    const d = new Date(now)
-    const start = new Date(d)
-    const day = start.getUTCDay()
-    start.setUTCDate(start.getUTCDate() - ((day + 6) % 7))
-    const y = start.getUTCFullYear()
-    const jan1 = new Date(Date.UTC(y, 0, 1))
-    const jan1Day = jan1.getUTCDay()
-    const firstMonday = new Date(jan1)
-    firstMonday.setUTCDate(jan1.getUTCDate() + ((8 - jan1Day) % 7 || 7))
-    const ms = start.getTime() - firstMonday.getTime()
-    const w = Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1
-    return { y, w }
-  }, [now])
+  const currentWeek = useMemo(() => beijingWeek(now), [now])
 
   const [cursor, setCursor] = useState(() => currentWeek)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
@@ -116,21 +96,10 @@ export function WeekView({ events, now }: WeekViewProps) {
   const weekLabel = `${cursor.y} 年第 ${cursor.w} 周`
 
   function shiftWeek(delta: number) {
-    setCursor((c) => {
-      const d = new Date(Date.UTC(c.y, 0, 1))
-      const jan1Day = d.getUTCDay()
-      const firstMonday = new Date(d)
-      firstMonday.setUTCDate(d.getUTCDate() + ((8 - jan1Day) % 7 || 7))
-      const weekStart = new Date(firstMonday)
-      weekStart.setUTCDate(firstMonday.getUTCDate() + (c.w - 1 + delta) * 7)
-      const y = weekStart.getUTCFullYear()
-      const jan1 = new Date(Date.UTC(y, 0, 1))
-      const jan1D = jan1.getUTCDay()
-      const fMon = new Date(jan1)
-      fMon.setUTCDate(jan1.getUTCDate() + ((8 - jan1D) % 7 || 7))
-      const ms = weekStart.getTime() - fMon.getTime()
-      const w = Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1
-      return { y, w: Math.max(1, w) }
+    setCursor(c => {
+      const start = weekMonday(c)
+      start.setUTCDate(start.getUTCDate() + delta * 7)
+      return isoWeek(start)
     })
   }
 

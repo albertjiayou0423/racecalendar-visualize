@@ -1,38 +1,39 @@
-import { NextResponse } from "next/server"
-import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
+import { after, connection, NextResponse } from "next/server"
+import { refreshSeries } from "@/lib/schedule-fetch"
 import { buildWrcEvents } from "@/lib/wrc-data"
-import { initCrawlTables, saveCrawlSnapshot, saveWrcSnapshotMerged, getLatestSnapshot, getEventOverride, getCrawlQuota, incrementCrawlCount } from "@/lib/crawl-store"
+import { initCrawlTables, getLatestSnapshot, getAllOverrides, getCrawlQuota } from "@/lib/crawl-store"
 import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
+import { normalizeF1Metadata } from "@/lib/f1-metadata"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 
 export const revalidate = 3600
 export const maxDuration = 300
 
-/** 每日爬取上限 */
-const CRAWL_DAILY_LIMIT = 10
 
 export async function GET() {
+  // Fetch only during a request; production builds must not crawl an entire season.
+  await connection()
   // 初始化爬虫表（幂等）
   await initCrawlTables()
 
-  // 检查今日爬取配额
-  // 注意：WRC 不做前置阻止，但只有配额充足时才允许使用 ocblacktop API fallback
-  // 官网爬虫（feed API）始终允许，不消耗配额
-  const quotaChecks = await Promise.all([
-    canCrawlToday("F1"),
-    canCrawlToday("FE"),
-    canCrawlToday("WRC"),
-  ])
-
-  const wrcAllowApi = quotaChecks[2]
-
-  // 根据配额决定是否实际爬取，还是使用快照
-  // WRC 始终尝试爬取（官网爬虫不消耗配额），仅在配额充足时启用 API fallback
-  const [f1Result, feResult, wrcResult] = await Promise.all([
-    quotaChecks[0] ? fetchAndSave("F1", fetchF1) : loadFromSnapshot("F1"),
-    quotaChecks[1] ? fetchAndSave("FE", fetchFe) : loadFromSnapshot("FE"),
-    fetchAndSave("WRC", () => fetchWrc({ allowApiFallback: wrcAllowApi })),
-  ])
+  // Return persisted data immediately; expensive upstream work runs after the response.
+  const series: Series[] = ["F1", "FE", "WRC"]
+  const snapshots = await Promise.all(series.map(getLatestSnapshot))
+  const results = await Promise.all(series.map(async (name, i) => {
+    const snapshot = snapshots[i]
+    if (snapshot?.data?.ok && snapshot.data.events?.length) {
+      if (!Number.isFinite(Date.parse(snapshot.fetchedAt)) || Date.now() - Date.parse(snapshot.fetchedAt) > 3600000) {
+        after(() => refreshInBackground(name))
+      }
+      return {
+        result: { ...snapshot.data, note: `使用 ${snapshot.fetchedAt} 的持久化快照` },
+        fromCache: true,
+      }
+    }
+    if (name !== "WRC" && !await canCrawlToday(name)) return loadFromSnapshot(name)
+    return refreshSeries(name, await canCrawlToday(name))
+  }))
+  const [f1Result, feResult, wrcResult] = results
 
   const f1 = f1Result.result
   const fe = feResult.result
@@ -43,7 +44,7 @@ export async function GET() {
     : buildWrcEvents()
 
   // 合并所有赛事并应用覆盖
-  const allEvents = [...f1.events, ...wrcEvents, ...fe.events]
+  const allEvents = [...f1.events, ...wrcEvents, ...fe.events].map(normalizeF1Metadata)
   const mergedEvents = await applyOverrides(allEvents)
 
   const body: ScheduleResponse = {
@@ -53,25 +54,21 @@ export async function GET() {
         series: "F1",
         label: "Jolpica F1 API（Ergast 兼容）",
         ok: f1.ok,
-        note: f1.ok
-          ? f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"
-          : f1.note,
+        note: f1.note || (f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"),
       },
       {
         series: "WRC",
         label: "WRC 官方 itinerary（爬取 / ocblacktop fallback）",
         ok: wrc.ok,
         note: wrc.ok
-          ? wrcResult.fromCache ? "使用持久化快照数据" : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
+          ? wrcResult.fromCache ? (wrc.note || "使用持久化快照数据") : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
           : "爬取失败，使用估计时间（以官方 itinerary 为准）",
       },
       {
         series: "FE",
         label: "Formula E 官方 API（pulselive）",
         ok: fe.ok,
-        note: fe.ok
-          ? feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"
-          : fe.note,
+        note: fe.note || (feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"),
       },
     ],
     fetchedAt: new Date().toISOString(),
@@ -91,55 +88,13 @@ async function canCrawlToday(series: Series): Promise<boolean> {
   }
 }
 
-/** 爬取并保存快照 */
-async function fetchAndSave(
-  series: Series,
-  fetcher: () => Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource?: "scraped" | "api" | "mixed" }>
-): Promise<{ result: { events: RaceEvent[]; ok: boolean; note?: string }; fromCache: boolean }> {
-  try {
-    const result = await fetcher()
-    if (result.ok && result.events.length > 0) {
-      // WRC 使用合并保存：爬取失败的赛事保留上次真实数据
-      if (series === "WRC") {
-        await saveWrcSnapshotMerged(result, "schedule-api")
-      } else {
-        await saveCrawlSnapshot(series, result, "schedule-api")
-      }
-      
-      if (series === "WRC") {
-        if (result.dataSource === "api") {
-          await incrementCrawlCount(series)
-          console.log(`WRC: 使用 ocblacktop API，消耗配额`)
-        } else if (result.dataSource === "mixed") {
-          await incrementCrawlCount(series)
-          console.log(`WRC: 混合数据（含 API），消耗配额`)
-        } else {
-          console.log(`WRC: 使用官网爬虫数据，不消耗配额`)
-        }
-      } else {
-        await incrementCrawlCount(series)
-      }
-    }
-    return { result, fromCache: false }
-  } catch (err) {
-    const cached = await loadFromSnapshot(series)
-    if (cached.result.ok) {
-      return cached
-    }
-    return {
-      result: { events: [], ok: false, note: err instanceof Error ? err.message : "数据获取失败" },
-      fromCache: false,
-    }
-  }
-}
-
 /** 从快照加载数据 */
 async function loadFromSnapshot(
   series: Series
 ): Promise<{ result: { events: RaceEvent[]; ok: boolean; note?: string }; fromCache: boolean }> {
   try {
     const snapshot = await getLatestSnapshot(series)
-    if (snapshot?.data?.events && snapshot.data.events.length > 0) {
+    if (snapshot?.data?.ok && snapshot.data.events?.length > 0) {
       return {
         result: {
           events: snapshot.data.events,
@@ -185,9 +140,9 @@ const F1_CIRCUIT_MAP: Record<string, string> = {
 /** 对赛事列表应用手动覆盖 */
 async function applyOverrides(events: RaceEvent[]): Promise<RaceEvent[]> {
   try {
-    return await Promise.all(
-      events.map(async (event) => {
-        const override = await getEventOverride(event.id)
+    const overrides = new Map((await getAllOverrides()).map(row => [row.eventId, row.data]))
+    return events.map((event) => {
+        const override = overrides.get(event.id)
         let result = override ? { ...event, ...override } : event
 
         if (event.series === "F1") {
@@ -202,8 +157,21 @@ async function applyOverrides(events: RaceEvent[]): Promise<RaceEvent[]> {
 
         return result
       })
-    )
   } catch {
     return events
   }
+}
+
+// Deduplicate refreshes within a warm function instance. Persistence remains authoritative.
+const activeRefreshes = new Map<Series, Promise<void>>()
+function refreshInBackground(series: Series): Promise<void> {
+  const active = activeRefreshes.get(series)
+  if (active) return active
+  const pending = (async () => {
+    const allowed = await canCrawlToday(series)
+    if (series === "WRC" || allowed) await refreshSeries(series, allowed)
+  })().catch(error => console.error("后台赛历更新失败", series, error))
+    .finally(() => activeRefreshes.delete(series))
+  activeRefreshes.set(series, pending)
+  return pending
 }

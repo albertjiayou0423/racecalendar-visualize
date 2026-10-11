@@ -1,5 +1,7 @@
 "use client"
 
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { useEffect, useState } from "react"
 import { Clock } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
@@ -44,7 +46,7 @@ export function NextSessionPill({ event, now }: NextSessionPillProps) {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  if (!nextResult || past) return null
+  if (!nextResult || past || isEstimatedWrcSession(event, nextResult.session)) return null
 
   const next = nextResult.session
   const isLive = nextResult.live

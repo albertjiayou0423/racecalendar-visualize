@@ -7,7 +7,8 @@ import { neon } from "@neondatabase/serverless"
 import fs from "fs"
 import path from "path"
 
-const DB_URL = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_HO9vXaPcTk5y@ep-dawn-lab-at15yp1y-pooler.c-9.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) throw new Error("DATABASE_URL is required");
 
 const TABLES = [
   "predictions",

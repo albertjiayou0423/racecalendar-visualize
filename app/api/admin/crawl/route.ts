@@ -1,13 +1,16 @@
+import { requireAdmin } from "@/lib/admin-auth"
 import { NextResponse } from "next/server"
 import {
   getLatestSnapshot,
   getCrawlQuota,
-  incrementCrawlCount,
-  saveCrawlSnapshot,
-  saveWrcSnapshotMerged,
+  initCrawlTables,
 } from "@/lib/crawl-store"
-import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
+import { refreshSeries } from "@/lib/schedule-fetch"
+import { getSql } from "@/lib/db"
 import type { Series } from "@/lib/types"
+
+export const maxDuration = 300
+export const dynamic = "force-dynamic"
 
 /** 支持的系列列表 */
 const ALL_SERIES: Series[] = ["F1", "FE", "WRC"]
@@ -19,17 +22,10 @@ const SERIES_KEY: Record<Series, string> = {
   WRC: "wrc",
 }
 
-/** 认证校验：验证 admin_auth cookie */
-function checkAuth(request: Request): NextResponse | null {
-  if (request.cookies.get("admin_auth")?.value !== "true") {
-    return NextResponse.json({ ok: false, message: "未授权" }, { status: 401 })
-  }
-  return null
-}
 
 /** 获取爬虫状态（各系列的最新快照时间、当日爬取配额使用情况） */
 export async function GET(request: Request) {
-  const authErr = checkAuth(request)
+  const authErr = requireAdmin(request)
   if (authErr) return authErr
 
   const result: Record<string, { lastFetch: string | null; quotaUsed: number; quotaLimit: number }> = {}
@@ -52,7 +48,7 @@ export async function GET(request: Request) {
 
 /** 手动触发爬取（单个系列） */
 export async function POST(request: Request) {
-  const authErr = checkAuth(request)
+  const authErr = requireAdmin(request)
   if (authErr) return authErr
 
   let body: { series: string }
@@ -70,55 +66,28 @@ export async function POST(request: Request) {
     )
   }
 
+  if (!getSql()) return NextResponse.json({ ok: false, message: "数据库不可用，无法保存抓取结果" }, { status: 503 })
+  await initCrawlTables()
+
   // 检查配额
   const quota = await getCrawlQuota(series as Series)
-  if (quota.used >= quota.limit) {
+  if (series !== "WRC" && quota.used >= quota.limit) {
     return NextResponse.json(
       { ok: false, message: `当日爬取配额已用尽（${quota.used}/${quota.limit}）` },
       { status: 429 }
     )
   }
 
-  // 执行爬取
-  let fetchResult: { events: unknown[]; ok: boolean; note?: string }
-  try {
-    switch (series) {
-      case "F1":
-        fetchResult = await fetchF1()
-        break
-      case "FE":
-        fetchResult = await fetchFe()
-        break
-      case "WRC":
-        fetchResult = await fetchWrc()
-        break
-      default:
-        return NextResponse.json({ ok: false, message: "不支持的系列" }, { status: 400 })
-    }
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, message: `爬取失败：${err instanceof Error ? err.message : "未知错误"}` },
-      { status: 500 }
-    )
+  const result = await refreshSeries(series as Series, quota.used < quota.limit, "admin-manual")
+  if (!result.fresh || result.persistenceError) {
+    return NextResponse.json({
+      ok: false, message: result.result.note || "获取失败，已有快照已保留",
+      fromCache: result.fromCache,
+      diagnostics: result.diagnostics,
+    }, { status: 502 })
   }
-
-  // 递增配额计数
-  await incrementCrawlCount(series as Series)
-
-  // 保存快照（WRC 使用合并保存，保留上次真实爬取数据）
-  if (series === "WRC") {
-    await saveWrcSnapshotMerged(fetchResult as any)
-  } else {
-    await saveCrawlSnapshot(series as Series, fetchResult)
-  }
-
   return NextResponse.json({
     ok: true,
-    data: {
-      series,
-      eventCount: fetchResult.events.length,
-      fetchedAt: new Date().toISOString(),
-      note: fetchResult.note,
-    },
+    data: { series, eventCount: result.result.events.length, fetchedAt: new Date().toISOString(), note: result.result.note, diagnostics: result.diagnostics },
   })
 }

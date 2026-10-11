@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import useSWR from "swr"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { ArrowLeft, Trophy, Calendar, Flag, Car, LoaderCircle, TriangleAlert, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -45,21 +46,17 @@ interface FeRace {
   country: string
 }
 
-interface ResultsResponse {
-  series: SeriesType
-  season: string
-  races?: F1Race[]
-  results?: Record<string, FeResult[]>
-  ok: boolean
-  note?: string
-}
+type ResultsResponse = { season: string; ok: boolean; note?: string } & (
+  { series: "F1"; races?: F1Race[] } | { series: "FE"; races?: FeRace[]; results?: Record<string, FeResult[]> }
+)
 
 export default function ResultsPage() {
   const [series, setSeries] = useState<SeriesType>("F1")
-  const [season, setSeason] = useState("2025")
+  const [season, setSeason] = useState(() => String(new Date().getFullYear()))
   const [data, setData] = useState<ResultsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const requestSequence = useRef(0)
   const [expandedRaces, setExpandedRaces] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -67,19 +64,22 @@ export default function ResultsPage() {
   }, [series, season])
 
   const fetchResults = async () => {
+    const sequence = ++requestSequence.current
     setLoading(true)
+    setData(null)
     setError(false)
     try {
       const res = await fetch(`/api/results?series=${series}&season=${season}`)
       const json: ResultsResponse = await res.json()
+      if (sequence !== requestSequence.current) return
       setData(json)
       if (!json.ok) setError(true)
       setExpandedRaces(new Set())
     } catch (e) {
       console.error("Failed to fetch results:", e)
-      setError(true)
+      if (sequence === requestSequence.current) setError(true)
     } finally {
-      setLoading(false)
+      if (sequence === requestSequence.current) setLoading(false)
     }
   }
 
@@ -110,7 +110,7 @@ export default function ResultsPage() {
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
+        <div data-guide="results-series" className="flex gap-2 rounded-lg border border-border bg-card p-1">
           <button
             onClick={() => setSeries("F1")}
             className={cn(
@@ -156,15 +156,16 @@ export default function ResultsPage() {
         <div className="flex items-center justify-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 py-10 text-sm text-foreground">
           <TriangleAlert className="size-5 text-destructive" />
           {data?.note || "数据加载失败，请稍后重试。"}
+          <button onClick={fetchResults} className="ml-2 underline">重试</button>
         </div>
-      ) : series === "F1" ? (
+      ) : data.series === "F1" ? (
         <F1ResultsList races={data.races || []} expandedRaces={expandedRaces} onToggle={toggleRace} />
       ) : (
-        <FeResultsList races={(data.races as FeRace[]) || []} results={data.results || {}} expandedRaces={expandedRaces} onToggle={toggleRace} />
+        <FeResultsList key={season} season={season} races={data.races || []} results={data.results || {}} expandedRaces={expandedRaces} onToggle={toggleRace} />
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
-        数据来源：{series === "F1" ? "Jolpica F1 API（Ergast 兼容）" : "Formula E 官方 API（pulselive）"}
+        数据来源：{series === "F1" ? "Jolpica F1 API（Ergast 兼容）" : "Formula E 官网公开赛果"}
       </footer>
     </div>
   )
@@ -242,7 +243,7 @@ function F1ResultsList({
                       </tr>
                     </thead>
                     <tbody>
-                      {race.Results?.slice(0, 20).map((result, idx) => (
+                      {race.Results?.map((result, idx) => (
                         <tr key={idx} className="border-b border-border/50 last:border-0">
                           <td className="py-2 pr-2 font-mono font-medium">{result.position}</td>
                           <td className="py-2 pr-2">
@@ -269,95 +270,42 @@ function F1ResultsList({
   )
 }
 
-function FeResultsList({
-  races,
-  results,
-  expandedRaces,
-  onToggle,
-}: {
-  races: FeRace[]
-  results: Record<string, FeResult[]>
-  expandedRaces: Set<string>
-  onToggle: (id: string) => void
+function FeResultsList({ races, results, expandedRaces, onToggle, season }: {
+    races: FeRace[];
+    results: Record<string, FeResult[]>;
+    expandedRaces: Set<string>;
+    onToggle: (id: string) => void;
+    season: string;
 }) {
-  if (races.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-        该赛季暂无赛果数据
-      </div>
-    )
-  }
+    if (!races.length)
+        return <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">该赛季暂无赛果数据</div>;
+    return <div className="flex flex-col gap-3">{races.map(race => <div key={race.id} className="overflow-hidden rounded-xl border border-border bg-card">
+    <button onClick={() => onToggle(race.id)} className="flex w-full items-center justify-between p-4 text-left hover:bg-secondary/30" aria-expanded={expandedRaces.has(race.id)}><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">{race.sequence}</span><div><div className="font-medium">{race.name}</div><div className="text-xs text-muted-foreground">{race.date} · {race.city}, {race.country}</div></div></div>{expandedRaces.has(race.id) ? <ChevronUp className="size-4"/> : <ChevronDown className="size-4"/>}</button>
+    {expandedRaces.has(race.id) && <div className="border-t border-border px-4 py-3"><FeRaceTable race={race} season={season} initialResults={results[race.id]}/></div>}
+  </div>)}</div>;
+}
 
-  return (
-    <div className="flex flex-col gap-3">
-      {races.map((race) => {
-        const isExpanded = expandedRaces.has(race.id)
-        const raceResults = results[race.id] || []
-        const winner = raceResults[0]
-
-        return (
-          <div
-            key={race.id}
-            className="overflow-hidden rounded-xl border border-border bg-card"
-          >
-            <button
-              onClick={() => onToggle(race.id)}
-              className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-secondary/30"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-bold">
-                  {race.sequence}
-                </div>
-                <div>
-                  <div className="font-medium">{race.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {race.city}, {race.country}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {winner && (
-                  <div className="hidden text-right sm:block">
-                    <div className="text-xs text-muted-foreground">冠军</div>
-                    <div className="text-sm font-medium">{winner.driver}</div>
-                  </div>
-                )}
-                {isExpanded ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
-              </div>
-            </button>
-
-            {isExpanded && (
-              <div className="border-t border-border px-4 py-3">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                        <th className="pb-2 pr-2">名次</th>
-                        <th className="pb-2 pr-2">车手</th>
-                        <th className="pb-2 pr-2 hidden sm:table-cell">车队</th>
-                        <th className="pb-2 text-right">积分</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {raceResults.slice(0, 20).map((result, idx) => (
-                        <tr key={idx} className="border-b border-border/50 last:border-0">
-                          <td className="py-2 pr-2 font-mono font-medium">{result.position}</td>
-                          <td className="py-2 pr-2">
-                            <div className="font-medium">{result.driver}</div>
-                            <div className="text-xs text-muted-foreground sm:hidden">{result.team}</div>
-                          </td>
-                          <td className="py-2 pr-2 hidden sm:table-cell text-muted-foreground">{result.team}</td>
-                          <td className="py-2 text-right font-mono font-medium">{result.points}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
+function FeRaceTable({ race, season, initialResults }: {
+    race: FeRace;
+    season: string;
+    initialResults?: FeResult[];
+}) {
+    const future = race.date > new Date().toISOString().slice(0, 10);
+    const { data, error, isLoading, mutate } = useSWR<ResultsResponse>(initialResults || future ? null : '/api/results?series=FE&season=' + season + '&race=' + encodeURIComponent(race.id), async (url: string) => {
+        const response = await fetch(url);
+        const json = await response.json();
+        if (!response.ok || !json.ok)
+            throw new Error(json.note || '该站赛果暂时无法加载。');
+        return json;
+    }, { shouldRetryOnError: false });
+    if (future)
+        return <p className="text-sm text-muted-foreground">赛事尚未举行，暂无赛果。</p>;
+    if (isLoading)
+        return <p className="text-sm text-muted-foreground">加载该站赛果…</p>;
+    if (error)
+        return <div className="text-sm"><p>{error.message}</p><button className="mt-2 underline" onClick={() => mutate()}>重试</button></div>;
+    const rows = initialResults ?? (data?.series === "FE" ? data.results?.[race.id] : undefined) ?? [];
+    if (!rows.length)
+        return <p className="text-sm text-muted-foreground">该站成绩尚未公布。</p>;
+    return <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="pb-2">名次</th><th className="pb-2">车手</th><th className="hidden pb-2 sm:table-cell">车队</th><th className="pb-2 text-right">积分</th></tr></thead><tbody>{rows.map(result => <tr key={result.driverCode} className="border-b border-border/50 last:border-0"><td className="py-2 font-mono">{result.position}</td><td className="py-2"><div>{result.driver}</div><div className="text-xs text-muted-foreground sm:hidden">{result.team}</div></td><td className="hidden py-2 text-muted-foreground sm:table-cell">{result.team}</td><td className="py-2 text-right font-mono">{result.points}</td></tr>)}</tbody></table></div>;
 }

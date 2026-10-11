@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, X, CalendarDays } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, firstSession, formatTime } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 import { EventCard } from "./event-card"
 
@@ -130,10 +129,10 @@ export function MonthView({ events, now }: MonthViewProps) {
     <section className="flex flex-col gap-3" aria-label="月视图">
       {/* 月份切换 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
           <span className="font-semibold text-foreground">{monthLabel}</span>
           {monthEventDays > 0 ? (
-            <span>· {monthEventDays} 场次</span>
+            <span>· {monthEventDays} 个赛事日条目</span>
           ) : null}
         </div>
         <div className="flex items-center gap-1">
@@ -210,7 +209,6 @@ export function MonthView({ events, now }: MonthViewProps) {
               <div className="mt-0.5 sm:mt-1 flex flex-col gap-0.5">
                 {dayItems.slice(0, 2).map(({ event: e, firstUtc }, idx) => {
                   const meta = SERIES_META[e.series]
-                  const flag = countryCodeToFlag(e.countryCode)
                   const prevSameEvent = idx > 0 && dayItems[idx - 1].event.id === e.id
                   return (
                     <div
@@ -230,7 +228,7 @@ export function MonthView({ events, now }: MonthViewProps) {
                         aria-hidden
                       />
                       <span className="truncate font-medium hidden sm:inline" style={{ color: meta.color }}>
-                        {prevSameEvent ? "续" : `${flag ? `${flag} ` : ""}${meta.label}`}
+                        {prevSameEvent ? "续" : meta.label}
                       </span>
                       <span className="truncate font-medium sm:hidden" style={{ color: meta.color }}>
                         {meta.label}

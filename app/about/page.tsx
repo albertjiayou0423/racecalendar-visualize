@@ -11,6 +11,30 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.2.2",
+    date: "2026-10-11",
+    items: [
+      { type: "fix", text: "F1 历史赛果按上游分页获取并合并同站成绩，恢复完整赛季与全部车手记录" },
+      { type: "fix", text: "FE 积分与历史赛果改用官网公开页面数据，单站成绩按需加载；失败显示中文提示并支持重试" },
+      { type: "fix", text: "日历改为服务端附件下载，优化图片下载的链接生命周期；日历补齐唯一标识、生成时间、文本转义与长行折叠" },
+      { type: "fix", text: "修正拉斯维加斯街道分类、新加坡赛道长度、来源链接文案和部分中文赛事名，兼容已有赛历快照" },
+      { type: "fix", text: "更新 F1 预测候选数据；周编号统一为北京时间 ISO 周，修正跨年导航" },
+      { type: "ui", text: "手机赛事详情双时区分行显示；月历计数明确为赛事日条目；底部胶囊更新为 v2.2.2 · 修复与更新" },
+    ],
+  },
+  {
+    version: "v2.2.1",
+    date: "2026-10-11",
+    items: [
+      { type: "feat", text: "新增首次访问指南选择菜单，可选择多个界面的高亮讲解；首页直接高亮最上面的真实赛事卡片，深入介绍场次、时间、状态与详情功能，优化日历壁纸的月份留白与赛事列表间距；同一浏览器仅自动显示一次，可从底部胶囊重开" },
+      { type: "feat", text: "新增客户端轻量辅助采集，使用访客网络获取公开数据并自动补齐缺失场次；已有时间保持不变，赛事卡片小 i 可查看客户端来源与上传时间" },
+      { type: "ui", text: "底部胶囊新增「使用指南」，版本入口更新为「v2.2.1 · 版本与更新」；其他公开页面也提供使用指南入口" },
+      { type: "fix", text: "WRC 估计赛段统一显示「时间待确认」，不展示具体估计时间；保留已确认赛段的历史时间" },
+      { type: "perf", text: "赛历优先读取已有快照，后台更新过期数据；WRC 抓取增加并发限制、时间预算与请求复用" },
+      { type: "feat", text: "后台新增只读数据库检查及 WRC 抓取诊断，方便人工核查数据和排查失败" },
+    ],
+  },
+  {
     version: "v2.1.0",
     date: "2026-07-30",
     items: [
@@ -218,8 +242,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-3xl font-bold">v2.1.0</span>
-          <span className="text-sm text-muted-foreground">周视图修复 + WRC LiveTiming + 测试台</span>
+          <span data-guide="version" className="text-3xl font-bold">v2.2.2</span>
+          <span className="text-sm text-muted-foreground">赛果完整性修复 · FE 数据恢复 · 下载与手机排版优化</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -241,7 +265,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section data-guide="changelog" className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">更新日志</h2>
         {changelog.map((entry) => (
           <div
@@ -251,7 +275,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.1.0" && (
+                {entry.version === "v2.2.2" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

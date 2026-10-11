@@ -1,3 +1,4 @@
+import { fetchJolpicaResults } from "./jolpica-results"
 import type { RaceEvent, RaceSession } from "./types"
 import { F1_CIRCUIT_TZ, COUNTRY_MAP, COUNTRY_CODE_MAP, zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents } from "./wrc-data"
@@ -109,7 +110,7 @@ const CIRCUIT_INFO: Record<string, { length: string; laps: string }> = {
   monza: { length: "5.793 km", laps: "53" },
   madrid: { length: "4.428 km", laps: "66" },
   baku: { length: "6.003 km", laps: "51" },
-  marina_bay: { length: "5.063 km", laps: "62" },
+  marina_bay: { length: "4.927 km", laps: "62" },
   americas: { length: "5.513 km", laps: "56" },
   rodriguez: { length: "4.304 km", laps: "71" },
   interlagos: { length: "4.309 km", laps: "71" },
@@ -120,9 +121,9 @@ const CIRCUIT_INFO: Record<string, { length: string; laps: string }> = {
 
 export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
   try {
-    const [currentRes, lastYearRes] = await Promise.all([
+    const [currentRes, lastYearRaces] = await Promise.all([
       fetch("https://api.jolpi.ca/ergast/f1/current.json", { next: { revalidate: 3600 } }),
-      fetch("https://api.jolpi.ca/ergast/f1/2025/results.json", { next: { revalidate: 86400 } }),
+      fetchJolpicaResults<ErgastRace & { Results: ErgastResult[] }>(String(new Date().getFullYear() - 1)).catch(() => []),
     ])
 
     if (!currentRes.ok) throw new Error(`HTTP ${currentRes.status}`)
@@ -130,14 +131,10 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
     const races: ErgastRace[] = currentJson?.MRData?.RaceTable?.Races ?? []
 
     let lastYearResults: Record<string, ErgastResult[]> = {}
-    if (lastYearRes.ok) {
-      const lastYearJson = await lastYearRes.json()
-      const lastYearRaces: ErgastRace[] = lastYearJson?.MRData?.RaceTable?.Races ?? []
-      for (const race of lastYearRaces) {
+    for (const race of lastYearRaces) {
         if (race.Results) {
           lastYearResults[race.Circuit.circuitId] = race.Results
         }
-      }
     }
 
     const events: RaceEvent[] = races.map((r) => {
@@ -162,7 +159,7 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
 
       sessions.sort((a, b) => a.utc.localeCompare(b.utc))
 
-      const streetCircuits = ["monaco", "singapore", "las_vegas", "baku", "jeddah", "miami", "marina_bay", "baku"]
+      const streetCircuits = ["monaco", "singapore", "vegas", "las_vegas", "baku", "jeddah", "miami", "marina_bay", "baku"]
       const isStreet = streetCircuits.some(c => r.Circuit.circuitId.toLowerCase().includes(c))
 
       const regionMap: Record<string, "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"> = {
@@ -244,6 +241,9 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
 /** 将英文大奖赛名翻译为中文 */
 function translateGpName(name: string): string {
   const map: Record<string, string> = {
+    "Brazilian Grand Prix": "巴西大奖赛",
+    "Barcelona Grand Prix": "巴塞罗那大奖赛",
+    "Bahrain Grand Prix in Malaysia": "巴林大奖赛（马来西亚）",
     "Australian Grand Prix": "澳大利亚大奖赛",
     "Chinese Grand Prix": "中国大奖赛",
     "Japanese Grand Prix": "日本大奖赛",

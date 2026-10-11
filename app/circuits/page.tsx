@@ -80,7 +80,7 @@ export default function CircuitsPage() {
             className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div data-guide="circuit-filters" className="flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => setTypeFilter("all")}

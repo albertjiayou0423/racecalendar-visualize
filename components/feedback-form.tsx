@@ -11,10 +11,10 @@ interface FeedbackFormProps {
 }
 
 const TYPE_OPTIONS: { value: FeedbackType; label: string; description: string }[] = [
-  { value: "bug", label: "🐛 Bug 报告", description: "遇到了问题或错误" },
-  { value: "feature", label: "✨ 功能建议", description: "想要添加新功能" },
-  { value: "suggestion", label: "💡 优化建议", description: "改进现有功能" },
-  { value: "other", label: "📝 其他反馈", description: "其他类型的反馈" },
+  { value: "bug", label: "Bug 报告", description: "遇到了问题或错误" },
+  { value: "feature", label: "功能建议", description: "想要添加新功能" },
+  { value: "suggestion", label: "优化建议", description: "改进现有功能" },
+  { value: "other", label: "其他反馈", description: "其他类型的反馈" },
 ]
 
 export function FeedbackForm({ onClose }: FeedbackFormProps) {

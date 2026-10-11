@@ -1,3 +1,7 @@
+import { mergeWrcTargets } from "./wrc-targets"
+import { prioritizeWrcRallies } from "./wrc-crawl-order"
+import { getWrcRequestDiagnostics, type WrcRequestDiagnostics, withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired, memoizeWrcData } from "./wrc-request-budget"
+import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents, buildWrcLiveTimingUrl } from "./wrc-data"
@@ -24,10 +28,15 @@ const WRC_API_HEADERS = {
 
 // ============ 直接 fetch (主要方案) ============
 
-async function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
+function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
+  return memoizeWrcData(`html:${url}`, () => fetchDirectUncached(url, retries))
+}
+
+async function fetchDirectUncached(url: string, retries: number): Promise<string | null> {
   for (let i = 0; i <= retries; i++) {
+    if (wrcBudgetExpired()) return null
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithinWrcBudget(url, {
         headers: WRC_HEADERS,
         signal: AbortSignal.timeout(15000),
       })
@@ -39,9 +48,9 @@ async function fetchDirect(url: string, retries: number = 2): Promise<string | n
         }
         return null
       }
-      return res.text()
+      return await res.text()
     } catch (e) {
-      if (i < retries) {
+      if (i < retries && !wrcBudgetExpired()) {
         console.log(`Direct fetch error for ${url}, retrying...`, e)
         await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
         continue
@@ -75,7 +84,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://phantomjscloud.com/api/browser/v2/${PHANTOMJS_API_KEY}/?request=${encodeURIComponent(JSON.stringify(requestPayload))}`
-    const res = await fetch(apiUrl)
+    const res = await fetchWithinWrcBudget(apiUrl, { signal: AbortSignal.timeout(12000) })
 
     if (!res.ok) {
       console.error(`PhantomJsCloud failed: ${res.status} for ${url}`)
@@ -97,28 +106,41 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 // ============ 提取 rb3-prerender-data-cache JSON ============
 
 function extractPrerenderCache(html: string): Record<string, any> | null {
-  const cachePattern = /<script type="application\/json" id="rb3-prerender-data-cache">([\s\S]*?)<\/script>/
-  const match = html.match(cachePattern)
-  if (!match) return null
-  try {
-    return JSON.parse(match[1])
-  } catch (e) {
-    console.error("Failed to parse prerender cache JSON:", e)
-    return null
+  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    if (!/(?:^|\s)id\s*=\s*(["'])rb3-prerender-data-cache\1(?:\s|$)/i.test(match[1])) continue
+    try {
+      const parsed = JSON.parse(match[2])
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed
+    } catch (e) {
+      console.error("Failed to parse prerender cache JSON:", e)
+    }
   }
+  return null
 }
 
 // ============ 从主页提取行程 URL ============
 
-function extractItineraryUrlFromCache(cacheData: Record<string, any>): string | null {
+function normalizeWrcPageUrl(raw: unknown, eventSlug: string): string | null {
+  if (typeof raw !== "string") return null
+  try {
+    const url = new URL(raw, "https://www.wrc.com")
+    if (url.origin !== "https://www.wrc.com" || url.username || url.password
+      || !url.pathname.startsWith(`/en/events/${eventSlug}/`)) return null
+    url.hash = ""
+    return url.toString()
+  } catch { return null }
+}
+
+function extractItineraryUrlFromCache(cacheData: Record<string, any>, eventSlug: string): string | null {
   for (const key of Object.keys(cacheData)) {
     if (key.includes("pageTabs")) {
       const value = cacheData[key]
       const tabs = value?.data?.data?.tabs
       if (Array.isArray(tabs)) {
-        const itineraryTab = tabs.find((t: any) => t.label === "Itinerary")
-        if (itineraryTab?.url) {
-          return `https://www.wrc.com${itineraryTab.url}`
+        for (const tab of tabs) {
+          if (tab?.label !== "Itinerary") continue
+          const url = normalizeWrcPageUrl(tab.url, eventSlug)
+          if (url) return url
         }
       }
     }
@@ -133,9 +155,14 @@ function extractResultsItineraryUrl(cacheData: Record<string, any>, eventSlug: s
       const value = cacheData[key]
       const tabs = value?.data?.data?.tabs
       if (Array.isArray(tabs)) {
-        const resultsTab = tabs.find((t: any) => t.label === "Results")
-        if (resultsTab?.url) {
-          return `https://www.wrc.com${resultsTab.url}?page=results&tab=itinerary`
+        for (const tab of tabs) {
+          if (tab?.label !== "Results") continue
+          const normalized = normalizeWrcPageUrl(tab.url, eventSlug)
+          if (!normalized) continue
+          const url = new URL(normalized)
+          url.searchParams.set("page", "results")
+          url.searchParams.set("tab", "itinerary")
+          return url.toString()
         }
       }
     }
@@ -172,20 +199,36 @@ const MONTH_MAP: Record<string, number> = {
 }
 
 function parseDateText(dateText: string, fallbackDate: string): [number, number, number] {
-  const match = dateText.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+  const iso = dateText.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) return [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+  const match = dateText.match(/(?:[A-Za-z]+,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)(?:\s+(\d{4}))?\b/i)
   if (match) {
-    const day = parseInt(match[2], 10)
-    const month = MONTH_MAP[match[3]]
-    const [startY] = fallbackDate.split("-").map(Number)
-    if (month) return [startY, month, day]
+    const month = Object.entries(MONTH_MAP).find(([name]) => name.toLowerCase() === match[2].toLowerCase())?.[1]
+    const year = match[3] ? Number(match[3]) : Number(fallbackDate.split("-")[0])
+    if (month) return [year, month, Number(match[1])]
   }
-  const [y, m, d] = fallbackDate.split("-").map(Number)
-  return [y, m, d]
+  return [NaN, NaN, NaN]
+}
+
+function itineraryDateBelongsToRally(date: [number, number, number], startDate: string): boolean {
+  if (!date.every(Number.isFinite)) return false
+  if (date[0] === Number(startDate.slice(0, 4))) return true
+  const distance = Math.abs(Date.UTC(date[0], date[1] - 1, date[2]) - Date.parse(`${startDate}T00:00:00Z`))
+  return Number.isFinite(distance) && distance <= 7 * 86400000
+}
+
+function itineraryUtcOffset(title: string): number | undefined {
+  const match = title.match(/\b(?:UTC|GMT)(?:\s*([+-])\s*(\d{1,2})(?::(\d{2}))?)?\b/i)
+  if (!match) return undefined
+  const hours = Number(match[2] || 0), minutes = Number(match[3] || 0)
+  if (hours > 14 || minutes > 59 || hours === 14 && minutes > 0) return NaN
+  return (hours * 60 + minutes) * (match[1] === "-" ? -1 : 1)
 }
 
 // ============ 从行程页面解析 FAQ 数据 ============
 
 interface ItineraryDay {
+  utcOffsetMinutes?: number
   date: [number, number, number]
   stages: { time: string; name: string; isPowerStage: boolean }[]
 }
@@ -207,14 +250,11 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
   while ((dayMatch = dayPattern.exec(cleanHtml)) !== null) {
     const dayContent = dayMatch[1]
     
-    const dateTextMatch = dayContent.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+    const dateTextMatch = dayContent.match(/(?:[A-Za-z]+,?\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\b/i)
     if (!dateTextMatch) continue
     
-    const day = parseInt(dateTextMatch[2], 10)
-    const month = MONTH_MAP[dateTextMatch[3]]
-    const [startY] = fallbackDate.split("-").map(Number)
-    
-    if (!month) continue
+    const date = parseDateText(dateTextMatch[0], fallbackDate)
+    if (!itineraryDateBelongsToRally(date, fallbackDate)) continue
     
     const stages: { time: string; name: string; isPowerStage: boolean }[] = []
     
@@ -239,28 +279,7 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
     }
     
     if (stages.length > 0) {
-      daySections.push({ date: [startY, month, day], stages })
-    }
-  }
-  
-  if (daySections.length === 0) {
-    const allStagePattern = /(\d{1,2}:\d{2}):\s*([^<\n]+)/g
-    const allStages: { time: string; name: string; isPowerStage: boolean }[] = []
-    let match
-    
-    while ((match = allStagePattern.exec(cleanHtml)) !== null) {
-      const time = match[1].padStart(5, "0")
-      const name = match[2].trim()
-      if (!name || name.length < 3 || name.length > 120) continue
-      if (name.includes("UTC") || name.includes("Version") || name.includes("Stage") || name.includes("km")) {
-        const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
-        allStages.push({ time, name, isPowerStage })
-      }
-    }
-    
-    if (allStages.length > 0) {
-      const [y, m, d] = fallbackDate.split("-").map(Number)
-      daySections.push({ date: [y, m, d], stages: allStages })
+      daySections.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(dayContent) })
     }
   }
   
@@ -274,66 +293,69 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
 }
 
 function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: string): ItineraryDay[] | null {
-  for (const key of Object.keys(cacheData)) {
-    const value = cacheData[key]
-    if (!value?.data?.data) continue
-
-    const items = value.data.data.items
+  for (const value of Object.values(cacheData)) {
+    const items = value?.data?.data?.items
     if (!Array.isArray(items)) continue
+    const days = parseItineraryItems(items, fallbackDate)
+    if (days) return days
+  }
+  console.error("No itinerary FAQ found in prerender cache")
+  return null
+}
 
-    for (const item of items) {
-      if (item.type !== "faq") continue
+/** Both official HTML cache and Feed use the same FAQ validation rules. */
+function parseItineraryItems(items: any[], fallbackDate: string): ItineraryDay[] | null {
+  for (const item of items) {
+    if (item?.type !== "faq") continue
 
-      const title = item.title || ""
-      if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
+    const title = typeof item.title === "string" ? item.title : ""
+    if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
 
-      const elements = item.elements
-      if (!Array.isArray(elements)) continue
+    const elements = item.elements
+    if (!Array.isArray(elements)) continue
 
-      const days: ItineraryDay[] = []
+    const days: ItineraryDay[] = []
 
-      for (const element of elements) {
-        const question = element.question
-        const answer = element.answer
+    for (const element of elements) {
+      const question = element?.question
+      const answer = element?.answer
 
-        if (!Array.isArray(question) || !Array.isArray(answer)) continue
+      if (!Array.isArray(question) || !Array.isArray(answer)) continue
 
-        const dateText = question.find((q: any) => q.variant === "text")?.text || ""
-        const date = parseDateText(dateText, fallbackDate)
+      const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
+      const date = parseDateText(dateText, fallbackDate)
+      if (!itineraryDateBelongsToRally(date, fallbackDate)) continue
 
-        const stages: { time: string; name: string; isPowerStage: boolean }[] = []
+      const stages: { time: string; name: string; isPowerStage: boolean }[] = []
 
-        for (const ans of answer) {
-          if (ans.type !== "list" || !Array.isArray(ans.items)) continue
+      for (const ans of answer) {
+        if (ans?.type !== "list" || !Array.isArray(ans.items)) continue
 
-          for (const listItem of ans.items) {
-            if (!listItem.elements) continue
-            for (const el of listItem.elements) {
-              if (el.variant !== "text") continue
-              const text = el.text || ""
+        for (const listItem of ans.items) {
+          if (!Array.isArray(listItem?.elements)) continue
+          for (const el of listItem.elements) {
+            if (el?.variant !== "text" || typeof el.text !== "string") continue
+            const text = el.text || ""
 
-              const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
-              if (!stageMatch) continue
+            const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
+            if (!stageMatch) continue
 
-              const time = stageMatch[1].padStart(5, "0")
-              const name = stageMatch[2].trim()
-              const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+            const time = stageMatch[1].padStart(5, "0")
+            const name = stageMatch[2].trim()
+            const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
 
-              stages.push({ time, name, isPowerStage })
-            }
+            stages.push({ time, name, isPowerStage })
           }
-        }
-
-        if (stages.length > 0) {
-          days.push({ date, stages })
         }
       }
 
-      if (days.length > 0) return days
+      if (stages.length > 0) {
+        days.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(title) })
+      }
     }
-  }
 
-  console.error("No itinerary FAQ found in prerender cache")
+    if (days.length > 0 && convertDaysToSessions(days, "UTC", "validation").length > 0) return days
+  }
   return null
 }
 
@@ -345,12 +367,12 @@ const OCBLACKTOP_BASE = "https://api.ocblacktop.com"
 async function fetchOcblacktop<T = any>(path: string): Promise<T | null> {
   if (!OCBLACKTOP_API_KEY) return null
   try {
-    const res = await fetch(`${OCBLACKTOP_BASE}${path}`, {
+    const res = await fetchWithinWrcBudget(`${OCBLACKTOP_BASE}${path}`, {
       headers: {
         "X-API-Key": OCBLACKTOP_API_KEY,
         "Accept": "application/json",
       },
-      // Vercel Hobby 默认 10s；ocblacktop 响应通常很快
+      // Bound third-party requests independently of the function execution duration.
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
@@ -382,20 +404,17 @@ function pickDateField(obj: any, ...keys: string[]): string | undefined {
 }
 
 function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim()
+  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim()
 }
 
 function rallyNameMatches(a: string, b: string): boolean {
-  const na = normalizeName(a)
-  const nb = normalizeName(b)
-  if (na === nb) return true
-  // 互相包含：如 "WRC Rallye Monte-Carlo" vs "Rallye Monte-Carlo"
-  if (na.includes(nb) || nb.includes(na)) return true
-  // 取词袋交集，至少 2 个词相同
-  const sa = new Set(na.split(" "))
-  const sb = new Set(nb.split(" "))
-  const common = [...sa].filter((w) => sb.has(w) && w.length > 2)
-  return common.length >= 2
+  const na = normalizeName(a), nb = normalizeName(b)
+  if (!na || !nb) return false
+  const ignored = new Set(["wrc", "rally", "rallye", "rallying", "world", "championship", "the", "de", "del", "of"])
+  const tokens = (name: string) => new Set(name.split(" ").filter(word => word.length > 2 && !ignored.has(word) && !/^\d+$/.test(word)))
+  const sa = tokens(na), sb = tokens(nb)
+  if (!sa.size || !sb.size) return false
+  return [...sa].some(word => sb.has(word))
 }
 
 interface OcblacktopRallySummary {
@@ -438,26 +457,43 @@ function parseStageTime(stage: OcblacktopStage, rallyTz: string): { utc: string;
   const name = pickString(stage, "name", "title") ?? "赛段"
   const isMain = !!(stage?.isPowerStage ?? stage?.powerStage ?? name.toLowerCase().includes("power stage"))
 
-  // 优先使用明确的 UTC 时间
-  const utcStr = pickDateField(stage, "scheduledStartTimeUtc", "scheduledStart", "scheduledStartTime", "startTime")
-  if (utcStr) {
-    const d = new Date(utcStr)
-    if (!isNaN(d.getTime())) return { utc: d.toISOString(), isMain }
+  const parse = (text: string, assumeUtc: boolean): string | null => {
+    const m = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})?$/i)
+    if (!m) return null
+    const [y, month, day, hour, minute, second] = m.slice(1, 7).map(value => Number(value || 0))
+    const date = new Date(Date.UTC(y, month - 1, day))
+    if (date.getUTCFullYear() !== y || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day
+      || hour > 23 || minute > 59 || second > 59) return null
+    const fraction = Number((m[7] || "").padEnd(3, "0"))
+    try {
+      if (m[8] || assumeUtc) {
+        let offsetMinutes = 0
+        if (m[8] && m[8].toUpperCase() !== "Z") {
+          const offsetHour = Number(m[8].slice(1, 3))
+          const offsetMinute = Number(m[8].slice(4, 6))
+          if (offsetHour > 14 || offsetMinute > 59 || (offsetHour === 14 && offsetMinute !== 0)) return null
+          offsetMinutes = (offsetHour * 60 + offsetMinute) * (m[8][0] === "-" ? -1 : 1)
+        }
+        return new Date(Date.UTC(y, month - 1, day, hour, minute, second, fraction) - offsetMinutes * 60000).toISOString()
+      }
+      return new Date(zonedWallTimeToUtc(y, month, day, hour, minute, rallyTz).getTime() + second * 1000 + fraction).toISOString()
+    } catch { return null }
   }
-
-  // 尝试组合 date + time，按 rally 时区解释
+  const explicitUtc = pickDateField(stage, "scheduledStartTimeUtc")
+  if (explicitUtc) {
+    const utc = parse(explicitUtc, true)
+    if (utc) return { utc, isMain }
+  }
+  const timestamp = pickDateField(stage, "scheduledStart", "scheduledStartTime", "startTime")
+  if (timestamp) {
+    const utc = parse(timestamp, false)
+    if (utc) return { utc, isMain }
+  }
   const dateStr = pickDateField(stage, "date")
   const timeStr = pickString(stage, "time")
-  if (dateStr && timeStr) {
-    const base = new Date(dateStr)
-    if (!isNaN(base.getTime())) {
-      const m = timeStr.match(/(\d{1,2}):(\d{2})/)
-      if (m) {
-        const [y, mo, d] = [base.getFullYear(), base.getMonth() + 1, base.getDate()]
-        const utc = zonedWallTimeToUtc(y, mo, d, Number(m[1]), Number(m[2]), rallyTz)
-        return { utc: utc.toISOString(), isMain }
-      }
-    }
+  if (dateStr && timeStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const utc = parse(`${dateStr}T${timeStr}`, false)
+    if (utc) return { utc, isMain }
   }
 
   return null
@@ -511,11 +547,21 @@ async function tryOcblacktopFallback(
 ): Promise<RaceSession[] | null> {
   if (!ocblacktopRallies || ocblacktopRallies.length === 0) return null
 
-  const match = ocblacktopRallies.find((r) => {
+  const matches = ocblacktopRallies.filter((r) => {
     const candidate = pickString(r, "name")
-    return candidate && rallyNameMatches(candidate, rally.name)
+    if (!candidate || !rallyNameMatches(candidate, rally.eventSlug || rally.name)) return false
+    const namedYear = candidate.match(/\b(20\d{2})\b/)?.[1]
+    const rallyYear = rally.startDate.slice(0, 4)
+    if (namedYear && namedYear !== rallyYear) return false
+    const candidateDate = pickDateField(r, "dateStart", "startDate")
+    if (candidateDate) {
+      const difference = Math.abs(Date.parse(candidateDate) - Date.parse(rally.startDate))
+      if (!Number.isFinite(difference) || difference > 7 * 86400000) return false
+    }
+    return true
   })
 
+  const match = matches.length === 1 ? matches[0] : null
   if (!match?.id) {
     console.log(`ocblacktop: no name match for ${rally.name}`)
     return null
@@ -534,12 +580,16 @@ async function tryOcblacktopFallback(
 
 // ============ 直接调用 WRC Feed API (最可靠的方案) ============
 
-async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
-  const feedUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${uriSlug}&page[limit]=1&rb3Locale=en&rb3Schema=v1:inlineContent`
+function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
+  return memoizeWrcData(`feed:${uriSlug}:${startDate}`, () => fetchItineraryFromFeedApiUncached(uriSlug, startDate))
+}
+
+async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
+  const feedUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${encodeURIComponent(uriSlug)}&page[limit]=1&rb3Locale=en&rb3Schema=v1:inlineContent`
   console.log(`WRC: calling feed API: ${feedUrl.substring(0, 120)}...`)
 
   try {
-    const res = await fetch(feedUrl, {
+    const res = await fetchWithinWrcBudget(feedUrl, {
       headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(15000),
     })
@@ -556,59 +606,10 @@ async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Pr
       return null
     }
 
-    // 查找 FAQ item
-    for (const item of items) {
-      if (item.type !== "faq") continue
-
-      const title = item.title || ""
-      if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
-
-      const elements = item.elements
-      if (!Array.isArray(elements)) continue
-
-      const days: ItineraryDay[] = []
-
-      for (const element of elements) {
-        const question = element.question
-        const answer = element.answer
-
-        if (!Array.isArray(question) || !Array.isArray(answer)) continue
-
-        const dateText = question.find((q: any) => q.variant === "text")?.text || ""
-        const date = parseDateText(dateText, startDate)
-
-        const stages: { time: string; name: string; isPowerStage: boolean }[] = []
-
-        for (const ans of answer) {
-          if (ans.type !== "list" || !Array.isArray(ans.items)) continue
-
-          for (const listItem of ans.items) {
-            if (!listItem.elements) continue
-            for (const el of listItem.elements) {
-              if (el.variant !== "text") continue
-              const text = el.text || ""
-
-              const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
-              if (!stageMatch) continue
-
-              const time = stageMatch[1].padStart(5, "0")
-              const name = stageMatch[2].trim()
-              const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
-
-              stages.push({ time, name, isPowerStage })
-            }
-          }
-        }
-
-        if (stages.length > 0) {
-          days.push({ date, stages })
-        }
-      }
-
-      if (days.length > 0) {
-        console.log(`WRC feed API: parsed ${days.length} days from FAQ`)
-        return days
-      }
+    const days = parseItineraryItems(items, startDate)
+    if (days) {
+      console.log(`WRC feed API: parsed ${days.length} days from FAQ`)
+      return days
     }
 
     console.error("WRC feed API: no itinerary FAQ found")
@@ -620,16 +621,19 @@ async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Pr
 }
 
 /** 从 prerender cache 中提取 itinerary tab 的 uriSlug */
-function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): string | null {
+function extractItineraryUriSlugFromCache(cacheData: Record<string, any>, eventSlug: string): string | null {
   for (const key of Object.keys(cacheData)) {
     if (key.includes("pageTabs")) {
       const value = cacheData[key]
       const tabs = value?.data?.data?.tabs
       if (Array.isArray(tabs)) {
-        const itTab = tabs.find((t: any) => t.label?.includes("Itinerary"))
-        if (itTab?.url) {
-          const parts = itTab.url.split("/").filter(Boolean)
-          return parts[parts.length - 1] || null
+        for (const tab of tabs) {
+          if (typeof tab?.label !== "string" || !tab.label.includes("Itinerary")) continue
+          const normalized = normalizeWrcPageUrl(tab.url, eventSlug)
+          if (!normalized) continue
+          const parts = new URL(normalized).pathname.split("/").filter(Boolean)
+          const slug = parts[parts.length - 1]
+          if (/^[a-z0-9][a-z0-9-]*$/.test(slug)) return slug
         }
       }
     }
@@ -640,9 +644,13 @@ function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): strin
 // ============ 新方案：WRC Feed API 直接多 slug 尝试 + mainSubPage 补充 ============
 
 /** 通用 JSON API fetch（带完整浏览器头） */
-async function fetchJsonApi(url: string): Promise<any | null> {
+function fetchJsonApi(url: string): Promise<any | null> {
+  return memoizeWrcData(`json:${url}`, () => fetchJsonApiUncached(url))
+}
+
+async function fetchJsonApiUncached(url: string): Promise<any | null> {
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithinWrcBudget(url, {
       headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(12000),
     })
@@ -668,7 +676,7 @@ interface MainSubPageInfo {
 }
 
 async function fetchMainSubPage(itinerarySlug: string): Promise<MainSubPageInfo | null> {
-  const url = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${itinerarySlug}&page[limit]=1&rb3Locale=en&rb3Schema=v1:mainSubPage`
+  const url = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${encodeURIComponent(itinerarySlug)}&page[limit]=1&rb3Locale=en&rb3Schema=v1:mainSubPage`
   const json = await fetchJsonApi(url)
   if (!json?.data?.items?.[0]) return null
 
@@ -729,7 +737,7 @@ async function fetchEventHero(eventSlug: string): Promise<{ lat: number; lon: nu
 async function fetchICalEvent(eventSlug: string): Promise<{ startUtc: string; endUtc: string } | null> {
   const url = `https://www.wrc.com/v3/api/ical/en/events/${eventSlug}.ics`
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithinWrcBudget(url, {
       headers: WRC_API_HEADERS,
       signal: AbortSignal.timeout(10000),
     })
@@ -780,7 +788,8 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
   for (const { slug, days } of results) {
     if (days && days.length > 0) {
       console.log(`WRC v2: success with slug "${slug}" (${days.length} days)`)
-      return convertDaysToSessions(days, tz, eventSlug)
+      const sessions = convertDaysToSessions(days, tz, eventSlug)
+      if (sessions.length) return sessions
     }
   }
 
@@ -798,21 +807,38 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
 
 // ============ 主爬取函数 ============
 
+/** Official HTML first; Feed API is the highest-priority fallback. */
 async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
-  // 新方案优先：通过 pageTabs API 获取正确的 slug（不再猜测）
-  console.log(`WRC: trying v2 approach (pageTabs API) for ${eventSlug}`)
-  const v2Result = await scrapeWrcItineraryV2(eventSlug, tz, startDate)
-  if (v2Result && v2Result.length > 0) {
-    return v2Result
-  }
-  console.log(`WRC: v2 approach failed, falling back to original approach`)
+  const primary = await scrapeOfficialItineraryPage(eventSlug, tz, startDate)
+  if (primary?.sessions.length) return primary.sessions
 
+  const feed = await scrapeWrcItineraryV2(eventSlug, tz, startDate)
+  if (feed?.length) return feed
+
+  return scrapeWrcItineraryLegacy(eventSlug, tz, startDate, primary?.homeHtml)
+}
+
+async function scrapeOfficialItineraryPage(eventSlug: string, tz: string, startDate: string): Promise<{ sessions: RaceSession[]; homeHtml: string | null }> {
+  const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
+  const homeHtml = await fetchDirect(homeUrl, 0)
+  if (!homeHtml) return { sessions: [], homeHtml: null }
+  const homeCache = extractPrerenderCache(homeHtml)
+  const itineraryUrl = (homeCache && extractItineraryUrlFromCache(homeCache, eventSlug))
+    || `${homeUrl}/itinerary-${eventSlug}`
+  const html = await fetchDirect(itineraryUrl, 0)
+  if (!html) return { sessions: [], homeHtml }
+  const cache = extractPrerenderCache(html)
+  const days = (cache && parseItineraryFromCache(cache, startDate)) || parseItineraryFromHtml(html, startDate)
+  return { sessions: days?.length ? convertDaysToSessions(days, tz, eventSlug) : [], homeHtml }
+}
+
+async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate: string, existingHomeHtml?: string | null): Promise<RaceSession[] | null> {
   // 原有方案作为 fallback
   const homeUrl = `https://www.wrc.com/en/events/${eventSlug}`
   console.log(`WRC: fetching ${homeUrl}`)
 
   // Step 1: Fetch homepage (try direct, then with _escaped_fragment_ for SSR)
-  let homeHtml = await fetchDirect(homeUrl)
+  let homeHtml = existingHomeHtml || await fetchDirect(homeUrl)
   if (!homeHtml || !homeHtml.includes("rb3-prerender-data-cache")) {
     console.log(`WRC: direct fetch no cache, trying _escaped_fragment_ for ${homeUrl}`)
     homeHtml = await fetchDirect(`${homeUrl}?_escaped_fragment_=`)
@@ -831,7 +857,7 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
   // Step 2: 提取 itinerary uriSlug
   let itineraryUriSlug: string | null = null
   if (homeCache) {
-    itineraryUriSlug = extractItineraryUriSlugFromCache(homeCache)
+    itineraryUriSlug = extractItineraryUriSlugFromCache(homeCache, eventSlug)
   }
 
   // Fallback: 尝试常见的 slug 模式
@@ -849,7 +875,8 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
     for (const alt of altSlugs) {
       const testDays = await fetchItineraryFromFeedApi(alt, startDate)
       if (testDays && testDays.length > 0) {
-        return convertDaysToSessions(testDays, tz, eventSlug)
+        const sessions = convertDaysToSessions(testDays, tz, eventSlug)
+        if (sessions.length) return sessions
       }
     }
   } else {
@@ -881,9 +908,9 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
   }
 
   // Step 5: 如果还是失败，尝试旧方案（PhantomJsCloud 渲染 itinerary 页面）
-  if ((!days || days.length === 0) && homeCache) {
+  if ((!days || convertDaysToSessions(days, tz, eventSlug).length === 0) && homeCache) {
     console.log(`WRC: SSR failed, trying old approach with itinerary page`)
-    const itineraryUrl = extractItineraryUrlFromCache(homeCache)
+    const itineraryUrl = extractItineraryUrlFromCache(homeCache, eventSlug)
     const resultsItineraryUrl = extractResultsItineraryUrl(homeCache, eventSlug)
     const urls = [
       itineraryUrl || `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`,
@@ -905,7 +932,7 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
       if (!parsedDays || parsedDays.length === 0) {
         parsedDays = parseItineraryFromHtml(html, startDate)
       }
-      if (parsedDays && parsedDays.length > 0) {
+      if (parsedDays && convertDaysToSessions(parsedDays, tz, eventSlug).length > 0) {
         days = parsedDays
         break
       }
@@ -921,25 +948,45 @@ async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: stri
 }
 
 /** 将 ItineraryDay[] 转换为 RaceSession[] */
+export function parseClientWrcFeed(json: unknown, event: RaceEvent): RaceEvent[] {
+  const items = (json as any)?.data?.items
+  if (!Array.isArray(items) || items.length > 100 || !event.eventSlug || !event.sessions.length) throw new Error("WRC 响应无效")
+  const fallback = event.sessions[0].utc.slice(0, 10)
+  const days = parseItineraryItems(items, fallback)
+  if (!days) throw new Error("未找到已确认行程")
+  const sessions = convertDaysToSessions(days, event.tz, event.eventSlug)
+  if (!sessions.length || sessions.length > 100 || sessions.some(session => session.name.length > 200)) throw new Error("赛段无效")
+  return [{ ...event, sessions, tentative: false }]
+}
+
 function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: string): RaceSession[] {
   const sessions: RaceSession[] = []
 
   for (const day of days) {
+    if (day.utcOffsetMinutes !== undefined && !Number.isFinite(day.utcOffsetMinutes)) continue
     const [y, m, d] = day.date
+    const calendarDate = new Date(Date.UTC(y, m - 1, d))
+    if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)
+      || calendarDate.getUTCFullYear() !== y || calendarDate.getUTCMonth() !== m - 1 || calendarDate.getUTCDate() !== d) continue
     for (const stage of day.stages) {
       const [h, min] = stage.time.split(":").map(Number)
-      if (isNaN(h) || isNaN(min)) continue
+      if (!/^\d{1,2}:\d{2}$/.test(stage.time) || !Number.isInteger(h) || !Number.isInteger(min)
+        || h < 0 || h > 23 || min < 0 || min > 59 || !stage.name.trim()) continue
       sessions.push({
         name: stage.name,
-        utc: zonedWallTimeToUtc(y, m, d, h, min, tz).toISOString(),
+        utc: (day.utcOffsetMinutes === undefined
+          ? zonedWallTimeToUtc(y, m, d, h, min, tz)
+          : new Date(Date.UTC(y, m - 1, d, h, min) - day.utcOffsetMinutes * 60000)).toISOString(),
         isMain: stage.isPowerStage,
+        tentative: false,
       })
     }
   }
 
-  sessions.sort((a, b) => a.utc.localeCompare(b.utc))
-  console.log(`WRC: parsed ${sessions.length} sessions for ${eventSlug}`)
-  return sessions
+  const unique = sessions.filter((session, i) => sessions.findIndex(other => other.utc === session.utc && other.name === session.name) === i)
+  unique.sort((a, b) => a.utc.localeCompare(b.utc))
+  console.log(`WRC: parsed ${unique.length} sessions for ${eventSlug}`)
+  return unique
 }
 
 // ============ WRC 赛事列表 ============
@@ -958,19 +1005,19 @@ interface WrcRally {
 
 const WRC_RALLIES: WrcRally[] = [
   { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", eventSlug: "wrc-rallye-monte-carlo-2026", startDate: "2026-01-22" },
-  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", eventSlug: "wrc-rally-sweden-2026", startDate: "2026-02-13" },
-  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", eventSlug: "wrc-safari-rally-kenya-2026", startDate: "2026-03-20" },
-  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", eventSlug: "wrc-croatia-rally-2026", startDate: "2026-04-10" },
-  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", eventSlug: "wrc-rally-islas-canarias-2026", startDate: "2026-04-25" },
+  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", eventSlug: "wrc-rally-sweden-2026", startDate: "2026-02-12" },
+  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", eventSlug: "wrc-safari-rally-kenya-2026", startDate: "2026-03-12" },
+  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", eventSlug: "wrc-croatia-rally-2026", startDate: "2026-04-09" },
+  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", eventSlug: "wrc-rally-islas-canarias-2026", startDate: "2026-04-23" },
   { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-vodafone-rally-de-portugal-2026", startDate: "2026-05-07" },
-  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-forum8-rally-japan-2026", startDate: "2026-05-29" },
+  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-forum8-rally-japan-2026", startDate: "2026-05-28" },
   { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-eko-acropolis-rally-greece-2026", startDate: "2026-06-25" },
-  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", eventSlug: "wrc-delfi-rally-estonia-2026", startDate: "2026-07-17" },
-  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", eventSlug: "wrc-secto-rally-finland-2026", startDate: "2026-08-07" },
-  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-28" },
-  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", startDate: "2026-09-11" },
-  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-09" },
-  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-13" },
+  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", eventSlug: "wrc-delfi-rally-estonia-2026", startDate: "2026-07-16" },
+  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", eventSlug: "wrc-secto-rally-finland-2026", startDate: "2026-07-30" },
+  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-27" },
+  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", startDate: "2026-09-10" },
+  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-01" },
+  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-11" },
 ]
 
 // 国家到时区映射（用于动态赛历）
@@ -1001,7 +1048,9 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
   // 1. 获取 Event Series 列表
   const seriesUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${WRC_EVENT_SERIES_ID}?rb3Locale=en&rb3Schema=v1:card`
   const seriesJson = await fetchJsonApi(seriesUrl)
-  const eventIds: string[] = seriesJson?.data?.events?.map((e: any) => e.id) || []
+  const entries = seriesJson?.data?.events
+  const eventIds: string[] = Array.isArray(entries)
+    ? [...new Set(entries.map((event: any) => event?.id).filter((id: unknown): id is string => typeof id === "string" && id.length > 0))] : []
 
   if (eventIds.length === 0) {
     console.log("WRC: no events found in series, will use hardcoded list")
@@ -1009,32 +1058,33 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
   }
 
   // 2. 并行获取每个 event 的详细信息
-  const eventDetails = await Promise.all(
-    eventIds.map(async (id: string) => {
+  const eventDetails = await mapSettledWithConcurrency(eventIds, 4, async (id: string) => {
       const cardUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${id}?rb3Locale=en&rb3Schema=v1:card`
       const json = await fetchJsonApi(cardUrl)
       const d = json?.data
       if (!d) return null
 
-      const roundMatch = d.content?.standfirst?.match(/Round (\d+)/)
+      const roundMatch = typeof d.content?.standfirst === "string" ? d.content.standfirst.match(/Round (\d+)/i) : null
       const round = roundMatch ? parseInt(roundMatch[1]) : 0
       const slug = d.reference?.uriSlug
-      const startDate = d.event?.startDate?.slice(0, 10)
+      const startDate = typeof d.event?.startDate === "string" ? d.event.startDate.slice(0, 10) : ""
       const country = d.location?.countryName
 
-      if (!round || !slug || !startDate) return null
+      if (!Number.isInteger(round) || round < 1 || typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slug)
+        || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null
+      const date = new Date(startDate)
+      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== startDate) return null
 
       return {
         round,
-        name: d.content?.title || slug,
+        name: typeof d.content?.title === "string" ? d.content.title : slug,
         eventSlug: slug,
         startDate,
         tz: COUNTRY_TZ[country] || "UTC",
       }
     })
-  )
 
-  const valid = eventDetails.filter((e): e is NonNullable<typeof e> => e !== null)
+  const valid = eventDetails.flatMap(result => result.status === "fulfilled" && result.value ? [result.value] : [])
   valid.sort((a, b) => a.round - b.round)
 
   if (valid.length === 0) {
@@ -1052,7 +1102,12 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
 
 // ============ 主函数 ============
 
-export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
+  // Leave room for snapshot persistence before the route's 300-second limit.
+  return withWrcRequestBudget(180000, () => fetchWrcWithinBudget(options))
+}
+
+async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
   const allowApiFallback = options?.allowApiFallback ?? true
   const fallbackEvents = buildWrcEvents()
   const events: RaceEvent[] = [...fallbackEvents]
@@ -1063,53 +1118,36 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
   // 1. 动态获取2026年完整赛历（从WRC官网API）
   const calendar = await fetchWrcCalendar()
 
-  // 2. 构建要爬取的赛事列表：优先使用动态发现的赛历，fallback到硬编码
-  let rallies: WrcRally[]
+  // A partial official calendar must not remove otherwise known season rounds.
+  let rallies: WrcRally[] = mergeWrcTargets(WRC_RALLIES, calendar || [])
 
-  if (calendar && calendar.length > 0) {
-    rallies = calendar.map(c => {
-      // 用 round 匹配 fallbackEvents 获取更精确的元数据（时区、名称等）
-      const fallback = WRC_RALLIES.find(r => r.round === c.round)
-      return {
-        round: c.round,
-        name: fallback?.name || c.name,
-        hq: fallback?.hq || "",
-        city: fallback?.city || "",
-        country: fallback?.country || "",
-        code: fallback?.code || "",
-        tz: fallback?.tz || c.tz,
-        eventSlug: c.eventSlug,  // 使用官网API返回的正确slug
-        startDate: c.startDate,
-      }
-    })
-  } else {
-    rallies = [...WRC_RALLIES]
-  }
+  rallies = prioritizeWrcRallies(rallies)
 
   console.log(`WRC: scraping ${rallies.length} rallies (full season), allowApiFallback=${allowApiFallback}`)
 
-  const ocblacktopRallies = (OCBLACKTOP_API_KEY && allowApiFallback) ? await fetchOcblacktopRallies() : null
-  if (OCBLACKTOP_API_KEY && allowApiFallback) {
-    console.log(`ocblacktop: ${ocblacktopRallies ? ocblacktopRallies.length : 0} rallies indexed`)
+  // Fetch the paid/quota-limited index only after an official itinerary fails.
+  // A shared promise ensures concurrent failures issue at most one index request.
+  let indexPromise: Promise<OcblacktopRallySummary[] | null> | undefined
+  const loadThirdPartyIndex = () => {
+    if (!OCBLACKTOP_API_KEY || !allowApiFallback) return Promise.resolve(null)
+    return indexPromise ??= fetchOcblacktopRallies()
   }
 
-  // 第一轮：尝试爬取所有 rally
-  const firstResults = await Promise.allSettled(
-    rallies.map(async (rally) => {
-      let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
-      let source = "wrc-official"
-
-      if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
-        sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
-        if (sessions && sessions.length > 0) source = "ocblacktop"
+  const firstResults = await mapSettledWithConcurrency(rallies, 4, async (rally) => {
+    if (wrcBudgetExpired()) return { rally, sessions: null, source: "wrc-official" }
+    let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
+    let source = "wrc-official"
+    if (!sessions?.length) {
+      const index = await loadThirdPartyIndex()
+      if (index) {
+        sessions = await tryOcblacktopFallback(rally, index)
+        if (sessions?.length) source = "ocblacktop"
       }
-
-      return { rally, sessions, source }
-    })
-  )
+    }
+    return { rally, sessions, source }
+  })
 
   // 收集第一轮结果，记录失败的 rally
-  const failedRallies: { rally: WrcRally; idx: number }[] = []
   const resultMap = new Map<number, { rally: WrcRally; sessions: RaceSession[] | null; source: string }>()
 
   for (let i = 0; i < firstResults.length; i++) {
@@ -1117,53 +1155,31 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
     if (result.status === "fulfilled") {
       const { rally, sessions, source } = result.value
       resultMap.set(i, { rally, sessions, source })
-      if (!sessions || sessions.length === 0) {
-        failedRallies.push({ rally, idx: i })
-      }
     } else {
       console.error(`WRC error: ${result.reason}`)
       const rally = rallies[i]
       resultMap.set(i, { rally, sessions: null, source: "wrc-official" })
-      failedRallies.push({ rally, idx: i })
     }
   }
 
-  // 第二轮：对失败的 rally 再试一次（特别是最近的2场）
-  if (failedRallies.length > 0) {
-    const nowMs = Date.now()
-    const twoWeeks = 14 * 24 * 60 * 60 * 1000
-    // 优先重试最近2场（在2周窗口内的）
-    const recentFailed = failedRallies.filter(f => {
-      const rallyTime = new Date(f.rally.startDate).getTime()
-      return Math.abs(rallyTime - nowMs) < twoWeeks
-    })
-    const toRetry = recentFailed.length > 0 ? recentFailed : failedRallies.slice(0, 2)
-    console.log(`WRC: retrying ${toRetry.length} failed rallies`)
-
-    for (const { rally, idx } of toRetry) {
-      console.log(`WRC: retry ${rally.name} (${rally.eventSlug})`)
-      let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
-      let source = "wrc-official"
-
-      if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
-        sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
-        if (sessions && sessions.length > 0) source = "ocblacktop"
-      }
-
-      resultMap.set(idx, { rally, sessions, source })
-    }
-  }
+  // Network helpers already retry transient failures. Do not repeat the entire
+  // multi-source chain for unpublished itineraries or deterministic 404s.
 
   // 应用结果
   for (const [_, { rally, sessions, source }] of resultMap) {
     if (sessions && sessions.length > 0) {
       const index = events.findIndex((e) => e.round === rally.round)
+      if (index === -1) {
+        errors.push(`${rally.name}（未匹配到赛历轮次 ${rally.round}）`)
+        continue
+      }
       if (index !== -1) {
         // 同步官方动态 slug 到 eventSlug/liveTimingUrl，避免用旧硬编码 slug 指向 404
         const updatedSlug = rally.eventSlug ?? events[index].eventSlug
         events[index] = {
           ...events[index],
           sessions,
+          tz: rally.tz,
           eventSlug: updatedSlug,
           liveTimingUrl: buildWrcLiveTimingUrl(updatedSlug ?? ""),
           url: source === "ocblacktop"
@@ -1194,10 +1210,13 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
   }
 
   const parts: string[] = []
+  if (wrcBudgetExpired()) parts.push("抓取达到时间上限，保留已获取结果")
   if (successCount > 0) parts.push(`${successCount} 场官网爬取成功`)
   if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop API`)
-  if (errors.length > 0) parts.push(`${errors.length} 场使用估计数据（${errors.join(", ")}）`)
+  const estimatedEvents = events.filter(event => event.tentative || event.sessions.some(session => session.tentative))
+  if (estimatedEvents.length > 0) parts.push(`${estimatedEvents.length} 场仍有待确认赛段`)
+  if (errors.length > 0) parts.push(`未取得有效数据：${errors.join(", ")}`)
   const note = parts.length > 0 ? parts.join("，") : "所有爬取的赛事均获取成功"
 
-  return { events, ok, note, dataSource }
+  return { events, ok, note, dataSource, diagnostics: getWrcRequestDiagnostics() }
 }

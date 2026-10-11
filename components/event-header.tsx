@@ -1,9 +1,11 @@
 "use client"
 
+import { downloadFile } from "@/lib/download"
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { Bell, Calendar, Clock, MapPin } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, countdown, formatDateTime, isLive, isPast, mainSession } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 
 interface EventHeaderProps {
@@ -15,36 +17,18 @@ interface EventHeaderProps {
 export function EventHeader({ event, now, onSetNotification }: EventHeaderProps) {
   const meta = SERIES_META[event.series]
   const main = mainSession(event)
-  const flag = countryCodeToFlag(event.countryCode)
   const live = isLive(event, now)
   const past = isPast(event, now)
   const status = live ? "进行中" : past ? "已结束" : "即将开始"
-  const mainCountdown = main ? countdown(main.utc, now) : null
+  const estimated = !!main && isEstimatedWrcSession(event, main)
+  const mainCountdown = main && !estimated ? countdown(main.utc, now) : null
 
   const downloadCalendar = () => {
-    if (!main) return
-    const start = new Date(main.utc)
-    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//RaceCalendar//CN",
-      "BEGIN:VEVENT",
-      `SUMMARY:${event.name} - ${event.series}`,
-      `DTSTART:${start.toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
-      `DTEND:${end.toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
-      `LOCATION:${event.circuit}, ${event.locality}, ${event.country}`,
-      `DESCRIPTION:${event.name} - ${event.series} 第${event.round}站`,
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ].join("\r\n")
-    const blob = new Blob([ics], { type: "text/calendar" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${event.id}.ics`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (!main || estimated) return
+    if (!Number.isFinite(Date.parse(main.utc))) return
+    const params = new URLSearchParams({ id: event.id, series: event.series, round: String(event.round),
+      name: event.name, circuit: event.circuit, locality: event.locality, country: event.country, utc: main.utc })
+    downloadFile(`/api/calendar?${params}`, `${event.id}.ics`)
   }
 
   return (
@@ -63,7 +47,6 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
             <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
               第 {event.round} 站
             </span>
-            {flag && <span aria-hidden>{flag}</span>}
           </div>
           <h1 className="mt-3 text-xl font-bold">{event.name}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -96,13 +79,13 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
             <div>
               <div className="text-xs text-muted-foreground">北京时间</div>
               <div className="text-lg font-bold font-mono tabular-nums">
-                {formatDateTime(main.utc, BEIJING_TZ)}
+                {estimated ? "时间待确认" : formatDateTime(main.utc, BEIJING_TZ)}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">当地时间</div>
               <div className="text-lg font-bold font-mono tabular-nums">
-                {formatDateTime(main.utc, event.tz)}
+                {estimated ? "时间待确认" : formatDateTime(main.utc, event.tz)}
               </div>
             </div>
           </div>
@@ -132,19 +115,21 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
 
       <div className="mt-5 flex gap-3">
         <button
-          onClick={onSetNotification}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          data-guide="reminder" onClick={onSetNotification}
+          disabled={estimated}
+          title={estimated ? "赛段时间待确认后可设置提醒" : undefined}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Bell className="size-4" />
           设置正赛提醒
         </button>
         <button
-          onClick={downloadCalendar}
+          data-guide="calendar" onClick={downloadCalendar}
           className={cn(
             "flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors",
-            main ? "hover:bg-secondary" : "opacity-50 cursor-not-allowed"
+            main && !estimated ? "hover:bg-secondary" : "opacity-50 cursor-not-allowed"
           )}
-          disabled={!main}
+          disabled={!main || estimated}
         >
           <Calendar className="size-4" />
           加入日历

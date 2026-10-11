@@ -1,3 +1,4 @@
+import { mergeWrcSnapshotEvents } from "./wrc-snapshot-merge"
 import type { Series, RaceEvent } from "./types"
 import { getSql } from "./db"
 
@@ -57,12 +58,16 @@ export async function saveCrawlSnapshot(
   if (!sql) return
 
   try {
-    await sql`
-      INSERT INTO crawl_snapshots (series, data, source)
-      VALUES (${series}, ${JSON.stringify(data)}, ${source ?? null})
-    `
+    await sql.transaction([
+      sql`SELECT pg_advisory_xact_lock(1681090, hashtext(${series}))`,
+      sql`
+        INSERT INTO crawl_snapshots (series, data, source, fetched_at)
+        VALUES (${series}, ${JSON.stringify(data)}, ${source ?? null}, clock_timestamp())
+      `,
+    ], { isolationLevel: "ReadCommitted" })
   } catch (err) {
     console.error("保存爬取快照失败:", err)
+    throw err
   }
 }
 
@@ -79,27 +84,17 @@ export async function saveWrcSnapshotMerged(
     const prev = await getLatestSnapshot("WRC")
     const prevEvents = (prev?.data?.events as RaceEvent[] | undefined) ?? []
 
-    if (prevEvents.length > 0) {
-      for (let i = 0; i < newData.events.length; i++) {
-        const newEvent = newData.events[i]
-        // 找到上次快照中同一场赛事
-        const prevEvent = prevEvents.find(e => e.id === newEvent.id)
-        if (!prevEvent) continue
+    const merged = mergeWrcSnapshotEvents(newData.events, prevEvents)
+    newData.events = merged.events
+    const pendingCount = newData.events.filter(event => event.tentative || event.sessions.some(session => session.tentative)).length
+    if (newData.note) newData.note = newData.note.replace(/\d+ 场仍有待确认赛段/, pendingCount ? `${pendingCount} 场仍有待确认赛段` : "输出赛段均有已确认时间")
+    if (merged.retainedSessions) newData.note = `${newData.note || "WRC 数据更新"}；保留 ${merged.retainedSessions} 个已确认赛段的历史时间`
 
-        // 本次为估计数据（tentative=true），但上次有真实爬取数据（tentative=false 或 undefined）
-        // → 保留上次真实数据
-        if (newEvent.tentative && !prevEvent.tentative) {
-          newData.events[i] = prevEvent
-        }
-      }
-    }
-
-    await saveCrawlSnapshot("WRC", newData, source)
   } catch (err) {
-    console.error("WRC 合并快照保存失败:", err)
-    // 合并失败也要保存原始数据
-    await saveCrawlSnapshot("WRC", newData, source)
+    console.error("WRC 快照合并失败:", err)
+    // 合并失败仍保存本次数据；数据库写入失败交给调用方处理。
   }
+  await saveCrawlSnapshot("WRC", newData, source)
 }
 
 /** 获取指定系列的最新快照 */
@@ -114,6 +109,9 @@ export async function getLatestSnapshot(
       SELECT data, fetched_at, source
       FROM crawl_snapshots
       WHERE series = ${series}
+        AND data->>'ok' = 'true'
+        AND jsonb_typeof(data->'events') = 'array'
+        AND data->'events' <> '[]'::jsonb
       ORDER BY fetched_at DESC
       LIMIT 1
     `
@@ -162,7 +160,7 @@ export async function incrementCrawlCount(
     return { count: rows[0].count, limit: CRAWL_LIMIT }
   } catch (err) {
     console.error("递增爬取计数失败:", err)
-    return { count: 0, limit: CRAWL_LIMIT }
+    throw err
   }
 }
 

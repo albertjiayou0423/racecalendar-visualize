@@ -154,11 +154,10 @@ export function LastRaceResults() {
             {[podium[1], podium[0], podium[2]].map((driver, idx) => {
               if (!driver) return <div key={idx} />
               const pos = idx === 0 ? 2 : idx === 1 ? 1 : 3
-              const medals = ["🥈", "🥇", "🥉"]
               const heights = ["h-20", "h-28", "h-16"]
               return (
                 <div key={driver.position} className="flex flex-col items-center gap-1.5">
-                  <div className="text-2xl">{medals[idx]}</div>
+                  <Medal className="size-7 text-muted-foreground" aria-label={`第 ${pos} 名`} />
                   <div className="text-center">
                     <div className="font-bold text-sm">{driver.driver.code}</div>
                     <div className="text-[10px] text-muted-foreground">{driver.constructor.name}</div>

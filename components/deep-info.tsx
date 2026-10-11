@@ -1,4 +1,5 @@
 "use client"
+import { eventSourceLabel } from "@/lib/f1-metadata"
 
 import { ChevronDown, ExternalLink } from "lucide-react"
 import { useState } from "react"
@@ -128,7 +129,7 @@ export function DeepInfo({ event }: DeepInfoProps) {
                 官方网站
               </a>
             )}
-            {event.wikipediaUrl && (
+            {event.wikipediaUrl && event.wikipediaUrl !== event.url && (
               <a
                 href={event.wikipediaUrl}
                 target="_blank"

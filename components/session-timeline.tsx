@@ -1,5 +1,7 @@
 "use client"
 
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { useRef, useEffect } from "react"
 import { Clock } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
@@ -130,6 +132,24 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
   }, [hasSessions, centerIdx])
 
   if (!hasSessions) return null
+  if (sessions.some(s => isEstimatedWrcSession(event, s))) {
+    return (
+      <section className="mt-4 rounded-xl border border-border bg-card p-5">
+        <h2 className="text-sm font-semibold">赛段安排</h2>
+        <p className="mt-2 text-xs text-muted-foreground">估计赛段的具体时间待确认，以官方行程为准。</p>
+        <ul className="mt-3 space-y-2">
+          {sessions.map((session, index) => (
+            <li key={index} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm">
+              <span>{session.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {isEstimatedWrcSession(event, session) ? "时间待确认" : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地）`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 
   return (
     <section className="mt-4 rounded-xl border border-border bg-card p-5">
@@ -370,13 +390,13 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
                       : "未开始"}
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-4 text-[11px] text-muted-foreground">
-                  <span className="font-mono tabular-nums">
+                <div className="mt-1.5 flex flex-col gap-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:gap-4">
+                  <span className="whitespace-nowrap font-mono tabular-nums">
                     {formatDateTime(s.utc, BEIJING_TZ)}
                     <span className="ml-1 text-[10px]">北京</span>
                   </span>
                   {event.tz !== BEIJING_TZ && (
-                    <span className="font-mono tabular-nums opacity-70">
+                    <span className="whitespace-nowrap font-mono tabular-nums opacity-70">
                       {formatDateTime(s.utc, event.tz)}
                       <span className="ml-1 text-[10px]">当地</span>
                     </span>

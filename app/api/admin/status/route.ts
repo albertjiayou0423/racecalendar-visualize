@@ -1,11 +1,19 @@
+import { requireAdmin } from "@/lib/admin-auth"
 import { NextResponse } from "next/server"
-import { fetchF1, fetchFe, fetchWrc } from "@/lib/fetchers"
-import { getSql } from "@/lib/db"
+import { getLatestSnapshot } from "@/lib/crawl-store"
 
-export const maxDuration = 300
+export const dynamic = "force-dynamic"
 
-export async function GET() {
-  const [f1, fe, wrc] = await Promise.all([fetchF1(), fetchFe(), fetchWrc()])
+export async function GET(request: Request) {
+  const authErr = requireAdmin(request)
+  if (authErr) return authErr
+  // Inspect persisted data without triggering another full-season crawl or consuming API quota.
+  const snapshots = await Promise.all([getLatestSnapshot("F1"), getLatestSnapshot("FE"), getLatestSnapshot("WRC")])
+  const [f1, fe, wrc] = snapshots.map(snapshot => ({
+    ok: Boolean(snapshot),
+    events: snapshot?.data.events ?? [],
+    note: snapshot ? `最近成功快照：${new Date(snapshot.fetchedAt).toISOString()}；非实时上游检测` : "暂无成功快照，请在爬虫管理中获取数据",
+  }))
 
   const result = {
     status: "ok",
@@ -15,22 +23,6 @@ export async function GET() {
       fe: { ok: fe.ok, eventCount: fe.events.length, note: fe.note, status: fe.ok ? "success" : "error" },
       wrc: { ok: wrc.ok, eventCount: wrc.events.length, note: wrc.note, status: wrc.ok ? "success" : "error" },
     },
-  }
-
-  // 异步记录到数据库
-  const sql = getSql()
-  if (sql) {
-    try {
-      const nowIso = new Date().toISOString()
-      for (const [key, svc] of Object.entries(result.services)) {
-        await sql`
-          INSERT INTO service_health_log (checked_at, service, ok, event_count, note)
-          VALUES (${nowIso}, ${key}, ${svc.ok}, ${svc.eventCount}, ${svc.note ?? null})
-        `
-      }
-    } catch (e) {
-      console.error("Failed to log health:", e)
-    }
   }
 
   return NextResponse.json(result)

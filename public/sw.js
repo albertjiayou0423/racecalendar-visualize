@@ -1,5 +1,5 @@
 // 赛道时刻 Service Worker — 离线缓存核心页面
-const CACHE_NAME = "race-calendar-v1"
+const CACHE_NAME = "race-calendar-v2.2.2"
 const CORE_ASSETS = ["/", "/about", "/standings", "/circuits"]
 
 self.addEventListener("install", (event) => {
@@ -23,13 +23,19 @@ self.addEventListener("fetch", (event) => {
   const { request } = event
   if (request.method !== "GET") return
 
+  const url = new URL(request.url)
+  // Admin sessions and private data must never enter Cache Storage or offline fallback.
+  if (url.origin === self.location.origin && (url.pathname === "/admin" || url.pathname.startsWith("/api/admin/") || url.pathname === "/api/feedback")) return
+
   // API 请求：网络优先，失败回退缓存
   if (request.url.includes("/api/")) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          if (response.ok && !response.headers.get("Cache-Control")?.includes("no-store")) {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          }
           return response
         })
         .catch(() => caches.match(request))

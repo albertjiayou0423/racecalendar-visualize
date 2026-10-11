@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
+import { UsageGuideButton } from "@/components/usage-guide"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
-import type { ScheduleResponse } from "@/lib/types"
+import type { ScheduleResponse, Series } from "@/lib/types"
 import {
     BEIJING_TZ,
     SERIES_META,
@@ -134,9 +135,18 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
 
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const now = useNow(serverTime)
-  const { data, error, isLoading } = useSWR("/api/schedule", fetcher, {
+  const [cachedSchedule, setCachedSchedule] = useState<ScheduleResponse | undefined>()
+  useEffect(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null")
+      if (Array.isArray(cached?.events) && Array.isArray(cached?.sources)) setCachedSchedule(cached)
+    } catch { /* Invalid or unavailable browser cache. */ }
+  }, [])
+  const { data, error, isLoading: requestLoading } = useSWR("/api/schedule", fetcher, {
     revalidateOnFocus: false,
+    fallbackData: cachedSchedule,
   })
+  const isLoading = requestLoading && !data
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [view, setView] = useState<ViewMode>("list")
@@ -145,6 +155,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
   const [filterStuck, setFilterStuck] = useState(false)
+  useEffect(() => {
+    const prepare = () => setView("list")
+    window.addEventListener("racecalendar:guide-card", prepare)
+    return () => window.removeEventListener("racecalendar:guide-card", prepare)
+  }, [])
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -211,6 +226,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       target?.scrollIntoView({ behavior: "smooth", block: "nearest" })
     }
     const handleKeydown = (e: KeyboardEvent) => {
+      if (document.querySelector("dialog[open]")) return
       const target = e.target as HTMLElement
       const tag = target?.tagName
       const inField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable
@@ -347,7 +363,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           </div>
           {/* 视图切换 + 通知 - 移动端吸顶时隐藏 */}
           <div className={cn("flex items-center gap-2", filterStuck && isMobile && "hidden")}>
-            <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+            <div data-guide="views" className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
               <button
                 type="button"
                 onClick={() => setView("list")}
@@ -425,7 +441,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowAdvancedFilters((v) => !v)}
+              data-guide="advanced-filters" onClick={() => setShowAdvancedFilters((v) => !v)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 showAdvancedFilters || circuitType !== "all" || region !== "all"
@@ -620,8 +636,9 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.1.0 · 更新日志
+            v2.2.2 · 修复与更新
           </Link>
+        <UsageGuideButton />
         <Link
           href="/developer"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"

@@ -1,5 +1,8 @@
 "use client"
 
+import { downloadFile } from "@/lib/download"
+import { isEstimatedWrcSession } from "@/lib/session-time"
+
 import { useRef, useState, useEffect } from "react"
 import { toPng } from "html-to-image"
 import { Download, ImageIcon, RotateCcw, Copy, Check } from "lucide-react"
@@ -34,7 +37,7 @@ export function ShareCard({ event, now }: ShareCardProps) {
   const main = mainSession(event)
   const live = isLive(event, now)
   const past = isPast(event, now)
-  const cd = main ? countdown(main.utc, now) : null
+  const cd = main && !isEstimatedWrcSession(event, main) ? countdown(main.utc, now) : null
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -70,10 +73,7 @@ export function ShareCard({ event, now }: ShareCardProps) {
 
   const download = () => {
     if (!generatedUrl) return
-    const a = document.createElement("a")
-    a.download = `${event.id}-share-card.png`
-    a.href = generatedUrl
-    a.click()
+    downloadFile(generatedUrl, `${event.id}-share-card.png`)
   }
 
   const copy = async () => {
@@ -168,13 +168,13 @@ export function ShareCard({ event, now }: ShareCardProps) {
               <div>
                 <div className="mb-1 text-xs text-white/40">北京时间</div>
                 <div className="font-mono text-lg font-bold tabular-nums">
-                  {formatDateTime(main.utc, BEIJING_TZ)}
+                  {isEstimatedWrcSession(event, main) ? "时间待确认" : formatDateTime(main.utc, BEIJING_TZ)}
                 </div>
               </div>
               <div>
                 <div className="mb-1 text-xs text-white/40">当地时间</div>
                 <div className="font-mono text-lg font-bold tabular-nums">
-                  {formatDateTime(main.utc, event.tz)}
+                  {isEstimatedWrcSession(event, main) ? "时间待确认" : formatDateTime(main.utc, event.tz)}
                 </div>
               </div>
             </div>

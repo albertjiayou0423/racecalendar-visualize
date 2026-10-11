@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth"
 import { NextResponse } from "next/server"
 import { getLatestSnapshot } from "@/lib/crawl-store"
 import type { Series } from "@/lib/types"
@@ -5,17 +6,10 @@ import type { Series } from "@/lib/types"
 /** 支持的系列列表 */
 const VALID_SERIES: Series[] = ["F1", "FE", "WRC"]
 
-/** 认证校验：验证 admin_auth cookie */
-function checkAuth(request: Request): NextResponse | null {
-  if (request.cookies.get("admin_auth")?.value !== "true") {
-    return NextResponse.json({ ok: false, message: "未授权" }, { status: 401 })
-  }
-  return null
-}
 
 /** 获取指定系列的最新快照数据 */
 export async function GET(request: Request) {
-  const authErr = checkAuth(request)
+  const authErr = requireAdmin(request)
   if (authErr) return authErr
 
   const { searchParams } = new URL(request.url)

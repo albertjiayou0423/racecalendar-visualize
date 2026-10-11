@@ -9,6 +9,8 @@ export interface RaceSession {
   isMain?: boolean
   /** 场次时间是否为待确认/估计值 */
   tentative?: boolean
+  /** 浏览器补缺数据尚未经服务端独立核验。 */
+  clientUploadedAt?: string
 }
 
 export interface Broadcaster {
@@ -21,6 +23,7 @@ export interface Broadcaster {
 }
 
 export interface RaceEvent {
+  clientData?: { uploadedAt: string; sourceUrl: string; sessions: string[] }
   id: string
   series: Series
   round: number
