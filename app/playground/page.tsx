@@ -60,9 +60,9 @@ function ComponentRow({ entry }: { entry: CatalogEntry }) {
     return () => observer.disconnect()
   }, [])
   const previewWidth = widthPreset === 1 ? "20rem" : widthPreset === 2 ? "100%" : "36rem"
-  return <article ref={row} id={entry.name} aria-label={`${entry.name} 组件`} className="overflow-hidden rounded-xl border border-border bg-card">
+  return <article ref={row} id={entry.name} aria-label={`${entry.name} 组件`} className="border-b border-border py-4 last:border-0">
     <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <section aria-label={`${entry.name} 组件预览`} className="min-w-0 bg-secondary/10 p-4 sm:p-5">
+      <section aria-label={`${entry.name} 组件预览`} className="min-w-0 p-2 sm:p-3">
         <h2 className="mb-4 font-mono text-sm font-semibold">{entry.name}</h2>
         <div className="min-h-16 rounded-lg" style={{ maxWidth: previewWidth }} onClickCapture={event => {
           if ((event.target as HTMLElement).closest("a")) { event.preventDefault(); event.stopPropagation() }
@@ -70,7 +70,7 @@ function ComponentRow({ entry }: { entry: CatalogEntry }) {
           {mounted && <PlaygroundComponentPreview name={entry.name} props={props} />}
         </div>
       </section>
-      <section aria-label={`${entry.name} 参数调整`} className="min-w-0 border-t border-border p-4 sm:p-5 lg:border-l lg:border-t-0">
+      <section aria-label={`${entry.name} 参数调整`} className="min-w-0 border-t border-border/60 p-3 lg:border-l lg:border-t-0">
         <div className="mb-4 flex flex-wrap gap-2" aria-label={`${entry.name} 预设`}>
           {entry.presets.map((item, index) => <button key={index} aria-pressed={noProps ? widthPreset === index : preset === index} className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${(noProps ? widthPreset === index : preset === index) ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary"}`} onClick={() => {
             if (noProps) setWidthPreset(index)
