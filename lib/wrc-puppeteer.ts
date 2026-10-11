@@ -343,7 +343,7 @@ function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: s
         }
       }
 
-      if (days.length > 0) return days
+      if (days.length > 0 && convertDaysToSessions(days, "UTC", "validation").length > 0) return days
     }
   }
 
@@ -641,7 +641,7 @@ async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: str
         }
       }
 
-      if (days.length > 0) {
+      if (days.length > 0 && convertDaysToSessions(days, "UTC", "validation").length > 0) {
         console.log(`WRC feed API: parsed ${days.length} days from FAQ`)
         return days
       }

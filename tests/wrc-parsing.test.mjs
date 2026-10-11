@@ -67,7 +67,26 @@ test('FAQ UTC and GMT offsets override rally timezone without double conversion'
     assert.equal(exports.convert(days, 'Europe/Helsinki', 'fixture')[0].utc, utc)
   }
   assert.equal(Number.isNaN(exports.offset('Itinerary UTC+25')), true)
-  assert.equal(exports.convert(exports.cache(faq('Itinerary UTC+25'), '2026-07-09'), 'UTC', 'fixture').length, 0)
+  assert.equal(exports.cache(faq('Itinerary UTC+25'), '2026-07-09'), null)
+})
+
+test('cache and feed skip invalid FAQ versions before selecting a valid itinerary', async () => {
+  const faq = (date, time, title = 'Itinerary UTC') => ({ type: 'faq', title, elements: [{
+    question: [{ variant: 'text', text: date }],
+    answer: [{ type: 'list', items: [{ elements: [{ variant: 'text', text: `${time}: SS1` }] }] }],
+  }] })
+  const items = [faq('TBC', '09:00'), faq('10 July 2026', '25:61'), faq('10 July 2026', '09:00', 'Itinerary UTC+25'), faq('10 July 2026', '11:00')]
+  const days = exports.cache({ feed: { data: { data: { items } } } }, '2026-07-09')
+  assert.equal(exports.convert(days, 'UTC', 'fixture')[0].utc, '2026-07-10T11:00:00.000Z')
+  const context = { exports: {}, process: { env: {} }, AbortSignal,
+    console: { log() {}, error() {} },
+    require: name => name === './tz' ? timezone : name === './wrc-request-budget' ? {
+      fetchWithinWrcBudget: async () => ({ ok: true, json: async () => ({ data: { items } }) }),
+    } : {},
+  }
+  vm.runInNewContext(source + '\nexports.feed = fetchItineraryFromFeedApiUncached;', context)
+  const feed = await context.exports.feed('fixture-2026', '2026-07-09')
+  assert.equal(exports.convert(feed, 'UTC', 'fixture')[0].utc, '2026-07-10T11:00:00.000Z')
 })
 
 // These regressions must never select another rally merely through generic words.
