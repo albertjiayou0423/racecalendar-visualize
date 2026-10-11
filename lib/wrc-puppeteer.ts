@@ -306,66 +306,68 @@ function parseItineraryFromHtml(html: string, fallbackDate: string): ItineraryDa
 }
 
 function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: string): ItineraryDay[] | null {
-  for (const key of Object.keys(cacheData)) {
-    const value = cacheData[key]
-    if (!value?.data?.data) continue
-
-    const items = value.data.data.items
+  for (const value of Object.values(cacheData)) {
+    const items = value?.data?.data?.items
     if (!Array.isArray(items)) continue
+    const days = parseItineraryItems(items, fallbackDate)
+    if (days) return days
+  }
+  console.error("No itinerary FAQ found in prerender cache")
+  return null
+}
 
-    for (const item of items) {
-      if (item?.type !== "faq") continue
+/** Both official HTML cache and Feed use the same FAQ validation rules. */
+function parseItineraryItems(items: any[], fallbackDate: string): ItineraryDay[] | null {
+  for (const item of items) {
+    if (item?.type !== "faq") continue
 
-      const title = typeof item.title === "string" ? item.title : ""
-      if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
+    const title = typeof item.title === "string" ? item.title : ""
+    if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
 
-      const elements = item.elements
-      if (!Array.isArray(elements)) continue
+    const elements = item.elements
+    if (!Array.isArray(elements)) continue
 
-      const days: ItineraryDay[] = []
+    const days: ItineraryDay[] = []
 
-      for (const element of elements) {
-        const question = element?.question
-        const answer = element?.answer
+    for (const element of elements) {
+      const question = element?.question
+      const answer = element?.answer
 
-        if (!Array.isArray(question) || !Array.isArray(answer)) continue
+      if (!Array.isArray(question) || !Array.isArray(answer)) continue
 
-        const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
-        const date = parseDateText(dateText, fallbackDate)
+      const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
+      const date = parseDateText(dateText, fallbackDate)
 
-        const stages: { time: string; name: string; isPowerStage: boolean }[] = []
+      const stages: { time: string; name: string; isPowerStage: boolean }[] = []
 
-        for (const ans of answer) {
-          if (ans?.type !== "list" || !Array.isArray(ans.items)) continue
+      for (const ans of answer) {
+        if (ans?.type !== "list" || !Array.isArray(ans.items)) continue
 
-          for (const listItem of ans.items) {
-            if (!Array.isArray(listItem?.elements)) continue
-            for (const el of listItem.elements) {
-              if (el?.variant !== "text" || typeof el.text !== "string") continue
-              const text = el.text || ""
+        for (const listItem of ans.items) {
+          if (!Array.isArray(listItem?.elements)) continue
+          for (const el of listItem.elements) {
+            if (el?.variant !== "text" || typeof el.text !== "string") continue
+            const text = el.text || ""
 
-              const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
-              if (!stageMatch) continue
+            const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
+            if (!stageMatch) continue
 
-              const time = stageMatch[1].padStart(5, "0")
-              const name = stageMatch[2].trim()
-              const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
+            const time = stageMatch[1].padStart(5, "0")
+            const name = stageMatch[2].trim()
+            const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
 
-              stages.push({ time, name, isPowerStage })
-            }
+            stages.push({ time, name, isPowerStage })
           }
-        }
-
-        if (stages.length > 0) {
-          days.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(title) })
         }
       }
 
-      if (days.length > 0 && convertDaysToSessions(days, "UTC", "validation").length > 0) return days
+      if (stages.length > 0) {
+        days.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(title) })
+      }
     }
-  }
 
-  console.error("No itinerary FAQ found in prerender cache")
+    if (days.length > 0 && convertDaysToSessions(days, "UTC", "validation").length > 0) return days
+  }
   return null
 }
 
@@ -616,59 +618,10 @@ async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: str
       return null
     }
 
-    // 查找 FAQ item
-    for (const item of items) {
-      if (item?.type !== "faq") continue
-
-      const title = typeof item.title === "string" ? item.title : ""
-      if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
-
-      const elements = item.elements
-      if (!Array.isArray(elements)) continue
-
-      const days: ItineraryDay[] = []
-
-      for (const element of elements) {
-        const question = element?.question
-        const answer = element?.answer
-
-        if (!Array.isArray(question) || !Array.isArray(answer)) continue
-
-        const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
-        const date = parseDateText(dateText, startDate)
-
-        const stages: { time: string; name: string; isPowerStage: boolean }[] = []
-
-        for (const ans of answer) {
-          if (ans?.type !== "list" || !Array.isArray(ans.items)) continue
-
-          for (const listItem of ans.items) {
-            if (!Array.isArray(listItem?.elements)) continue
-            for (const el of listItem.elements) {
-              if (el?.variant !== "text" || typeof el.text !== "string") continue
-              const text = el.text || ""
-
-              const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
-              if (!stageMatch) continue
-
-              const time = stageMatch[1].padStart(5, "0")
-              const name = stageMatch[2].trim()
-              const isPowerStage = name.toLowerCase().includes("power stage") || name.toLowerCase().includes("wolf power")
-
-              stages.push({ time, name, isPowerStage })
-            }
-          }
-        }
-
-        if (stages.length > 0) {
-          days.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(title) })
-        }
-      }
-
-      if (days.length > 0 && convertDaysToSessions(days, "UTC", "validation").length > 0) {
-        console.log(`WRC feed API: parsed ${days.length} days from FAQ`)
-        return days
-      }
+    const days = parseItineraryItems(items, startDate)
+    if (days) {
+      console.log(`WRC feed API: parsed ${days.length} days from FAQ`)
+      return days
     }
 
     console.error("WRC feed API: no itinerary FAQ found")
