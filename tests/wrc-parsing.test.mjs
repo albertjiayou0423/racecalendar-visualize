@@ -112,12 +112,18 @@ test('third-party timestamps distinguish explicit UTC, offset ISO and local wall
   assert.equal(exports.stageTime({ scheduledStartTimeUtc: '2026-07-10T09:00:00' }, tz).utc, '2026-07-10T09:00:00.000Z')
   assert.equal(exports.stageTime({ scheduledStartTime: '2026-07-10T09:00:00' }, tz).utc, '2026-07-10T06:00:00.000Z')
   assert.equal(exports.stageTime({ startTime: '2026-07-10T09:00:00+02:00' }, tz).utc, '2026-07-10T07:00:00.000Z')
+  assert.equal(exports.stageTime({ startTime: '2026-07-10T9:00:12.125z' }, tz).utc, '2026-07-10T09:00:12.125Z')
+  assert.equal(exports.stageTime({ startTime: '2026-07-10T00:00:00+14:00' }, tz).utc, '2026-07-09T10:00:00.000Z')
+  assert.equal(exports.stageTime({ startTime: '2026-07-10T23:00:00-14:00' }, tz).utc, '2026-07-11T13:00:00.000Z')
   assert.equal(exports.stageTime({ date: '2026-07-10', time: '09:00:12.125' }, tz).utc, '2026-07-10T06:00:12.125Z')
   for (const stage of [
     { date: '2026-02-29', time: '09:00' },
     { date: '2026-07-10', time: '25:61' },
     { startTime: '2026-02-30T09:00:00Z' },
     { startTime: '2026-07-10' },
+    { startTime: '2026-07-10T09:00:00+14:01' },
+    { startTime: '2026-07-10T09:00:00-15:00' },
+    { startTime: '2026-07-10T09:00:00+02:60' },
   ]) assert.equal(exports.stageTime(stage, tz), null)
 })
 test('ambiguous and wrong-year third-party rallies do not request detail data', async () => {

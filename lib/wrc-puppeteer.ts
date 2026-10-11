@@ -459,8 +459,14 @@ function parseStageTime(stage: OcblacktopStage, rallyTz: string): { utc: string;
     const fraction = Number((m[7] || "").padEnd(3, "0"))
     try {
       if (m[8] || assumeUtc) {
-        const parsed = new Date(m[8] ? text : text + "Z")
-        return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null
+        let offsetMinutes = 0
+        if (m[8] && m[8].toUpperCase() !== "Z") {
+          const offsetHour = Number(m[8].slice(1, 3))
+          const offsetMinute = Number(m[8].slice(4, 6))
+          if (offsetHour > 14 || offsetMinute > 59 || (offsetHour === 14 && offsetMinute !== 0)) return null
+          offsetMinutes = (offsetHour * 60 + offsetMinute) * (m[8][0] === "-" ? -1 : 1)
+        }
+        return new Date(Date.UTC(y, month - 1, day, hour, minute, second, fraction) - offsetMinutes * 60000).toISOString()
       }
       return new Date(zonedWallTimeToUtc(y, month, day, hour, minute, rallyTz).getTime() + second * 1000 + fraction).toISOString()
     } catch { return null }
