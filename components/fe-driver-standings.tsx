@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import useSWR from "swr"
 import { Trophy, Flag } from "lucide-react"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 
 interface FeDriver {
@@ -70,7 +69,6 @@ export function FeDriverStandings() {
         Formula E 车手积分榜
       </div>
       {drivers.map((driver) => {
-        const flag = countryCodeToFlag(driver.countryCode)
         return (
           <div
             key={driver.code}
@@ -96,7 +94,7 @@ export function FeDriverStandings() {
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                {flag ? <span className="text-sm">{flag}</span> : null}
+                {driver.countryCode && <span className="text-xs text-muted-foreground">{driver.countryCode}</span>}
                 <span className="font-semibold truncate">{driver.name}</span>
               </div>
               <div className="text-xs text-muted-foreground truncate">{driver.team}</div>

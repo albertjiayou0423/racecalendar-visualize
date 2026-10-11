@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, X, CalendarDays, Clock } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, firstSession, formatTime, formatDateTime } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 import { EventCard } from "./event-card"
 

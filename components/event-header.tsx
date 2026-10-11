@@ -5,7 +5,6 @@ import { isEstimatedWrcSession } from "@/lib/session-time"
 import { Bell, Calendar, Clock, MapPin } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, countdown, formatDateTime, isLive, isPast, mainSession } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 
 interface EventHeaderProps {
@@ -17,7 +16,6 @@ interface EventHeaderProps {
 export function EventHeader({ event, now, onSetNotification }: EventHeaderProps) {
   const meta = SERIES_META[event.series]
   const main = mainSession(event)
-  const flag = countryCodeToFlag(event.countryCode)
   const live = isLive(event, now)
   const past = isPast(event, now)
   const status = live ? "进行中" : past ? "已结束" : "即将开始"
@@ -66,7 +64,6 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
             <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
               第 {event.round} 站
             </span>
-            {flag && <span aria-hidden>{flag}</span>}
           </div>
           <h1 className="mt-3 text-xl font-bold">{event.name}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">

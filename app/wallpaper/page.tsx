@@ -45,8 +45,8 @@ export default function WallpaperPage() {
     return events.filter((e) => {
       const main = e.sessions.find((s) => s.isMain) || e.sessions[e.sessions.length - 1]
       if (!main) return false
-      const d = new Date(main.utc)
-      return d.getMonth() === month && d.getFullYear() === year
+      const date = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(main.utc))
+      return Number(date.slice(5, 7)) - 1 === month && Number(date.slice(0, 4)) === year
     }).length
   }, [events, month, year])
 

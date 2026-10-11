@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, X, CalendarDays } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { BEIJING_TZ, SERIES_META, firstSession, formatTime } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 import { EventCard } from "./event-card"
 
@@ -210,7 +209,6 @@ export function MonthView({ events, now }: MonthViewProps) {
               <div className="mt-0.5 sm:mt-1 flex flex-col gap-0.5">
                 {dayItems.slice(0, 2).map(({ event: e, firstUtc }, idx) => {
                   const meta = SERIES_META[e.series]
-                  const flag = countryCodeToFlag(e.countryCode)
                   const prevSameEvent = idx > 0 && dayItems[idx - 1].event.id === e.id
                   return (
                     <div
@@ -230,7 +228,7 @@ export function MonthView({ events, now }: MonthViewProps) {
                         aria-hidden
                       />
                       <span className="truncate font-medium hidden sm:inline" style={{ color: meta.color }}>
-                        {prevSameEvent ? "续" : `${flag ? `${flag} ` : ""}${meta.label}`}
+                        {prevSameEvent ? "续" : meta.label}
                       </span>
                       <span className="truncate font-medium sm:hidden" style={{ color: meta.color }}>
                         {meta.label}

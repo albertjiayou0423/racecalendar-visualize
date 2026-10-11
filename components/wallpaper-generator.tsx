@@ -325,8 +325,8 @@ const PhoneWallpaper = ({
               return (
                 <div key={date} className="rounded-2xl bg-white/[0.05] p-4 backdrop-blur-sm">
                   <div className="flex items-center gap-4 text-white/60">
-                    <span className="text-4xl font-bold text-white/90 font-mono">{d.getDate()}</span>
-                    <span className="text-xl">周{WEEKDAYS[d.getDay()]}</span>
+                    <span className="text-4xl font-bold text-white/90 font-mono">{d.getUTCDate()}</span>
+                    <span className="text-xl">周{WEEKDAYS[d.getUTCDay()]}</span>
                   </div>
                   <div className="mt-2 space-y-2">
                     {dateEvents.map((event) => {
