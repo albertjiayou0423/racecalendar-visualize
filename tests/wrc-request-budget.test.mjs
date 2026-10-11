@@ -2,6 +2,29 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired } from '../lib/wrc-request-budget.ts'
 
+test('failed HTTP responses release bodies while successful responses remain readable', async () => {
+  const original = globalThis.fetch
+  let cancelled = 0
+  let status = 403
+  globalThis.fetch = async () => new Response(new ReadableStream({
+    start(controller) { controller.enqueue(new TextEncoder().encode('fixture')) },
+    cancel() { cancelled++ },
+  }), { status })
+  try {
+    const failure = await fetchWithinWrcBudget('https://fixture.invalid')
+    assert.equal(failure.status, 403)
+    assert.equal(cancelled, 1)
+    status = 200
+    const success = await fetchWithinWrcBudget('https://fixture.invalid')
+    assert.equal(cancelled, 1)
+    const reader = success.body.getReader()
+    assert.equal(new TextDecoder().decode((await reader.read()).value), 'fixture')
+    await reader.cancel()
+    globalThis.fetch = async () => ({ ok: false, status: 503, body: { cancel: async () => { throw new Error('cancel failed') } } })
+    assert.equal((await fetchWithinWrcBudget('https://fixture.invalid')).status, 503)
+  } finally { globalThis.fetch = original }
+})
+
 test('expired crawl budget aborts in-flight requests and prevents new requests', async () => {
   const original = globalThis.fetch
   let calls = 0

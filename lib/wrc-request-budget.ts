@@ -16,7 +16,13 @@ export function fetchWithinWrcBudget(input: string | URL, init?: RequestInit): P
   const budget = budgets.getStore()?.signal
   budget?.throwIfAborted()
   const signal = budget && init?.signal ? AbortSignal.any([budget, init.signal]) : budget || init?.signal
-  return fetch(input, { ...init, signal })
+  return fetch(input, { ...init, signal }).then(async response => {
+    if (!response.ok) {
+      // Callers only inspect the status of failures; release unused response bodies.
+      try { await response.body?.cancel() } catch { /* Preserve the original HTTP failure. */ }
+    }
+    return response
+  })
 }
 
 /** Share parsed data within one crawl; null/errors may be retried and never persist. */
