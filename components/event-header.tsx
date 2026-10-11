@@ -135,7 +135,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
 
       <div className="mt-5 flex gap-3">
         <button
-          onClick={onSetNotification}
+          data-guide="reminder" onClick={onSetNotification}
           disabled={estimated}
           title={estimated ? "赛段时间待确认后可设置提醒" : undefined}
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -144,7 +144,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
           设置正赛提醒
         </button>
         <button
-          onClick={downloadCalendar}
+          data-guide="calendar" onClick={downloadCalendar}
           className={cn(
             "flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors",
             main && !estimated ? "hover:bg-secondary" : "opacity-50 cursor-not-allowed"

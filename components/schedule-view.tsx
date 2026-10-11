@@ -358,7 +358,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           </div>
           {/* 视图切换 + 通知 - 移动端吸顶时隐藏 */}
           <div className={cn("flex items-center gap-2", filterStuck && isMobile && "hidden")}>
-            <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+            <div data-guide="views" className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
               <button
                 type="button"
                 onClick={() => setView("list")}
@@ -436,7 +436,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowAdvancedFilters((v) => !v)}
+              data-guide="advanced-filters" onClick={() => setShowAdvancedFilters((v) => !v)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 showAdvancedFilters || circuitType !== "all" || region !== "all"

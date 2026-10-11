@@ -146,7 +146,7 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
+        <div data-guide="wallpaper-mode" className="flex gap-2 rounded-lg border border-border bg-card p-1">
           <button
             onClick={() => setMode("phone")}
             className={cn(
@@ -170,7 +170,7 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
         </div>
         <div className="flex gap-2">
           <button
-            onClick={generate}
+            data-guide="wallpaper-generate" onClick={generate}
             disabled={generating}
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
@@ -179,7 +179,7 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
           </button>
           {generatedUrl && (
             <button
-              onClick={download}
+              data-guide="wallpaper-download" onClick={download}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
             >
               <Download className="size-3.5" />

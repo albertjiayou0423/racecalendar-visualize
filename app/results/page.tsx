@@ -110,7 +110,7 @@ export default function ResultsPage() {
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2 rounded-lg border border-border bg-card p-1">
+        <div data-guide="results-series" className="flex gap-2 rounded-lg border border-border bg-card p-1">
           <button
             onClick={() => setSeries("F1")}
             className={cn(

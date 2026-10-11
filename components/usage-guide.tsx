@@ -3,23 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
 import { BookOpen, X } from "lucide-react"
+import { getGuideSteps, guidePanelPosition, type GuideRect } from "@/lib/usage-guide"
 
 const SEEN_KEY = "racecalendar:usage-guide-seen"
 const OPEN_EVENT = "racecalendar:open-usage-guide"
 let shownThisSession = false
-const steps = [
-  { title: "欢迎来到赛道时刻", subtitle: "一分钟，找到你想看的比赛", items: ["这里可以查看 F1、WRC 和 Formula E 的赛程。", "时间以北京时间为主，同时提供赛事当地时间。", "这份指南只会自动出现一次，随时可从底部的「使用指南」重新打开。"] },
-  { title: "赛历首页", subtitle: "筛选比赛，选择适合你的视图", items: ["按系列、时间范围筛选，或搜索赛事名称、国家和城市。", "列表适合逐场浏览；周视图和月视图方便安排观赛。", "展开赛事卡片查看场次，进入详情页了解更多；没有结果时可清除筛选。"] },
-  { title: "赛事详情", subtitle: "场次安排和观赛入口集中在这里", items: ["查看场次的北京时间、当地时间及观赛信息。", "确认时间的主场次可以设置提醒或加入日历；浏览器会按需要请求通知权限。", "WRC 的「时间待确认」表示具体赛段时间仍未确认，请以官方行程为准；官方计时入口会打开官网。"] },
-  { title: "积分榜", subtitle: "了解赛季走势", items: ["从首页底部的「积分榜」进入，切换赛事系列查看排名和积分。", "排名随数据来源更新，未开赛或数据暂不可用时可能没有结果。"] },
-  { title: "历史赛果", subtitle: "回看已经结束的比赛", items: ["从「历史赛果」进入，选择系列和赛季，查看可用的比赛结果。", "WRC 暂未接入完整赛果与积分数据，可通过赛事详情的官方入口查看。"] },
-  { title: "壁纸生成", subtitle: "把赛历放到你的屏幕上", items: ["进入「壁纸生成」，按页面选项调整你的赛事日历壁纸。", "预览效果后下载，保存到设备并设置为壁纸。"] },
-  { title: "赛道数据库", subtitle: "认识比赛举办地", items: ["进入「赛道数据库」，按赛道名称、城市或国家搜索。", "浏览赛道卡片，了解赛道位置和资料。"] },
-  { title: "更多功能与更新", subtitle: "从底部胶囊继续探索", items: ["「版本与更新」记录最新功能和修复；「开发者信息」介绍项目。", "「使用指南」随时重新打开这份介绍，不会修改你的赛历筛选。", "现在开始浏览吧，找到你下一场想看的比赛。"] },
-]
 
 export function UsageGuideButton() {
-  return <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
+  return <button data-guide="usage-launcher" type="button" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
     <BookOpen className="size-3.5" aria-hidden />使用指南
   </button>
 }
@@ -29,6 +20,12 @@ export function UsageGuide() {
   const dialog = useRef<HTMLDialogElement>(null)
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
+  const [rect, setRect] = useState<GuideRect | null>(null)
+  const [viewport, setViewport] = useState({ width: 1024, height: 768 })
+  const [panelHeight, setPanelHeight] = useState(240)
+  const panel = useRef<HTMLDivElement>(null)
+  const steps = getGuideSteps(pathname)
+  useEffect(() => { setStep(0); setRect(null) }, [pathname])
   const show = useCallback(() => {
     shownThisSession = true
     try { localStorage.setItem(SEEN_KEY, "1") } catch { /* Session guard still prevents repeat opens. */ }
@@ -56,18 +53,58 @@ export function UsageGuide() {
     return () => { document.body.style.overflow = previousOverflow; if (element.open) element.close() }
   }, [open])
 
-  const current = steps[step]
+
+  const current = steps[Math.min(step, steps.length - 1)]
+  useEffect(() => {
+    if (!open) return
+    let target: HTMLElement | null = null
+    let frame = 0
+    const measure = () => {
+      target = document.querySelector<HTMLElement>(current.selector)
+      setViewport({ width: window.innerWidth, height: window.innerHeight })
+      if (!target || !target.getClientRects().length) { setRect(null); return }
+      const box = target.getBoundingClientRect()
+      setRect({ top: box.top, left: box.left, width: box.width, height: box.height })
+    }
+    const update = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure) }
+    if (pathname === "/" && step < 5) window.scrollTo({ top: 0, behavior: "instant" })
+    target = document.querySelector<HTMLElement>(current.selector)
+    target?.scrollIntoView({ block: "center", behavior: "instant" })
+    measure()
+    const observer = new MutationObserver(update)
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"] })
+    const resize = new ResizeObserver(update)
+    if (target) resize.observe(target)
+    const timeout = window.setTimeout(() => {
+      const element = document.querySelector<HTMLElement>(current.selector)
+      if (!element || !element.getClientRects().length) {
+        if (step < steps.length - 1) setStep(step + 1)
+        else setOpen(false)
+      }
+    }, 1200)
+    window.addEventListener("resize", update)
+    window.addEventListener("scroll", update, true)
+    return () => { observer.disconnect(); resize.disconnect(); window.clearTimeout(timeout); cancelAnimationFrame(frame); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true) }
+  }, [open, step, pathname, current.selector, steps.length])
+
+  useEffect(() => {
+    if (!open || !panel.current) return
+    const element = panel.current
+    const resize = new ResizeObserver(() => setPanelHeight(element.getBoundingClientRect().height))
+    resize.observe(element)
+    setPanelHeight(element.getBoundingClientRect().height)
+    return () => resize.disconnect()
+  }, [open, step])
+
+  const position = guidePanelPosition(rect, viewport, panelHeight)
   return <>
     {pathname !== "/" && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && <div className="fixed bottom-4 right-4 z-40 rounded-full bg-background shadow-lg"><UsageGuideButton /></div>}
-    <dialog ref={dialog} aria-labelledby="usage-guide-title" aria-describedby="usage-guide-subtitle" onCancel={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) setOpen(false) }} className="m-auto w-[calc(100%_-_2rem)] max-w-lg max-h-[85dvh] overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/70">
-      <div className="p-5 sm:p-7">
-        <div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">使用指南 · {step + 1} / {steps.length}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="rounded-full p-2 hover:bg-secondary"><X className="size-4" /></button></div>
-        <div aria-live="polite" aria-atomic="true">
-          <h2 id="usage-guide-title" className="mt-3 text-xl font-semibold">{current.title}</h2>
-          <p id="usage-guide-subtitle" className="mt-2 text-sm text-muted-foreground">{current.subtitle}</p>
-          <ul className="mt-5 space-y-3 text-sm leading-relaxed">{current.items.map(item => <li key={item} className="rounded-xl bg-secondary/50 p-3">{item}</li>)}</ul>
-        </div>
-        <div className="mt-6 flex items-center justify-between gap-3"><button type="button" onClick={() => step ? setStep(step - 1) : setOpen(false)} className="rounded-lg px-3 py-2 text-sm hover:bg-secondary">{step ? "上一步" : "跳过引导"}</button><button type="button" onClick={() => step === steps.length - 1 ? setOpen(false) : setStep(step + 1)} className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground">{step === steps.length - 1 ? "开始使用" : "下一步"}</button></div>
+    <dialog ref={dialog} aria-labelledby="usage-guide-title" aria-describedby="usage-guide-description" onCancel={() => setOpen(false)} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">
+      {rect ? <div aria-hidden="true" className="pointer-events-none fixed rounded-xl border-2 border-primary" style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.72)" }} /> : <div aria-hidden="true" className="fixed inset-0 bg-black/70" />}
+      <div ref={panel} className="fixed overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" style={position}>
+        <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">本页指南 · {step + 1} / {steps.length}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="min-h-10 min-w-10 rounded-full p-2 hover:bg-secondary"><X className="mx-auto size-4" /></button></div>
+        <div aria-live="polite" aria-atomic="true"><h2 id="usage-guide-title" className="mt-2 text-lg font-semibold">{current.title}</h2><p id="usage-guide-description" className="mt-3 text-sm leading-relaxed text-muted-foreground">{current.description}</p></div>
+        <div className="mt-5 flex items-center justify-between gap-2"><button type="button" onClick={() => step ? setStep(step - 1) : setOpen(false)} className="min-h-11 rounded-lg px-3 py-2 text-sm hover:bg-secondary">{step ? "上一步" : "跳过"}</button><button type="button" onClick={() => step === steps.length - 1 ? setOpen(false) : setStep(step + 1)} className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">{step === steps.length - 1 ? "完成" : "下一步"}</button></div>
       </div>
     </dialog>
   </>
