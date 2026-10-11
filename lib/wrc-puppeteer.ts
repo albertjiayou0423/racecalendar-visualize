@@ -115,15 +115,27 @@ function extractPrerenderCache(html: string): Record<string, any> | null {
 
 // ============ 从主页提取行程 URL ============
 
-function extractItineraryUrlFromCache(cacheData: Record<string, any>): string | null {
+function normalizeWrcPageUrl(raw: unknown, eventSlug: string): string | null {
+  if (typeof raw !== "string") return null
+  try {
+    const url = new URL(raw, "https://www.wrc.com")
+    if (url.origin !== "https://www.wrc.com" || url.username || url.password
+      || !url.pathname.startsWith(`/en/events/${eventSlug}/`)) return null
+    url.hash = ""
+    return url.toString()
+  } catch { return null }
+}
+
+function extractItineraryUrlFromCache(cacheData: Record<string, any>, eventSlug: string): string | null {
   for (const key of Object.keys(cacheData)) {
     if (key.includes("pageTabs")) {
       const value = cacheData[key]
       const tabs = value?.data?.data?.tabs
       if (Array.isArray(tabs)) {
-        const itineraryTab = tabs.find((t: any) => t.label === "Itinerary")
-        if (itineraryTab?.url) {
-          return `https://www.wrc.com${itineraryTab.url}`
+        for (const tab of tabs) {
+          if (tab?.label !== "Itinerary") continue
+          const url = normalizeWrcPageUrl(tab.url, eventSlug)
+          if (url) return url
         }
       }
     }
@@ -138,9 +150,14 @@ function extractResultsItineraryUrl(cacheData: Record<string, any>, eventSlug: s
       const value = cacheData[key]
       const tabs = value?.data?.data?.tabs
       if (Array.isArray(tabs)) {
-        const resultsTab = tabs.find((t: any) => t.label === "Results")
-        if (resultsTab?.url) {
-          return `https://www.wrc.com${resultsTab.url}?page=results&tab=itinerary`
+        for (const tab of tabs) {
+          if (tab?.label !== "Results") continue
+          const normalized = normalizeWrcPageUrl(tab.url, eventSlug)
+          if (!normalized) continue
+          const url = new URL(normalized)
+          url.searchParams.set("page", "results")
+          url.searchParams.set("tab", "itinerary")
+          return url.toString()
         }
       }
     }
@@ -662,16 +679,19 @@ async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: str
 }
 
 /** 从 prerender cache 中提取 itinerary tab 的 uriSlug */
-function extractItineraryUriSlugFromCache(cacheData: Record<string, any>): string | null {
+function extractItineraryUriSlugFromCache(cacheData: Record<string, any>, eventSlug: string): string | null {
   for (const key of Object.keys(cacheData)) {
     if (key.includes("pageTabs")) {
       const value = cacheData[key]
       const tabs = value?.data?.data?.tabs
       if (Array.isArray(tabs)) {
-        const itTab = tabs.find((t: any) => t.label?.includes("Itinerary"))
-        if (itTab?.url) {
-          const parts = itTab.url.split("/").filter(Boolean)
-          return parts[parts.length - 1] || null
+        for (const tab of tabs) {
+          if (typeof tab?.label !== "string" || !tab.label.includes("Itinerary")) continue
+          const normalized = normalizeWrcPageUrl(tab.url, eventSlug)
+          if (!normalized) continue
+          const parts = new URL(normalized).pathname.split("/").filter(Boolean)
+          const slug = parts[parts.length - 1]
+          if (/^[a-z0-9][a-z0-9-]*$/.test(slug)) return slug
         }
       }
     }
@@ -861,7 +881,7 @@ async function scrapeOfficialItineraryPage(eventSlug: string, tz: string, startD
   const homeHtml = await fetchDirect(homeUrl, 0)
   if (!homeHtml) return { sessions: [], homeHtml: null }
   const homeCache = extractPrerenderCache(homeHtml)
-  const itineraryUrl = (homeCache && extractItineraryUrlFromCache(homeCache))
+  const itineraryUrl = (homeCache && extractItineraryUrlFromCache(homeCache, eventSlug))
     || `${homeUrl}/itinerary-${eventSlug}`
   const html = await fetchDirect(itineraryUrl, 0)
   if (!html) return { sessions: [], homeHtml }
@@ -895,7 +915,7 @@ async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate
   // Step 2: 提取 itinerary uriSlug
   let itineraryUriSlug: string | null = null
   if (homeCache) {
-    itineraryUriSlug = extractItineraryUriSlugFromCache(homeCache)
+    itineraryUriSlug = extractItineraryUriSlugFromCache(homeCache, eventSlug)
   }
 
   // Fallback: 尝试常见的 slug 模式
@@ -948,7 +968,7 @@ async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate
   // Step 5: 如果还是失败，尝试旧方案（PhantomJsCloud 渲染 itinerary 页面）
   if ((!days || convertDaysToSessions(days, tz, eventSlug).length === 0) && homeCache) {
     console.log(`WRC: SSR failed, trying old approach with itinerary page`)
-    const itineraryUrl = extractItineraryUrlFromCache(homeCache)
+    const itineraryUrl = extractItineraryUrlFromCache(homeCache, eventSlug)
     const resultsItineraryUrl = extractResultsItineraryUrl(homeCache, eventSlug)
     const urls = [
       itineraryUrl || `https://www.wrc.com/en/events/${eventSlug}/itinerary-${eventSlug}`,

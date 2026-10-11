@@ -9,9 +9,23 @@ const source = ts.transpileModule(fs.readFileSync('lib/wrc-puppeteer.ts', 'utf8'
 }).outputText
 const exports = {}
 vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.date = parseDateText; exports.cache = parseItineraryFromCache; exports.offset = itineraryUtcOffset; exports.stageTime = parseStageTime;', {
-  exports, require: name => name === './tz' ? timezone : {}, process: { env: {} }, console: { log() {}, error() {} },
+  exports, URL, require: name => name === './tz' ? timezone : {}, process: { env: {} }, console: { log() {}, error() {} },
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
+
+test('page tabs accept absolute official links and reject unrelated event or external links', () => {
+  const context = { exports: {}, URL, require: () => ({}), process: { env: {} } }
+  vm.runInNewContext(source + '\nexports.itinerary = extractItineraryUrlFromCache; exports.results = extractResultsItineraryUrl;', context)
+  const cache = tabs => ({ pageTabs: { data: { data: { tabs } } } })
+  const slug = 'fixture-2026'
+  const valid = `https://www.wrc.com/en/events/${slug}/itinerary?version=2#top`
+  assert.equal(context.exports.itinerary(cache([null, { label: 'Itinerary', url: 'https://other.invalid/x' }, { label: 'Itinerary', url: valid }]), slug), valid.split('#')[0])
+  assert.equal(context.exports.itinerary(cache([{ label: 'Itinerary', url: '/en/events/other-2026/itinerary' }]), slug), null)
+  const result = new URL(context.exports.results(cache([{ label: 'Results', url: `/en/events/${slug}/results?version=2&tab=old` }]), slug))
+  assert.equal(result.searchParams.get('version'), '2')
+  assert.equal(result.searchParams.get('page'), 'results')
+  assert.equal(result.searchParams.get('tab'), 'itinerary')
+})
 
 test('local crawler dates agree with the fallback calendar for every season round', () => {
   const context = { exports: {}, require: () => ({}), process: { env: {} } }
