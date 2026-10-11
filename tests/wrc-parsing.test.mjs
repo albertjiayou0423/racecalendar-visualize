@@ -13,6 +13,22 @@ vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
 
+test('local crawler dates agree with the fallback calendar for every season round', () => {
+  const context = { exports: {}, require: () => ({}), process: { env: {} } }
+  vm.runInNewContext(source + '\nexports.targets = WRC_RALLIES;', context)
+  const dataSource = ts.transpileModule(fs.readFileSync('lib/wrc-data.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText
+  const calendar = { exports: {}, require: () => timezone }
+  vm.runInNewContext(dataSource + '\nexports.rallies = RALLIES;', calendar)
+  assert.equal(context.exports.targets.length, calendar.exports.rallies.length)
+  for (const rally of calendar.exports.rallies) {
+    const target = context.exports.targets.find(item => item.round === rally.round)
+    assert.ok(target)
+    assert.equal(target.startDate, rally.start.map((value, index) => index ? String(value).padStart(2, '0') : String(value)).join('-'))
+  }
+})
+
 test('direct HTML fetch retries body failures and preserves permanent HTTP rejection behavior', async () => {
   let calls = 0
   let mode = 'recover'
