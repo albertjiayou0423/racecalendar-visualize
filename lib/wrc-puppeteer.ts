@@ -296,9 +296,9 @@ function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: s
     if (!Array.isArray(items)) continue
 
     for (const item of items) {
-      if (item.type !== "faq") continue
+      if (item?.type !== "faq") continue
 
-      const title = item.title || ""
+      const title = typeof item.title === "string" ? item.title : ""
       if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
 
       const elements = item.elements
@@ -307,23 +307,23 @@ function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: s
       const days: ItineraryDay[] = []
 
       for (const element of elements) {
-        const question = element.question
-        const answer = element.answer
+        const question = element?.question
+        const answer = element?.answer
 
         if (!Array.isArray(question) || !Array.isArray(answer)) continue
 
-        const dateText = question.find((q: any) => q.variant === "text")?.text || ""
+        const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
         const date = parseDateText(dateText, fallbackDate)
 
         const stages: { time: string; name: string; isPowerStage: boolean }[] = []
 
         for (const ans of answer) {
-          if (ans.type !== "list" || !Array.isArray(ans.items)) continue
+          if (ans?.type !== "list" || !Array.isArray(ans.items)) continue
 
           for (const listItem of ans.items) {
-            if (!listItem.elements) continue
+            if (!Array.isArray(listItem?.elements)) continue
             for (const el of listItem.elements) {
-              if (el.variant !== "text") continue
+              if (el?.variant !== "text" || typeof el.text !== "string") continue
               const text = el.text || ""
 
               const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)
@@ -594,9 +594,9 @@ async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: str
 
     // 查找 FAQ item
     for (const item of items) {
-      if (item.type !== "faq") continue
+      if (item?.type !== "faq") continue
 
-      const title = item.title || ""
+      const title = typeof item.title === "string" ? item.title : ""
       if (!title.toLowerCase().includes("itinerary") && !title.includes("UTC") && !title.includes("Version")) continue
 
       const elements = item.elements
@@ -605,23 +605,23 @@ async function fetchItineraryFromFeedApiUncached(uriSlug: string, startDate: str
       const days: ItineraryDay[] = []
 
       for (const element of elements) {
-        const question = element.question
-        const answer = element.answer
+        const question = element?.question
+        const answer = element?.answer
 
         if (!Array.isArray(question) || !Array.isArray(answer)) continue
 
-        const dateText = question.find((q: any) => q.variant === "text")?.text || ""
+        const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
         const date = parseDateText(dateText, startDate)
 
         const stages: { time: string; name: string; isPowerStage: boolean }[] = []
 
         for (const ans of answer) {
-          if (ans.type !== "list" || !Array.isArray(ans.items)) continue
+          if (ans?.type !== "list" || !Array.isArray(ans.items)) continue
 
           for (const listItem of ans.items) {
-            if (!listItem.elements) continue
+            if (!Array.isArray(listItem?.elements)) continue
             for (const el of listItem.elements) {
-              if (el.variant !== "text") continue
+              if (el?.variant !== "text" || typeof el.text !== "string") continue
               const text = el.text || ""
 
               const stageMatch = text.match(/^(\d{1,2}:\d{2}):\s*(.+)$/)

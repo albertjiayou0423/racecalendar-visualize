@@ -75,7 +75,12 @@ test('cache and feed skip invalid FAQ versions before selecting a valid itinerar
     question: [{ variant: 'text', text: date }],
     answer: [{ type: 'list', items: [{ elements: [{ variant: 'text', text: `${time}: SS1` }] }] }],
   }] })
-  const items = [faq('TBC', '09:00'), faq('10 July 2026', '25:61'), faq('10 July 2026', '09:00', 'Itinerary UTC+25'), faq('10 July 2026', '11:00')]
+  const valid = faq('10 July 2026', '11:00')
+  valid.elements.unshift(null, { question: [null, { variant: 'text', text: 123 }], answer: [] })
+  valid.elements[2].question.unshift(null)
+  valid.elements[2].answer.unshift(null)
+  valid.elements[2].answer[1].items.unshift(null, { elements: {} }, { elements: [null, { variant: 'text', text: 123 }] })
+  const items = [null, { type: 'faq', title: 123 }, faq('TBC', '09:00'), faq('10 July 2026', '25:61'), faq('10 July 2026', '09:00', 'Itinerary UTC+25'), valid]
   const days = exports.cache({ feed: { data: { data: { items } } } }, '2026-07-09')
   assert.equal(exports.convert(days, 'UTC', 'fixture')[0].utc, '2026-07-10T11:00:00.000Z')
   const context = { exports: {}, process: { env: {} }, AbortSignal,
