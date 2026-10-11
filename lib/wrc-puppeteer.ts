@@ -1206,6 +1206,10 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   for (const [_, { rally, sessions, source }] of resultMap) {
     if (sessions && sessions.length > 0) {
       const index = events.findIndex((e) => e.round === rally.round)
+      if (index === -1) {
+        errors.push(`${rally.name}（未匹配到赛历轮次 ${rally.round}）`)
+        continue
+      }
       if (index !== -1) {
         // 同步官方动态 slug 到 eventSlug/liveTimingUrl，避免用旧硬编码 slug 指向 404
         const updatedSlug = rally.eventSlug ?? events[index].eventSlug
@@ -1245,7 +1249,9 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   if (wrcBudgetExpired()) parts.push("抓取达到时间上限，保留已获取结果")
   if (successCount > 0) parts.push(`${successCount} 场官网爬取成功`)
   if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop API`)
-  if (errors.length > 0) parts.push(`${errors.length} 场使用估计数据（${errors.join(", ")}）`)
+  const estimatedEvents = events.filter(event => event.tentative || event.sessions.some(session => session.tentative))
+  if (estimatedEvents.length > 0) parts.push(`${estimatedEvents.length} 场仍有待确认赛段`)
+  if (errors.length > 0) parts.push(`未取得有效数据：${errors.join(", ")}`)
   const note = parts.length > 0 ? parts.join("，") : "所有爬取的赛事均获取成功"
 
   return { events, ok, note, dataSource }
