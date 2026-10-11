@@ -10,6 +10,14 @@ type ChangelogEntry = {
 }
 
 const changelog: ChangelogEntry[] = [
+  { version: "v2.3.0", date: "2026-10-11", items: [
+    { type: "feat", text: "新增关注赛事偏好，首次使用指南可选择喜欢的系列，首页记住视图和关注设置" },
+    { type: "feat", text: "新增北京时间周末观赛清单，逐场次展示、主赛事筛选及比赛重叠提示，可导出多页赛程分享图" },
+    { type: "feat", text: "新增自动更新的日历订阅，支持关注系列及主赛事 / 全部已确认场次" },
+    { type: "feat", text: "全站防剧透开关保护历史赛果、积分榜、上一站回顾、去年成绩与实时排名，支持柔和动效和减少动态效果" },
+    { type: "feat", text: "展示各系列实际数据更新时间、过期提示，以及本浏览器观察到的赛程时间变更" },
+    { type: "fix", text: "清理未使用的损坏文件，修正原有组件类型问题，完整类型检查通过并关闭构建忽略类型错误" },
+  ] },
   {
     version: "v2.2.2",
     date: "2026-10-11",
@@ -242,8 +250,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span data-guide="version" className="text-3xl font-bold">v2.2.2</span>
-          <span className="text-sm text-muted-foreground">赛果完整性修复 · FE 数据恢复 · 下载与手机排版优化</span>
+          <span data-guide="version" className="text-3xl font-bold">v2.3.0</span>
+          <span className="text-sm text-muted-foreground">关注你的赛事 · 周末观赛 · 日历订阅 · 全站防剧透</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -275,7 +283,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.2.2" && (
+                {entry.version === "v2.3.0" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

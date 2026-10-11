@@ -28,10 +28,12 @@ export async function GET() {
       return {
         result: { ...snapshot.data, note: `使用 ${snapshot.fetchedAt} 的持久化快照` },
         fromCache: true,
+        updatedAt: snapshot.fetchedAt,
       }
     }
-    if (name !== "WRC" && !await canCrawlToday(name)) return loadFromSnapshot(name)
-    return refreshSeries(name, await canCrawlToday(name))
+    if (name !== "WRC" && !await canCrawlToday(name)) return { ...await loadFromSnapshot(name), updatedAt: snapshot?.fetchedAt }
+    const refreshed = await refreshSeries(name, await canCrawlToday(name))
+    return { ...refreshed, updatedAt: refreshed.fromCache ? (await getLatestSnapshot(name))?.fetchedAt : new Date().toISOString() }
   }))
   const [f1Result, feResult, wrcResult] = results
 
@@ -53,12 +55,14 @@ export async function GET() {
       {
         series: "F1",
         label: "Jolpica F1 API（Ergast 兼容）",
+        updatedAt: f1Result.updatedAt,
         ok: f1.ok,
         note: f1.note || (f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"),
       },
       {
         series: "WRC",
         label: "WRC 官方 itinerary（爬取 / ocblacktop fallback）",
+        updatedAt: wrcResult.updatedAt,
         ok: wrc.ok,
         note: wrc.ok
           ? wrcResult.fromCache ? (wrc.note || "使用持久化快照数据") : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
@@ -67,6 +71,7 @@ export async function GET() {
       {
         series: "FE",
         label: "Formula E 官方 API（pulselive）",
+        updatedAt: feResult.updatedAt,
         ok: fe.ok,
         note: fe.note || (feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"),
       },

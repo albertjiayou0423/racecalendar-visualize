@@ -6,10 +6,7 @@ const nextConfig = {
       headers: [{ key: "Cache-Control", value: "private, no-store" }],
     }))
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
+images: {
     unoptimized: true,
   },
   allowedDevOrigins: [

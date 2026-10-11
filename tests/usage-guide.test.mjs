@@ -20,7 +20,7 @@ function mount(storage = new Map(), pathname = '/') {
   }
   vm.runInNewContext(source, { exports, window, Event,
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-    require: name => name === 'react' ? {
+    require: name => name === '@/components/viewer-preferences' ? { useViewerPreferences: () => ({ preferences: { followed: ['F1', 'WRC', 'FE'] }, update() {} }) } : name === 'react' ? {
       useState: initial => { const index = cursor++; if (!(index in state)) state[index] = initial; return [state[index], value => { state[index] = value }] },
       useRef: () => ({ current: null }), useCallback: callback => callback, useEffect: work => effects.push(work),
     } : name === '@/lib/usage-guide' ? guide : name === 'next/navigation' ? { usePathname: () => pathname, useRouter: () => ({ push: path => navigations.push(path) }) }

@@ -1,4 +1,5 @@
 "use client"
+import { SpoilerGate } from "@/components/viewer-preferences"
 
 import { useEffect, useState } from "react"
 import { Trophy, Medal, ChevronRight, Eye, AlertTriangle } from "lucide-react"
@@ -31,7 +32,8 @@ interface LastRaceData {
   results: DriverResult[]
 }
 
-export function LastRaceResults() {
+export function LastRaceResults() { return <SpoilerGate label="上一站回顾"><LastRaceContent /></SpoilerGate> }
+function LastRaceContent() {
   const [data, setData] = useState<LastRaceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)

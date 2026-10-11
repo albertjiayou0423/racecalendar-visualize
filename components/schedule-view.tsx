@@ -1,5 +1,9 @@
 "use client"
 
+import { useViewerPreferences } from "@/components/viewer-preferences"
+import { WeekendPlanner } from "@/components/weekend-planner"
+import { CalendarSubscription } from "@/components/calendar-subscription"
+import { ScheduleFreshness } from "@/components/schedule-freshness"
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { UsageGuideButton } from "@/components/usage-guide"
@@ -56,7 +60,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
-type ViewMode = "list" | "week" | "month"
+type ViewMode = "list" | "week" | "month" | "weekend"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -149,7 +153,9 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const isLoading = requestLoading && !data
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
-  const [view, setView] = useState<ViewMode>("list")
+  const { preferences, ready: preferencesReady, update } = useViewerPreferences()
+  const view = preferences.view
+  const setView = (mode: ViewMode) => update({ view: mode })
   const [search, setSearch] = useState("")
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
@@ -261,7 +267,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
 
   const filtered = useMemo(() => {
-    let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
+    let list = allEvents.filter(e => !preferences.onlyFollowed || preferences.followed.includes(e.series)).filter((e) => (series === "ALL" ? true : e.series === series))
     if (search) {
       const query = search.toLowerCase()
       list = list.filter((e) =>
@@ -286,15 +292,16 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, series, time, view, now, search, circuitType, region])
+  }, [allEvents, series, time, view, now, search, circuitType, region, preferences.onlyFollowed, preferences.followed])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
+      .filter(e => !preferences.onlyFollowed || preferences.followed.includes(e.series))
       .filter((e) => (series === "ALL" ? true : e.series === series))
       .filter((e) => !isPast(e, now))
       .sort((a, b) => (mainSession(a)?.utc ?? "").localeCompare(mainSession(b)?.utc ?? ""))
     return upcoming[0]
-  }, [allEvents, series, now])
+  }, [allEvents, series, now, preferences.onlyFollowed, preferences.followed])
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:py-10">
@@ -318,6 +325,15 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           </div>
         ) : null}
       </header>
+
+      <section className="rounded-xl border border-border bg-card p-4" aria-label="关注赛事设置">
+        <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-sm font-medium">我关注的赛事</span><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={preferences.onlyFollowed} disabled={!preferencesReady} onChange={e => update({ onlyFollowed: e.target.checked })} />只看我关注的</label></div>
+        <div className="mt-3 flex gap-2">{(["F1", "WRC", "FE"] as Series[]).map(s => <button key={s} type="button" aria-pressed={preferences.followed.includes(s)} disabled={!preferencesReady} onClick={() => update({ followed: preferences.followed.includes(s) ? preferences.followed.filter(value => value !== s) : [...preferences.followed, s] })} className={cn("rounded-full border px-4 py-2 text-xs transition-colors", preferences.followed.includes(s) ? "bg-foreground text-background" : "text-muted-foreground")}>{s}</button>)}</div>
+        {!preferences.followed.length && <p className="mt-2 text-xs text-muted-foreground">还没有关注系列。选一个，或关闭「只看我关注的」浏览全部。</p>}
+      </section>
+      <CalendarSubscription />
+      {data && <ScheduleFreshness data={data} now={now} />}
+
 
       {/* 筛选 */}
       <div
@@ -410,6 +426,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 月历
               </button>
             </div>
+            <button type="button" onClick={() => setView("weekend")} aria-pressed={view === "weekend"} className="rounded border px-3 py-2 text-xs">周末清单</button>
             {data ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
@@ -556,6 +573,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       ) : null}
 
       <div className="transition-all duration-300 ease-out animate-fade-in">
+        {!isLoading && !error && view === "weekend" && <WeekendPlanner events={filtered} now={now} followed={preferences.followed} />}
         {/* 周视图 */}
         {!isLoading && !error && view === "week" ? (
           <WeekView events={filtered} now={now} />
@@ -636,7 +654,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.2.2 · 修复与更新
+            v2.3.0 · 观赛新功能
           </Link>
         <UsageGuideButton />
         <Link
