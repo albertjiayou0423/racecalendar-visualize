@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
+import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
 import type { ScheduleResponse, Series } from "@/lib/types"
@@ -134,18 +135,24 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
 }
 
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
-  const now = useNow(serverTime)
+  const playground = usePlayground()
+  const liveNow = useNow(serverTime)
+  const now = playground?.now ?? liveNow
   const [cachedSchedule, setCachedSchedule] = useState<ScheduleResponse | undefined>()
   useEffect(() => {
+    if (playground) return
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null")
       if (Array.isArray(cached?.events) && Array.isArray(cached?.sources)) setCachedSchedule(cached)
     } catch { /* Invalid or unavailable browser cache. */ }
-  }, [])
-  const { data, error, isLoading: requestLoading } = useSWR("/api/schedule", fetcher, {
+  }, [playground])
+  const request = useSWR(playground ? null : "/api/schedule", fetcher, {
     revalidateOnFocus: false,
     fallbackData: cachedSchedule,
   })
+  const data = playground ? ["error", "loading"].includes(playground.scenario) ? undefined : playground.data : request.data
+  const error = playground ? playground.scenario === "error" : request.error
+  const requestLoading = playground ? playground.scenario === "loading" : request.isLoading
   const isLoading = requestLoading && !data
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
@@ -410,7 +417,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 月历
               </button>
             </div>
-            {data ? <NotificationManager events={allEvents} /> : null}
+            {data && !playground ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
         {/* 时间范围和高级筛选 - 移动端吸顶时隐藏 */}
@@ -509,7 +516,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
 
       {/* 加载 / 错误 */}
       {isLoading ? (
-        <div className="flex flex-col gap-3">
+        <div role="status" aria-label="赛程加载中" aria-busy="true" className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="size-4 animate-pulse rounded bg-muted" />
             <div className="h-4 w-24 animate-pulse rounded bg-muted" />
@@ -545,7 +552,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {/* 上一站回顾 + 下一站预览（上下排列） */}
       {!isLoading && !error && view === "list" && nextUp && time !== "past" && series === "F1" ? (
         <div className="flex flex-col gap-4">
-          <LastRaceResults />
+          {!playground && <LastRaceResults />}
           <NextRacePreview event={nextUp} now={now} />
         </div>
       ) : null}
@@ -603,43 +610,43 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       </div>
 
       <div className="flex flex-wrap justify-center gap-2">
-        <Link
+        <Link prefetch={!playground}
           href="/standings"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Trophy className="size-3.5" />
           积分榜
         </Link>
-        <Link
+        <Link prefetch={!playground}
           href="/results"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Flag className="size-3.5" />
           历史赛果
         </Link>
-        <Link
+        <Link prefetch={!playground}
           href="/wallpaper"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <ImageIcon className="size-3.5" />
           壁纸生成
         </Link>
-        <Link
+        <Link prefetch={!playground}
           href="/circuits"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <Hash className="size-3.5" />
           赛道数据库
         </Link>
-        <Link
+        <Link prefetch={!playground}
             href="/about"
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.2.2 · 修复与更新
+            v2.2.3 · 交互测试台
           </Link>
-        <UsageGuideButton />
-        <Link
+          {!playground && <UsageGuideButton />}
+        <Link prefetch={!playground}
           href="/developer"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >

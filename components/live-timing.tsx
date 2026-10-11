@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { Activity, Clock, ExternalLink, Flag, Pause, RefreshCw, Shield, Timer, TrendingUp, AlertTriangle } from "lucide-react"
 import type { LiveTimingData, LiveTimingDriver } from "@/lib/live-timing"
 import { cn } from "@/lib/utils"
+import { usePlayground } from "./playground-context"
 
 interface LiveTimingProps {
   series: "F1" | "FE" | "WRC"
@@ -18,6 +19,7 @@ const SERIES_LINKS: Record<string, string> = {
 }
 
 export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
+  const playground = usePlayground()
   const [data, setData] = useState<LiveTimingData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +27,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (playground) { setError("预览模式不请求实时计时"); return }
     if (!isExpanded) return
     // WRC 无真实计时 API，直接走官方链接兜底，避免无效轮询
     if (series === "WRC") {
@@ -49,13 +52,13 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
     } finally {
       setLoading(false)
     }
-  }, [series, isExpanded])
+  }, [series, isExpanded, playground])
 
   // 首次加载 + 轮询（WRC 不轮询）
   useEffect(() => {
     if (isExpanded) {
       fetchData()
-      if (series !== "WRC") {
+      if (series !== "WRC" && !playground) {
         intervalRef.current = setInterval(fetchData, 10000) // 每10秒刷新
       }
     }

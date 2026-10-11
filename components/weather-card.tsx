@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import type { DailyForecast } from "@/app/api/weather/route"
+import { usePlayground } from "./playground-context"
 
 echarts.use([
   LineChart,
@@ -35,11 +36,13 @@ interface WeatherCardProps {
 }
 
 export function WeatherCard({ city, country, date, startTime, lat, lon, compact = false }: WeatherCardProps) {
+  const playground = usePlayground()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [daily, setDaily] = useState<DailyForecast[]>([])
 
   const fetchWeather = useCallback(async () => {
+    if (playground) { setError("预览模式不请求外部天气数据"); return }
     setLoading(true)
     setError(null)
     try {
@@ -59,7 +62,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon, compact 
     } finally {
       setLoading(false)
     }
-  }, [city, country, date, lat, lon])
+  }, [city, country, date, lat, lon, playground])
 
   useEffect(() => {
     fetchWeather()

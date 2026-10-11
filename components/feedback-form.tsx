@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 import { MessageSquarePlus, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePlayground } from "./playground-context"
 
 type FeedbackType = "bug" | "feature" | "suggestion" | "other"
 
@@ -18,12 +20,16 @@ const TYPE_OPTIONS: { value: FeedbackType; label: string; description: string }[
 ]
 
 export function FeedbackForm({ onClose }: FeedbackFormProps) {
+  const playground = usePlayground()
+  const dialog = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialog, true)
+  useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose() }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close) }, [onClose])
   const [type, setType] = useState<FeedbackType>("bug")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "success" | "error" | "preview">("idle")
   const [message, setMessage] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,6 +40,7 @@ export function FeedbackForm({ onClose }: FeedbackFormProps) {
       setMessage("请填写标题和详细描述")
       return
     }
+    if (playground) { setStatus("preview"); setMessage("预览模式：表单校验通过，未提交任何反馈。"); return }
 
     setIsSubmitting(true)
     setStatus("idle")
@@ -69,7 +76,7 @@ export function FeedbackForm({ onClose }: FeedbackFormProps) {
 
   if (status === "success") {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div ref={dialog} role="dialog" aria-modal="true" aria-label="反馈结果" className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-2xl">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
@@ -89,7 +96,7 @@ export function FeedbackForm({ onClose }: FeedbackFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div ref={dialog} role="dialog" aria-modal="true" aria-label="提交反馈" className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -170,6 +177,7 @@ export function FeedbackForm({ onClose }: FeedbackFormProps) {
               {message}
             </div>
           )}
+          {status === "preview" && <p role="status" className="rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground">{message}</p>}
 
           <div className="flex gap-3 pt-2">
             <button
