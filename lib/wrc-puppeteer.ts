@@ -1168,6 +1168,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
         events[index] = {
           ...events[index],
           sessions,
+          tz: rally.tz,
           eventSlug: updatedSlug,
           liveTimingUrl: buildWrcLiveTimingUrl(updatedSlug ?? ""),
           url: source === "ocblacktop"

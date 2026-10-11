@@ -49,6 +49,7 @@ for (const feed of [false, true]) test(`full WRC crawler parses ${feed ? 'feed f
   const f = fixture({ feed }), result = await f.get()
   assert.equal(result.ok, true)
   assert.equal(result.events[0].id, 'wrc-2026-1')
+  assert.equal(result.events[0].tz, 'Europe/Helsinki')
   assert.equal(result.events[0].sessions[0].utc, '2026-07-10T09:00:00.000Z')
   assert.equal(result.events[0].sessions[0].tentative, false)
   assert.equal(result.events[0].tentative, false)
