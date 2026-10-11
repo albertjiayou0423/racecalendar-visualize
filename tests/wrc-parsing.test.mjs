@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 import * as timezone from '../lib/tz.ts'
+import * as budget from '../lib/wrc-request-budget.ts'
 const source = ts.transpileModule(fs.readFileSync('lib/wrc-puppeteer.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
@@ -63,6 +64,7 @@ test('direct HTML fetch retries body failures and preserves permanent HTTP rejec
   const context = { exports: {}, AbortSignal, process: { env: {} },
     setTimeout: callback => { callback(); return 0 }, console: { log() {}, error() {} },
     require: name => name === './wrc-request-budget' ? {
+      memoizeWrcData: budget.memoizeWrcData,
       wrcBudgetExpired: () => false,
       fetchWithinWrcBudget: async () => {
         calls++
@@ -82,6 +84,31 @@ test('direct HTML fetch retries body failures and preserves permanent HTTP rejec
   calls = 0; mode = 'forbidden'
   assert.equal(await context.exports.direct('fixture'), null)
   assert.equal(calls, 1)
+})
+
+test('HTML requests reuse successful content only within the current crawl and retry failed content', async () => {
+  let calls = 0
+  let blocked = false
+  const context = { exports: {}, AbortSignal, process: { env: {} }, console: { log() {}, error() {} },
+    require: name => name === './wrc-request-budget' ? { ...budget,
+      fetchWithinWrcBudget: async () => { calls++; return new Response(blocked ? '' : 'valid HTML', { status: blocked ? 403 : 200 }) },
+    } : {},
+  }
+  vm.runInNewContext(source + '\nexports.direct = fetchDirect;', context)
+  await budget.withWrcRequestBudget(1000, async () => {
+    const content = await Promise.all([context.exports.direct('fixture'), context.exports.direct('fixture')])
+    assert.deepEqual(content, ['valid HTML', 'valid HTML'])
+    assert.equal(await context.exports.direct('fixture'), 'valid HTML')
+    assert.equal(calls, 1)
+  })
+  await budget.withWrcRequestBudget(1000, () => context.exports.direct('fixture'))
+  assert.equal(calls, 2)
+  blocked = true
+  await budget.withWrcRequestBudget(1000, async () => {
+    assert.equal(await context.exports.direct('unpublished'), null)
+    assert.equal(await context.exports.direct('unpublished'), null)
+  })
+  assert.equal(calls, 4)
 })
 test('official itinerary rejects rollover dates, invalid hours and minutes, and empty labels', () => {
   const sessions = exports.convert([

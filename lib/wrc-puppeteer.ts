@@ -28,7 +28,11 @@ const WRC_API_HEADERS = {
 
 // ============ 直接 fetch (主要方案) ============
 
-async function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
+function fetchDirect(url: string, retries: number = 2): Promise<string | null> {
+  return memoizeWrcData(`html:${url}`, () => fetchDirectUncached(url, retries))
+}
+
+async function fetchDirectUncached(url: string, retries: number): Promise<string | null> {
   for (let i = 0; i <= retries; i++) {
     if (wrcBudgetExpired()) return null
     try {
