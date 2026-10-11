@@ -102,15 +102,16 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 // ============ 提取 rb3-prerender-data-cache JSON ============
 
 function extractPrerenderCache(html: string): Record<string, any> | null {
-  const cachePattern = /<script type="application\/json" id="rb3-prerender-data-cache">([\s\S]*?)<\/script>/
-  const match = html.match(cachePattern)
-  if (!match) return null
-  try {
-    return JSON.parse(match[1])
-  } catch (e) {
-    console.error("Failed to parse prerender cache JSON:", e)
-    return null
+  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    if (!/(?:^|\s)id\s*=\s*(["'])rb3-prerender-data-cache\1(?:\s|$)/i.test(match[1])) continue
+    try {
+      const parsed = JSON.parse(match[2])
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed
+    } catch (e) {
+      console.error("Failed to parse prerender cache JSON:", e)
+    }
   }
+  return null
 }
 
 // ============ 从主页提取行程 URL ============

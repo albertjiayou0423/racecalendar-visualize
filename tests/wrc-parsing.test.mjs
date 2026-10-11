@@ -13,6 +13,20 @@ vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
 
+test('prerender cache extraction tolerates HTML attribute ordering and validates JSON object shape', () => {
+  const context = { exports: {}, require: () => ({}), process: { env: {} }, console: { error() {} } }
+  vm.runInNewContext(source + '\nexports.extract = extractPrerenderCache;', context)
+  for (const attributes of [
+    'type="application/json" id="rb3-prerender-data-cache"',
+    "id = 'rb3-prerender-data-cache' nonce='fixture' type='application/json'",
+    'ID="rb3-prerender-data-cache"\n type="application/json" defer',
+  ]) assert.equal(context.exports.extract(`<SCRIPT ${attributes}>{"valid":true}</SCRIPT >`).valid, true)
+  const script = content => `<script id="rb3-prerender-data-cache">${content}</script>`
+  assert.equal(context.exports.extract(script('broken') + script('null') + script('[]') + script('{"valid":true}')).valid, true)
+  assert.equal(context.exports.extract('<script data-id="rb3-prerender-data-cache">{"wrong":true}</script>'), null)
+  assert.equal(context.exports.extract(script('[]')), null)
+})
+
 test('page tabs accept absolute official links and reject unrelated event or external links', () => {
   const context = { exports: {}, URL, require: () => ({}), process: { env: {} } }
   vm.runInNewContext(source + '\nexports.itinerary = extractItineraryUrlFromCache; exports.results = extractResultsItineraryUrl;', context)
