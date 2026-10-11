@@ -52,7 +52,7 @@
 
 先用 `buildWrcEvents()` 生成本地 2026 年 14 场赛事作为基础。该列表提供中文信息、时区、坐标、转播说明等。估计场次为 Shakedown、按间隔生成的 SS 以及末日 Power Stage，事件和场次均标记 tentative。
 
-再请求 WRC 官网 `/v3/api/graphql/v1/v3/content/...` 的赛季 Event Series 和每场 card，从中获取 round、正确 slug 和起始日期。失败时使用第二套硬编码的 WRC_RALLIES。两套静态日期及部分 slug 不一致。动态赛历主要用于抓取目标，成功结果只替换基础列表中相同 round 的场次，不能自动新增基础列表之外的赛事。
+再请求 WRC 官网 `/v3/api/graphql/v1/v3/content/...` 的赛季 Event Series 和每场 card，从中获取 round、正确 slug 和起始日期。失败时使用第二套硬编码的 WRC_RALLIES。两套静态日期及部分 slug 不一致。动态赛历用于更新本地目标中对应轮次的 slug、日期和已知时区；部分动态赛历不会移除其他本地轮次。跨赛季、重复轮次和未知轮次不覆盖本地目标。成功结果只替换基础列表中相同 round 的场次，不能自动新增基础列表之外的赛事。
 
 每场官网行程按以下次序尝试：
 

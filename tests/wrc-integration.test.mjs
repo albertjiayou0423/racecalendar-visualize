@@ -1,3 +1,4 @@
+import * as targets from "../lib/wrc-targets.ts"
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -33,10 +34,12 @@ function fixture({ feed = false, round = 1, seriesPayload, cardPatch = {} } = {}
     return new Response('', { status: 404 })
   }
   const exports = {}
-  vm.runInNewContext(source + "\nexports.calendar = fetchWrcCalendar;", {
+  vm.runInNewContext(source + `\nexports.calendar = fetchWrcCalendar; WRC_RALLIES.splice(0, WRC_RALLIES.length,
+    { round: 1, name: 'Fixture', eventSlug: 'wrc-fixture-rally-2026', startDate: '2026-07-09', tz: 'Europe/Helsinki' },
+    { round: 2, name: 'Unpublished', eventSlug: 'wrc-unpublished-2026', startDate: '2026-08-01', tz: 'UTC' });`, {
     exports, process: { env: {} }, URL, AbortSignal, setTimeout,
     console: { log() {}, error() {} },
-    require: name => name === './tz' ? timezone : name === './wrc-request-budget' ? { ...budget, fetchWithinWrcBudget: fakeFetch }
+    require: name => name === "./wrc-targets" ? targets : name === './tz' ? timezone : name === './wrc-request-budget' ? { ...budget, fetchWithinWrcBudget: fakeFetch }
       : name === './wrc-concurrency' ? concurrency : name === './wrc-crawl-order' ? order
       : name === './wrc-data' ? { buildWrcEvents: () => events, buildWrcLiveTimingUrl: slug => `https://fixture/${slug}` } : {},
   })
@@ -50,15 +53,18 @@ for (const feed of [false, true]) test(`full WRC crawler parses ${feed ? 'feed f
   assert.equal(result.events[0].sessions[0].tentative, false)
   assert.equal(result.events[0].tentative, false)
   assert.equal(result.events[1].tentative, true)
+  assert.equal(f.requests.some(url => url.includes("/en/events/wrc-unpublished-2026")), true)
   assert.match(result.note, /1 场仍有待确认赛段/)
-  if (!feed) assert.equal(f.requests.some(url => url.includes('/feed/')), false)
+  if (!feed) assert.equal(f.requests.some(url => url.includes('/feed/') && url.includes('fixture-rally')), false)
   assert.equal(f.requests.some(url => url.includes('ocblacktop')), false)
 })
-test('unknown official round cannot report successful data absent from output calendar', async () => {
+test('unknown official round is ignored while known local rounds remain eligible', async () => {
   const f = fixture({ round: 99 })
   const result = await f.get()
-  assert.equal(result.ok, false)
-  assert.equal(result.events.every(event => event.tentative), true)
+  assert.equal(result.ok, true)
+  assert.equal(result.events.length, 2)
+  assert.equal(result.events.some(event => event.round === 99), false)
+  assert.match(result.note, /1 场官网爬取成功/)
 })
 
 test('malformed season collections degrade without throwing or issuing card requests', async () => {

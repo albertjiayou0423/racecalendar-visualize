@@ -1,3 +1,4 @@
+import * as targets from "../lib/wrc-targets.ts"
 import * as crawlOrder from "../lib/wrc-crawl-order.ts"
 import * as requestBudget from "../lib/wrc-request-budget.ts"
 import test from 'node:test'
@@ -37,11 +38,12 @@ function crawl({ fail = false, allow = true } = {}) {
     exports, calls, rallies, fail,
     process: { env: { OCBLACKTOP_API_KEY: 'fixture-only' } },
     console: { log() {}, error() {} },
-    require: name => name === "./wrc-crawl-order" ? crawlOrder : name === './wrc-request-budget' ? requestBudget : name === './wrc-concurrency' ? { mapSettledWithConcurrency }
+    require: name => name === "./wrc-targets" ? targets : name === "./wrc-crawl-order" ? crawlOrder : name === './wrc-request-budget' ? requestBudget : name === './wrc-concurrency' ? { mapSettledWithConcurrency }
       : name === './wrc-data' ? { buildWrcEvents: () => events, buildWrcLiveTimingUrl: () => 'fixture' } : {},
   }
   vm.createContext(context)
   vm.runInContext(source + `
+    WRC_RALLIES.splice(0, WRC_RALLIES.length, ...rallies);
     fetchWrcCalendar = async () => rallies;
     scrapeWrcItinerary = async slug => { calls.push('official:' + slug); return fail ? null : [{ name: 'SS1', utc: '2026-01-01T09:00:00Z' }] };
     fetchOcblacktopRallies = async () => { calls.push('index'); return [{ id: 'fixture' }] };

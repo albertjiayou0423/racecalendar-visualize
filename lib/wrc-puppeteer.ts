@@ -1,3 +1,4 @@
+import { mergeWrcTargets } from "./wrc-targets"
 import { prioritizeWrcRallies } from "./wrc-crawl-order"
 import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired, memoizeWrcData } from "./wrc-request-budget"
 import { mapSettledWithConcurrency } from "./wrc-concurrency"
@@ -1138,28 +1139,8 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   // 1. 动态获取2026年完整赛历（从WRC官网API）
   const calendar = await fetchWrcCalendar()
 
-  // 2. 构建要爬取的赛事列表：优先使用动态发现的赛历，fallback到硬编码
-  let rallies: WrcRally[]
-
-  if (calendar && calendar.length > 0) {
-    rallies = calendar.map(c => {
-      // 用 round 匹配 fallbackEvents 获取更精确的元数据（时区、名称等）
-      const fallback = WRC_RALLIES.find(r => r.round === c.round)
-      return {
-        round: c.round,
-        name: fallback?.name || c.name,
-        hq: fallback?.hq || "",
-        city: fallback?.city || "",
-        country: fallback?.country || "",
-        code: fallback?.code || "",
-        tz: fallback?.tz || c.tz,
-        eventSlug: c.eventSlug,  // 使用官网API返回的正确slug
-        startDate: c.startDate,
-      }
-    })
-  } else {
-    rallies = [...WRC_RALLIES]
-  }
+  // A partial official calendar must not remove otherwise known season rounds.
+  let rallies: WrcRally[] = mergeWrcTargets(WRC_RALLIES, calendar || [])
 
   rallies = prioritizeWrcRallies(rallies)
 
