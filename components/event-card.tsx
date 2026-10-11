@@ -26,7 +26,6 @@ import {
   nextSession,
   offsetLabel,
 } from "@/lib/format"
-import { countryCodeToFlag } from "@/lib/tz"
 import { cn } from "@/lib/utils"
 import { isEventFavorite, toggleFavorite } from "@/lib/favorites"
 
@@ -147,7 +146,6 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const main = mainSession(event)
   const nextResult = nextSession(event, now)
   const next = nextResult?.session ?? firstSession(event)
-  const flag = countryCodeToFlag(event.countryCode)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions)
   const hasTentative = event.tentative === true
@@ -157,6 +155,18 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
     const end = start + 2 * 60 * 60 * 1000
     return now >= start && now <= end
   }), [event, now])
+
+  useEffect(() => {
+    const prepare = (message: Event) => {
+      if (document.querySelector("[data-event-card]") !== articleRef.current) return
+      const zone = (message as CustomEvent<string>).detail
+      setInView(true)
+      if (["sessions", "live"].includes(zone)) setOpen(true)
+      if (zone === "sessions" && dayGroups.length) setOpenDays(new Set([dayGroups[0].date]))
+    }
+    window.addEventListener("racecalendar:guide-card", prepare)
+    return () => window.removeEventListener("racecalendar:guide-card", prepare)
+  }, [event.id, event.sessions])
 
   const toggleDay = (date: string) => {
     setOpenDays((prev) => {
@@ -204,7 +214,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             <span className="text-xs font-bold text-white">LIVE</span>
           </div>
         )}
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
+        <div data-guide="card-summary" className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
           {/* 系列 + 轮次 */}
           <div className="flex items-center gap-3 sm:w-28 sm:shrink-0">
             <span
@@ -219,7 +229,6 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           {/* 名称与地点 */}
           <div className="min-w-0 flex-1" onMouseLeave={() => setShowClientInfo(false)}>
             <h3 className="flex items-center gap-2 text-balance text-base font-semibold leading-tight">
-              {flag ? <span aria-hidden>{flag}</span> : null}
               <span className="truncate">{event.name}</span>
               {event.clientData && <button type="button" aria-label="查看客户端补充数据来源" aria-expanded={showClientInfo} onMouseEnter={() => setShowClientInfo(true)} onClick={() => setShowClientInfo(value => !value)} title={`客户端自动补缺，尚未经服务端独立核验。上传时间：${new Date(event.clientData.uploadedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}；场次：${event.clientData.sessions.join("、")}；来源：${event.clientData.sourceUrl}`} className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-[11px] font-serif text-muted-foreground hover:border-primary hover:text-primary">i</button>}
               {isLiveNow && (
@@ -251,7 +260,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           </div>
 
           {/* 开赛时间 + 倒计时 */}
-          <div className="flex items-center justify-between gap-3 sm:w-56 sm:shrink-0 sm:flex-col sm:items-end">
+          <div data-guide="card-time" className="flex items-center justify-between gap-3 sm:w-56 sm:shrink-0 sm:flex-col sm:items-end">
             {next ? (
               <div className="text-right">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -271,7 +280,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
         {/* 转播条 + 展开按钮 */}
         <div className="flex flex-col gap-2 border-t border-border bg-secondary/30 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <div className="flex min-w-0 items-center gap-2 text-xs">
+          <div data-guide="card-source" className="flex min-w-0 items-center gap-2 text-xs">
             {event.broadcaster ? (
               <>
                 <Radio className="size-3.5 shrink-0 text-primary" aria-hidden />
@@ -302,6 +311,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Link
+              data-guide="card-details"
               href={`/event/${event.id}`}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
@@ -311,6 +321,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             </Link>
             <button
               type="button"
+              data-guide="card-expand"
               onClick={() => setOpen((v) => !v)}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               aria-expanded={open}
@@ -323,7 +334,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
         {/* 详细场次时间表 */}
         {open ? (
-          <div className="border-t border-border">
+          <div data-guide="card-sessions" className="border-t border-border">
             <div className="hidden sm:grid grid-cols-[1fr_auto_auto] items-center gap-x-4 px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
               <span>场次</span>
               <span className="text-right">当地时间 · {localOffset}</span>
@@ -405,7 +416,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
 
             {/* 天气预报 */}
             {main && !isEstimatedWrcSession(event, main) && (
-              <div className="border-t border-border/50 px-4 py-3">
+              <div data-guide="card-live" className="border-t border-border/50 px-4 py-3">
                 <WeatherCard
                   city={event.locality}
                   country={event.country}

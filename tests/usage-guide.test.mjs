@@ -77,7 +77,7 @@ function elements(tree, predicate) {
   if (Array.isArray(tree)) return tree.flatMap(child => elements(child, predicate))
   return [...(predicate(tree) ? [tree] : []), ...elements(tree.props?.children, predicate)]
 }
-test('guide opens a chooser, navigates to selected pages, and teaches cards without page navigation', () => {
+test('guide opens a chooser, navigates to selected pages, and targets real cards on the homepage', () => {
   const mounted = mount()
   mounted.reopen()
   let buttons = elements(mounted.render(), node => node.type === 'button')
@@ -86,7 +86,7 @@ test('guide opens a chooser, navigates to selected pages, and teaches cards with
   assert.equal(mounted.state[5], 'cards')
   assert.deepEqual(mounted.navigations, [])
   assert.equal(guide.CARD_GUIDE_STEPS.length, 7)
-  assert.deepEqual(guide.CARD_GUIDE_STEPS.map(step => step.demo), ['summary', 'time', 'expand', 'sessions', 'source', 'live', 'details'])
+  assert.deepEqual(guide.CARD_GUIDE_STEPS.map(step => step.card), ['summary', 'time', 'expand', 'sessions', 'source', 'live', 'details'])
   buttons = elements(mounted.render(), node => node.type === 'button')
   buttons.find(button => button.props.children === '选择其他指南').props.onClick()
   buttons = elements(mounted.render(), node => node.type === 'button')

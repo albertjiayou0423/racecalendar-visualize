@@ -155,6 +155,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const [circuitType, setCircuitType] = useState<CircuitTypeFilter>("all")
   const [region, setRegion] = useState<RegionFilter>("all")
   const [filterStuck, setFilterStuck] = useState(false)
+  useEffect(() => {
+    const prepare = () => setView("list")
+    window.addEventListener("racecalendar:guide-card", prepare)
+    return () => window.removeEventListener("racecalendar:guide-card", prepare)
+  }, [])
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {

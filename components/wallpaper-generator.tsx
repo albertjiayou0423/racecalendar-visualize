@@ -5,6 +5,7 @@ import { toPng } from "html-to-image"
 import { Download, ImageIcon, RotateCcw, Smartphone, Monitor } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { RaceEvent, RaceSession } from "@/lib/types"
+import { isEstimatedWrcSession } from "@/lib/session-time"
 
 interface WallpaperGeneratorProps {
   events: RaceEvent[]
@@ -66,10 +67,10 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
       const h = wrap.clientHeight
       if (mode === "phone") {
         const z = Math.min(w / 1080, h / 1920)
-        setPreviewZoom(Math.max(0.25, Math.min(1, z || 0.5)))
+        setPreviewZoom(Math.max(0.05, Math.min(1, z || 0.5)))
       } else {
         const z = Math.min(w / 1600, h / 1200)
-        setPreviewZoom(Math.max(0.25, Math.min(1, z || 0.5)))
+        setPreviewZoom(Math.max(0.05, Math.min(1, z || 0.5)))
       }
     }
     updateZoom()
@@ -84,7 +85,7 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
 
   useEffect(() => {
     setGeneratedUrl(null)
-  }, [mode, month, year])
+  }, [mode, month, year, events])
 
   const generate = async () => {
     if (generating) return
@@ -286,7 +287,7 @@ const PhoneWallpaper = ({
   totalEvents,
   host,
 }: {
-  ref: React.RefObject<HTMLDivElement | null>
+  ref: React.RefObject<HTMLDivElement | null> | null
   year: number
   month: number
   monthNames: string[]
@@ -316,19 +317,18 @@ const PhoneWallpaper = ({
           <div className="mt-4 text-xl text-white/40">{totalEvents} 场赛事</div>
         </div>
 
-        <div className="mt-10 flex-1 space-y-4 overflow-hidden">
+        <div className="mt-10 flex-1 space-y-3 overflow-hidden">
           {Object.entries(grouped)
             .sort(([a], [b]) => a.localeCompare(b))
-            .slice(0, 10)
             .map(([date, dateEvents]) => {
               const d = new Date(date)
               return (
-                <div key={date} className="rounded-2xl bg-white/[0.05] p-5 backdrop-blur-sm">
+                <div key={date} className="rounded-2xl bg-white/[0.05] p-4 backdrop-blur-sm">
                   <div className="flex items-center gap-4 text-white/60">
                     <span className="text-4xl font-bold text-white/90 font-mono">{d.getDate()}</span>
                     <span className="text-xl">周{WEEKDAYS[d.getDay()]}</span>
                   </div>
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-2 space-y-2">
                     {dateEvents.map((event) => {
                       const s = getMainSession(event)
                       return (
@@ -338,7 +338,7 @@ const PhoneWallpaper = ({
                             style={{ backgroundColor: SERIES_COLORS[event.series] }}
                           />
                           <span className="text-xl text-white/90 flex-1 truncate">{event.name}</span>
-                          {s && <span className="text-base text-white/40 font-mono">{formatTime(s.utc)}</span>}
+                          {s && <span className="text-base text-white/40 font-mono">{isEstimatedWrcSession(event, s) ? "待确认" : formatTime(s.utc)}</span>}
                         </div>
                       )
                     })}
@@ -367,7 +367,7 @@ const DesktopWallpaper = ({
   totalEvents,
   host,
 }: {
-  ref: React.RefObject<SVGSVGElement | null>
+  ref: React.RefObject<SVGSVGElement | null> | null
   year: number
   monthNames: string[]
   yearGrouped: Record<number, Record<string, RaceEvent[]>>
@@ -382,7 +382,7 @@ const DesktopWallpaper = ({
   const GAP = 24
 
   const HEADER_H = 150
-  const FOOTER_H = 90
+  const FOOTER_H = 60
 
   const gridX0 = PAD_X
   const gridY0 = PAD_TOP + HEADER_H + GAP
@@ -598,23 +598,24 @@ const MonthCard = ({
   monthEvents: RaceEvent[]
 }) => {
   const padX = 20
-  const padY = 18
+  const padY = 14
   const innerX = x + padX
   const innerY = y + padY
   const innerW = w - padX * 2
   const innerH = h - padY * 2
 
-  const headerH = 38
-  const weekDayH = 26
+  const headerH = 34
+  const weekDayH = 24
   const gridTop = innerY + headerH + weekDayH
-  const gridBottom = y + h - padY - 8
+  const listRows = Math.min(2, monthEvents.length) + (monthEvents.length > 2 ? 1 : 0)
+  const listHeight = listRows ? listRows * 18 + 14 : 0
+  const gridBottom = y + h - padY - listHeight
   const gridH = Math.max(30, gridBottom - gridTop)
 
   const colW = innerW / 7
-  const cellH = gridH / 6
+  const weekRows = Math.ceil((firstDay + daysInMonth) / 7)
+  const cellH = gridH / weekRows
 
-  const eventListTop = y + h - padY - 78
-  const eventListAvailable = Math.max(0, eventListTop - (gridTop + gridH))
 
   return (
     <g>
@@ -729,7 +730,7 @@ const MonthCard = ({
             strokeWidth="1"
           />
           {monthEvents.slice(0, 2).map((event, idx) => {
-            const yPos = gridTop + gridH + 4 + 16 * (idx + 1)
+            const yPos = gridTop + gridH + 4 + 18 * (idx + 1)
             const displayName =
               event.name.length > 14 ? event.name.slice(0, 13) + "…" : event.name
             return (
@@ -757,7 +758,7 @@ const MonthCard = ({
           {monthEvents.length > 2 && (
             <text
               x={x + w / 2}
-              y={gridTop + gridH + 4 + 16 * 3 - 6}
+              y={gridTop + gridH + 4 + 18 * 3 - 6}
               fill="rgba(255,255,255,0.25)"
               fontSize="10"
               textAnchor="middle"
@@ -777,9 +778,8 @@ function eventsByDate(events: RaceEvent[], month: number, year: number): Record<
   for (const e of events) {
     const s = getMainSession(e)
     if (!s) continue
-    const d = new Date(s.utc)
-    if (d.getMonth() !== month || d.getFullYear() !== year) continue
-    const k = d.toISOString().split("T")[0]
+    const k = beijingDate(s.utc)
+    if (Number(k.slice(5, 7)) - 1 !== month || Number(k.slice(0, 4)) !== year) continue
     if (!g[k]) g[k] = []
     g[k].push(e)
   }
@@ -792,10 +792,9 @@ function eventsByYear(events: RaceEvent[], year: number): Record<number, Record<
   for (const e of events) {
     const s = getMainSession(e)
     if (!s) continue
-    const d = new Date(s.utc)
-    if (d.getFullYear() !== year) continue
-    const m = d.getMonth()
-    const k = d.toISOString().split("T")[0]
+    const k = beijingDate(s.utc)
+    if (Number(k.slice(0, 4)) !== year) continue
+    const m = Number(k.slice(5, 7)) - 1
     if (!r[m][k]) r[m][k] = []
     r[m][k].push(e)
   }
@@ -806,8 +805,10 @@ function getMainSession(event: RaceEvent): RaceSession | undefined {
   return event.sessions.find((s) => s.isMain) || event.sessions[event.sessions.length - 1]
 }
 
+function beijingDate(utc: string): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(utc))
+}
+
 function formatTime(utc: string): string {
-  const d = new Date(utc)
-  const bj = new Date(d.getTime() + 8 * 60 * 60 * 1000)
-  return `${String(bj.getHours()).padStart(2, "0")}:${String(bj.getMinutes()).padStart(2, "0")}`
+  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(utc))
 }
