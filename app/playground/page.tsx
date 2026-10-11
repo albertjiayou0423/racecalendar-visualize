@@ -77,10 +77,7 @@ function ComponentRow({ entry }: { entry: CatalogEntry }) {
             else { setProps(item.props); setPreset(index) }
           }}>{noProps ? ["默认", "窄屏", "全宽"][index] : item.label}</button>)}
         </div>
-        {noProps ? <p className="text-xs text-muted-foreground">此组件没有可调 props。</p> : <>
-          <PropsEditor value={props} onChange={next => { setProps(next); setPreset(-1) }} />
-          <details className="mt-4 rounded-lg border border-border p-3"><summary className="cursor-pointer text-xs">编辑完整 props</summary><div className="mt-3"><JsonEditor label={`${entry.name} props JSON`} value={props} onChange={next => { if (next && typeof next === "object" && !Array.isArray(next)) { setProps(next as CatalogProps); setPreset(-1) } }} /></div></details>
-        </>}
+        {!noProps && <PropsEditor value={props} onChange={next => { setProps(next); setPreset(-1) }} />}
       </section>
     </div>
   </article>
