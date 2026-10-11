@@ -50,7 +50,7 @@ export function PlaygroundComponentPreview({ name, props }: { name: string; prop
       {name === "PlaygroundPreview" ? <p className="text-sm text-muted-foreground">此组件是 Playground 的挂载入口，不能在自身内部再次挂载。</p>
         : name === "ClientCrawl" || name === "SWRegister" ? <p className="text-sm text-muted-foreground">后台组件没有可视界面。</p>
             : <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">组件加载中…</p>}>
-              {ActualComponent ? <ActualComponent {...props} {...callbacks} {...(name === "Button" ? { onClick: () => {} } : {})} /> : null}
+              {ActualComponent ? <ActualComponent {...props} {...callbacks} {...(name === "Button" ? { onClick: () => {} } : {})} {...(name === "NextSessionPill" ? { preview: true } : {})} /> : null}
               {name === "UsageGuideButton" && <components.UsageGuide />}
             </Suspense>}
     </PreviewBoundary>
