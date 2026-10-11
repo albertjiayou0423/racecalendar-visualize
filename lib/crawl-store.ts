@@ -1,3 +1,4 @@
+import { mergeWrcSnapshotEvents } from "./wrc-snapshot-merge"
 import type { Series, RaceEvent } from "./types"
 import { getSql } from "./db"
 
@@ -80,20 +81,11 @@ export async function saveWrcSnapshotMerged(
     const prev = await getLatestSnapshot("WRC")
     const prevEvents = (prev?.data?.events as RaceEvent[] | undefined) ?? []
 
-    if (prevEvents.length > 0) {
-      for (let i = 0; i < newData.events.length; i++) {
-        const newEvent = newData.events[i]
-        // 找到上次快照中同一场赛事
-        const prevEvent = prevEvents.find(e => e.id === newEvent.id)
-        if (!prevEvent) continue
-
-        // 本次为估计数据（tentative=true），但上次有真实爬取数据（tentative=false 或 undefined）
-        // → 保留上次真实数据
-        if (newEvent.tentative && !prevEvent.tentative) {
-          newData.events[i] = prevEvent
-        }
-      }
-    }
+    const merged = mergeWrcSnapshotEvents(newData.events, prevEvents)
+    newData.events = merged.events
+    const pendingCount = newData.events.filter(event => event.tentative || event.sessions.some(session => session.tentative)).length
+    if (newData.note) newData.note = newData.note.replace(/\d+ 场仍有待确认赛段/, pendingCount ? `${pendingCount} 场仍有待确认赛段` : "输出赛段均有已确认时间")
+    if (merged.retainedSessions) newData.note = `${newData.note || "WRC 数据更新"}；保留 ${merged.retainedSessions} 个已确认赛段的历史时间`
 
     await saveCrawlSnapshot("WRC", newData, source)
   } catch (err) {
