@@ -154,3 +154,5 @@ FAQ 解析会跳过空节点、非字符串文本以及非数组列表结构，�
 直接 HTML 请求的正文读取也在异常处理范围内；正文中断按原有限重试策略处理，连续失败返回空结果继续回退。403 等非 5xx 响应仍只请求一次。
 
 WRC 统一请求层对非成功 HTTP 响应主动取消未使用的正文，释放资源后交给原有状态判断和回退逻辑；成功响应仍保留可读取正文，取消异常不覆盖原始 HTTP 失败。
+
+WRC 抓取结果包含 diagnostics，随成功快照保存：requests 为实际请求次数，networkFailures 为收到 HTTP 响应前的网络失败数，httpStatuses 为状态码计数，cacheHits 为同一抓取中的解析缓存复用次数，durationMs 为总耗时，budgetExpired 表示总预算是否耗尽。计数按抓取隔离，不含 URL、密钥、请求头或正文；不把 HTTP 错误或正文解析失败计入 networkFailures。

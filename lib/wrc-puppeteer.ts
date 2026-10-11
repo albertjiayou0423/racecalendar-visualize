@@ -1,6 +1,6 @@
 import { mergeWrcTargets } from "./wrc-targets"
 import { prioritizeWrcRallies } from "./wrc-crawl-order"
-import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired, memoizeWrcData } from "./wrc-request-budget"
+import { getWrcRequestDiagnostics, type WrcRequestDiagnostics, withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired, memoizeWrcData } from "./wrc-request-budget"
 import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
@@ -1129,12 +1129,12 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
 
 // ============ 主函数 ============
 
-export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
   // Leave room for snapshot persistence before the route's 300-second limit.
   return withWrcRequestBudget(180000, () => fetchWrcWithinBudget(options))
 }
 
-async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed" }> {
+async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
   const allowApiFallback = options?.allowApiFallback ?? true
   const fallbackEvents = buildWrcEvents()
   const events: RaceEvent[] = [...fallbackEvents]
@@ -1244,5 +1244,5 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   if (errors.length > 0) parts.push(`未取得有效数据：${errors.join(", ")}`)
   const note = parts.length > 0 ? parts.join("，") : "所有爬取的赛事均获取成功"
 
-  return { events, ok, note, dataSource }
+  return { events, ok, note, dataSource, diagnostics: getWrcRequestDiagnostics() }
 }

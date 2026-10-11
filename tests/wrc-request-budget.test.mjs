@@ -1,6 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired } from '../lib/wrc-request-budget.ts'
+import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired, getWrcRequestDiagnostics } from '../lib/wrc-request-budget.ts'
+
+test('request diagnostics isolate crawls and expose only detached counters', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async url => {
+    if (url.includes('failure')) throw new Error('fixture network failure')
+    return new Response('fixture', { status: url.includes('blocked') ? 403 : 200 })
+  }
+  try {
+    await withWrcRequestBudget(1000, async () => {
+      await fetchWithinWrcBudget('https://fixture.invalid/success?secret=private')
+      await fetchWithinWrcBudget('https://fixture.invalid/blocked')
+      await assert.rejects(fetchWithinWrcBudget('https://fixture.invalid/failure'))
+      await memoizeWrcData('private-key', async () => ({ value: 1 }))
+      await memoizeWrcData('private-key', async () => ({ value: 2 }))
+      const metrics = getWrcRequestDiagnostics()
+      assert.equal(metrics.requests, 3)
+      assert.equal(metrics.networkFailures, 1)
+      assert.equal(metrics.cacheHits, 1)
+      assert.deepEqual(metrics.httpStatuses, { 200: 1, 403: 1 })
+      assert.equal(metrics.budgetExpired, false)
+      assert.ok(metrics.durationMs >= 0)
+      assert.doesNotMatch(JSON.stringify(metrics), /private|secret|fixture/)
+      metrics.httpStatuses['200'] = 99
+      assert.equal(getWrcRequestDiagnostics().httpStatuses['200'], 1)
+      await withWrcRequestBudget(1000, async () => assert.equal(getWrcRequestDiagnostics().requests, 0))
+      assert.equal(getWrcRequestDiagnostics().requests, 3)
+    })
+    assert.equal(getWrcRequestDiagnostics(), undefined)
+  } finally { globalThis.fetch = original }
+})
 
 test('failed HTTP responses release bodies while successful responses remain readable', async () => {
   const original = globalThis.fetch
