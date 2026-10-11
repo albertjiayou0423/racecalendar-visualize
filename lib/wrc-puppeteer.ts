@@ -1,3 +1,4 @@
+import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents, buildWrcLiveTimingUrl } from "./wrc-data"
@@ -75,7 +76,7 @@ async function fetchRenderedHtml(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://phantomjscloud.com/api/browser/v2/${PHANTOMJS_API_KEY}/?request=${encodeURIComponent(JSON.stringify(requestPayload))}`
-    const res = await fetch(apiUrl)
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(12000) })
 
     if (!res.ok) {
       console.error(`PhantomJsCloud failed: ${res.status} for ${url}`)
@@ -350,7 +351,7 @@ async function fetchOcblacktop<T = any>(path: string): Promise<T | null> {
         "X-API-Key": OCBLACKTOP_API_KEY,
         "Accept": "application/json",
       },
-      // Vercel Hobby 默认 10s；ocblacktop 响应通常很快
+      // Bound third-party requests independently of the function execution duration.
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
@@ -535,7 +536,7 @@ async function tryOcblacktopFallback(
 // ============ 直接调用 WRC Feed API (最可靠的方案) ============
 
 async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Promise<ItineraryDay[] | null> {
-  const feedUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${uriSlug}&page[limit]=1&rb3Locale=en&rb3Schema=v1:inlineContent`
+  const feedUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${encodeURIComponent(uriSlug)}&page[limit]=1&rb3Locale=en&rb3Schema=v1:inlineContent`
   console.log(`WRC: calling feed API: ${feedUrl.substring(0, 120)}...`)
 
   try {
@@ -668,7 +669,7 @@ interface MainSubPageInfo {
 }
 
 async function fetchMainSubPage(itinerarySlug: string): Promise<MainSubPageInfo | null> {
-  const url = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${itinerarySlug}&page[limit]=1&rb3Locale=en&rb3Schema=v1:mainSubPage`
+  const url = `https://www.wrc.com/v3/api/graphql/v1/v3/feed/en-INT?disableUsageRestrictions=true&filter[type]=event-details&filter[uriSlug]=${encodeURIComponent(itinerarySlug)}&page[limit]=1&rb3Locale=en&rb3Schema=v1:mainSubPage`
   const json = await fetchJsonApi(url)
   if (!json?.data?.items?.[0]) return null
 
@@ -1105,28 +1106,28 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
 
   console.log(`WRC: scraping ${rallies.length} rallies (full season), allowApiFallback=${allowApiFallback}`)
 
-  const ocblacktopRallies = (OCBLACKTOP_API_KEY && allowApiFallback) ? await fetchOcblacktopRallies() : null
-  if (OCBLACKTOP_API_KEY && allowApiFallback) {
-    console.log(`ocblacktop: ${ocblacktopRallies ? ocblacktopRallies.length : 0} rallies indexed`)
+  // Fetch the paid/quota-limited index only after an official itinerary fails.
+  // A shared promise ensures concurrent failures issue at most one index request.
+  let indexPromise: Promise<OcblacktopRallySummary[] | null> | undefined
+  const loadThirdPartyIndex = () => {
+    if (!OCBLACKTOP_API_KEY || !allowApiFallback) return Promise.resolve(null)
+    return indexPromise ??= fetchOcblacktopRallies()
   }
 
-  // 第一轮：尝试爬取所有 rally
-  const firstResults = await Promise.allSettled(
-    rallies.map(async (rally) => {
-      let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
-      let source = "wrc-official"
-
-      if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
-        sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
-        if (sessions && sessions.length > 0) source = "ocblacktop"
+  const firstResults = await mapSettledWithConcurrency(rallies, 4, async (rally) => {
+    let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
+    let source = "wrc-official"
+    if (!sessions?.length) {
+      const index = await loadThirdPartyIndex()
+      if (index) {
+        sessions = await tryOcblacktopFallback(rally, index)
+        if (sessions?.length) source = "ocblacktop"
       }
-
-      return { rally, sessions, source }
-    })
-  )
+    }
+    return { rally, sessions, source }
+  })
 
   // 收集第一轮结果，记录失败的 rally
-  const failedRallies: { rally: WrcRally; idx: number }[] = []
   const resultMap = new Map<number, { rally: WrcRally; sessions: RaceSession[] | null; source: string }>()
 
   for (let i = 0; i < firstResults.length; i++) {
@@ -1134,42 +1135,15 @@ export async function fetchWrc(options?: { allowApiFallback?: boolean }): Promis
     if (result.status === "fulfilled") {
       const { rally, sessions, source } = result.value
       resultMap.set(i, { rally, sessions, source })
-      if (!sessions || sessions.length === 0) {
-        failedRallies.push({ rally, idx: i })
-      }
     } else {
       console.error(`WRC error: ${result.reason}`)
       const rally = rallies[i]
       resultMap.set(i, { rally, sessions: null, source: "wrc-official" })
-      failedRallies.push({ rally, idx: i })
     }
   }
 
-  // 第二轮：对失败的 rally 再试一次（特别是最近的2场）
-  if (failedRallies.length > 0) {
-    const nowMs = Date.now()
-    const twoWeeks = 14 * 24 * 60 * 60 * 1000
-    // 优先重试最近2场（在2周窗口内的）
-    const recentFailed = failedRallies.filter(f => {
-      const rallyTime = new Date(f.rally.startDate).getTime()
-      return Math.abs(rallyTime - nowMs) < twoWeeks
-    })
-    const toRetry = recentFailed.length > 0 ? recentFailed : failedRallies.slice(0, 2)
-    console.log(`WRC: retrying ${toRetry.length} failed rallies`)
-
-    for (const { rally, idx } of toRetry) {
-      console.log(`WRC: retry ${rally.name} (${rally.eventSlug})`)
-      let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
-      let source = "wrc-official"
-
-      if ((!sessions || sessions.length === 0) && ocblacktopRallies) {
-        sessions = await tryOcblacktopFallback(rally, ocblacktopRallies)
-        if (sessions && sessions.length > 0) source = "ocblacktop"
-      }
-
-      resultMap.set(idx, { rally, sessions, source })
-    }
-  }
+  // Network helpers already retry transient failures. Do not repeat the entire
+  // multi-source chain for unpublished itineraries or deterministic 404s.
 
   // 应用结果
   for (const [_, { rally, sessions, source }] of resultMap) {
