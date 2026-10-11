@@ -1068,7 +1068,9 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
   // 1. 获取 Event Series 列表
   const seriesUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${WRC_EVENT_SERIES_ID}?rb3Locale=en&rb3Schema=v1:card`
   const seriesJson = await fetchJsonApi(seriesUrl)
-  const eventIds: string[] = seriesJson?.data?.events?.map((e: any) => e.id) || []
+  const entries = seriesJson?.data?.events
+  const eventIds: string[] = Array.isArray(entries)
+    ? [...new Set(entries.map((event: any) => event?.id).filter((id: unknown): id is string => typeof id === "string" && id.length > 0))] : []
 
   if (eventIds.length === 0) {
     console.log("WRC: no events found in series, will use hardcoded list")
@@ -1076,32 +1078,33 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
   }
 
   // 2. 并行获取每个 event 的详细信息
-  const eventDetails = await Promise.all(
-    eventIds.map(async (id: string) => {
+  const eventDetails = await mapSettledWithConcurrency(eventIds, 4, async (id: string) => {
       const cardUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${id}?rb3Locale=en&rb3Schema=v1:card`
       const json = await fetchJsonApi(cardUrl)
       const d = json?.data
       if (!d) return null
 
-      const roundMatch = d.content?.standfirst?.match(/Round (\d+)/)
+      const roundMatch = typeof d.content?.standfirst === "string" ? d.content.standfirst.match(/Round (\d+)/i) : null
       const round = roundMatch ? parseInt(roundMatch[1]) : 0
       const slug = d.reference?.uriSlug
-      const startDate = d.event?.startDate?.slice(0, 10)
+      const startDate = typeof d.event?.startDate === "string" ? d.event.startDate.slice(0, 10) : ""
       const country = d.location?.countryName
 
-      if (!round || !slug || !startDate) return null
+      if (!Number.isInteger(round) || round < 1 || typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slug)
+        || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null
+      const date = new Date(startDate)
+      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== startDate) return null
 
       return {
         round,
-        name: d.content?.title || slug,
+        name: typeof d.content?.title === "string" ? d.content.title : slug,
         eventSlug: slug,
         startDate,
         tz: COUNTRY_TZ[country] || "UTC",
       }
     })
-  )
 
-  const valid = eventDetails.filter((e): e is NonNullable<typeof e> => e !== null)
+  const valid = eventDetails.flatMap(result => result.status === "fulfilled" && result.value ? [result.value] : [])
   valid.sort((a, b) => a.round - b.round)
 
   if (valid.length === 0) {
