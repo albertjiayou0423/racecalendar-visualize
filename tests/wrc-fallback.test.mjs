@@ -1,3 +1,4 @@
+import * as crawlOrder from "../lib/wrc-crawl-order.ts"
 import * as requestBudget from "../lib/wrc-request-budget.ts"
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -9,7 +10,7 @@ function fixture(primary, feed) {
   const source = ts.transpileModule(fs.readFileSync('lib/wrc-puppeteer.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  const context = { exports: {}, require: name => name === "./wrc-request-budget" ? requestBudget : ({}), calls, primary, feed, console, process: { env: {} } }
+  const context = { exports: {}, require: name => name === "./wrc-crawl-order" ? crawlOrder : name === "./wrc-request-budget" ? requestBudget : ({}), calls, primary, feed, console, process: { env: {} } }
   vm.createContext(context)
   vm.runInContext(source + `
     scrapeOfficialItineraryPage = async () => { calls.push('official'); return { sessions: primary, homeHtml: 'cached-home' } }

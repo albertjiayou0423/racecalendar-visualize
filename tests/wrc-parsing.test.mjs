@@ -33,3 +33,16 @@ test('valid leap dates and European summer-time conversion remain supported', ()
   const summer = exports.convert([{ date: [2026, 7, 10], stages: [stage('09:00')] }], 'Europe/Helsinki', 'fixture')
   assert.equal(summer[0].utc, '2026-07-10T06:00:00.000Z')
 })
+
+test('invalid time in first feed candidate does not hide a valid later candidate', async () => {
+  const context = { exports: {}, process: { env: {} }, console: { log() {}, error() {} },
+    require: name => name === './tz' ? timezone : {} }
+  vm.createContext(context)
+  vm.runInContext(source + `
+    fetchItineraryFromFeedApi = async slug => [{ date: [2026, 1, 1], stages: [{ name: 'SS1', time: slug === 'itinerary-fixture-2026' ? '25:61' : '09:00', isPowerStage: false }] }];
+    exports.v2 = scrapeWrcItineraryV2;
+  `, context)
+  const sessions = await context.exports.v2('fixture-2026', 'UTC', '2026-01-01')
+  assert.equal(sessions.length, 1)
+  assert.equal(sessions[0].utc, '2026-01-01T09:00:00.000Z')
+})

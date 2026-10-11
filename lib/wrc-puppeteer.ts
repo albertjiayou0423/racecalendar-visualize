@@ -1,3 +1,4 @@
+import { prioritizeWrcRallies } from "./wrc-crawl-order"
 import { withWrcRequestBudget, fetchWithinWrcBudget, wrcBudgetExpired } from "./wrc-request-budget"
 import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
@@ -783,7 +784,8 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
   for (const { slug, days } of results) {
     if (days && days.length > 0) {
       console.log(`WRC v2: success with slug "${slug}" (${days.length} days)`)
-      return convertDaysToSessions(days, tz, eventSlug)
+      const sessions = convertDaysToSessions(days, tz, eventSlug)
+      if (sessions.length) return sessions
     }
   }
 
@@ -869,7 +871,8 @@ async function scrapeWrcItineraryLegacy(eventSlug: string, tz: string, startDate
     for (const alt of altSlugs) {
       const testDays = await fetchItineraryFromFeedApi(alt, startDate)
       if (testDays && testDays.length > 0) {
-        return convertDaysToSessions(testDays, tz, eventSlug)
+        const sessions = convertDaysToSessions(testDays, tz, eventSlug)
+        if (sessions.length) return sessions
       }
     }
   } else {
@@ -1117,6 +1120,8 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
     rallies = [...WRC_RALLIES]
   }
 
+  rallies = prioritizeWrcRallies(rallies)
+
   console.log(`WRC: scraping ${rallies.length} rallies (full season), allowApiFallback=${allowApiFallback}`)
 
   // Fetch the paid/quota-limited index only after an official itinerary fails.
@@ -1128,6 +1133,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   }
 
   const firstResults = await mapSettledWithConcurrency(rallies, 4, async (rally) => {
+    if (wrcBudgetExpired()) return { rally, sessions: null, source: "wrc-official" }
     let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
     let source = "wrc-official"
     if (!sessions?.length) {
