@@ -341,6 +341,12 @@ function parseItineraryItems(items: any[], fallbackDate: string): ItineraryDay[]
 
       const dateText = question.find((q: any) => q?.variant === "text" && typeof q.text === "string")?.text || ""
       const date = parseDateText(dateText, fallbackDate)
+      const startYear = Number(fallbackDate.slice(0, 4))
+      if (Number.isFinite(date[0]) && date[0] !== startYear) {
+        // Allow a genuine New Year rally, but reject another season's shared slug.
+        const distance = Math.abs(Date.UTC(date[0], date[1] - 1, date[2]) - Date.parse(`${fallbackDate}T00:00:00Z`))
+        if (!Number.isFinite(distance) || distance > 7 * 86400000) continue
+      }
 
       const stages: { time: string; name: string; isPowerStage: boolean }[] = []
 

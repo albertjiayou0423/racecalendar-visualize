@@ -199,7 +199,7 @@ test('cache and feed skip invalid FAQ versions before selecting a valid itinerar
   valid.elements[2].question.unshift(null)
   valid.elements[2].answer.unshift(null)
   valid.elements[2].answer[1].items.unshift(null, { elements: {} }, { elements: [null, { variant: 'text', text: 123 }] })
-  const items = [null, { type: 'faq', title: 123 }, faq('TBC', '09:00'), faq('10 July 2026', '25:61'), faq('10 July 2026', '09:00', 'Itinerary UTC+25'), valid]
+  const items = [null, { type: 'faq', title: 123 }, faq('10 July 2027', '08:00'), faq('TBC', '09:00'), faq('10 July 2026', '25:61'), faq('10 July 2026', '09:00', 'Itinerary UTC+25'), valid]
   const days = exports.cache({ feed: { data: { data: { items } } } }, '2026-07-09')
   assert.equal(exports.convert(days, 'UTC', 'fixture')[0].utc, '2026-07-10T11:00:00.000Z')
   const context = { exports: {}, process: { env: {} }, AbortSignal,
@@ -211,6 +211,8 @@ test('cache and feed skip invalid FAQ versions before selecting a valid itinerar
   vm.runInNewContext(source + '\nexports.feed = fetchItineraryFromFeedApiUncached;', context)
   const feed = await context.exports.feed('fixture-2026', '2026-07-09')
   assert.equal(exports.convert(feed, 'UTC', 'fixture')[0].utc, '2026-07-10T11:00:00.000Z')
+  const newYear = exports.cache({ feed: { data: { data: { items: [faq('2 January 2027', '09:00')] } } } }, '2026-12-31')
+  assert.equal(exports.convert(newYear, 'UTC', 'fixture')[0].utc, '2027-01-02T09:00:00.000Z')
 })
 
 // These regressions must never select another rally merely through generic words.
