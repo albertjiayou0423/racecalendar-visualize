@@ -129,10 +129,10 @@ export function MonthView({ events, now }: MonthViewProps) {
     <section className="flex flex-col gap-3" aria-label="月视图">
       {/* 月份切换 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
           <span className="font-semibold text-foreground">{monthLabel}</span>
           {monthEventDays > 0 ? (
-            <span>· {monthEventDays} 场次</span>
+            <span>· {monthEventDays} 个赛事日条目</span>
           ) : null}
         </div>
         <div className="flex items-center gap-1">

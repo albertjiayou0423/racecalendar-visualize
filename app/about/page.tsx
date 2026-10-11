@@ -11,6 +11,18 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.2.2",
+    date: "2026-10-11",
+    items: [
+      { type: "fix", text: "F1 历史赛果按上游分页获取并合并同站成绩，恢复完整赛季与全部车手记录" },
+      { type: "fix", text: "FE 积分与历史赛果改用官网公开页面数据，单站成绩按需加载；失败显示中文提示并支持重试" },
+      { type: "fix", text: "日历改为服务端附件下载，优化图片下载的链接生命周期；日历补齐唯一标识、生成时间、文本转义与长行折叠" },
+      { type: "fix", text: "修正拉斯维加斯街道分类、新加坡赛道长度、来源链接文案和部分中文赛事名，兼容已有赛历快照" },
+      { type: "fix", text: "更新 F1 预测候选数据；周编号统一为北京时间 ISO 周，修正跨年导航" },
+      { type: "ui", text: "手机赛事详情双时区分行显示；月历计数明确为赛事日条目；底部胶囊更新为 v2.2.2 · 修复与更新" },
+    ],
+  },
+  {
     version: "v2.2.1",
     date: "2026-10-11",
     items: [
@@ -230,8 +242,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span data-guide="version" className="text-3xl font-bold">v2.2.1</span>
-          <span className="text-sm text-muted-foreground">周视图修复 + WRC LiveTiming + 测试台</span>
+          <span data-guide="version" className="text-3xl font-bold">v2.2.2</span>
+          <span className="text-sm text-muted-foreground">赛果完整性修复 · FE 数据恢复 · 下载与手机排版优化</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -263,7 +275,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.2.1" && (
+                {entry.version === "v2.2.2" && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>

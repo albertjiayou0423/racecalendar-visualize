@@ -175,7 +175,7 @@ export default function StandingsPage() {
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
         {tab === "fe"
-          ? "数据来源：Formula E 官方 API（pulselive）"
+          ? "数据来源：Formula E 官网公开积分榜"
           : "数据来源：Jolpica F1 API（Ergast 兼容）"}
       </footer>
     </div>

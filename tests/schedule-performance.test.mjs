@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import fs from "node:fs"
 import vm from "node:vm"
 import ts from "typescript"
+import { normalizeF1Metadata } from "../lib/f1-metadata.ts"
 
 function fixture({ stale = false, missing = false, exhausted = false } = {}) {
   const tasks = [], calls = [], overrides = []
@@ -10,6 +11,7 @@ function fixture({ stale = false, missing = false, exhausted = false } = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const modules = {
+    "@/lib/f1-metadata": { normalizeF1Metadata },
     "next/server": { connection: async () => {}, after: fn => tasks.push(fn), NextResponse: { json: body => body } },
     "@/lib/schedule-fetch": { refreshSeries: async (series, allowed) => {
       calls.push({ series, allowed })

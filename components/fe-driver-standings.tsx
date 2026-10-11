@@ -25,7 +25,7 @@ interface FeDriversResponse {
 const fetcher = (url: string) => fetch(url).then((r) => r.json() as Promise<FeDriversResponse>)
 
 export function FeDriverStandings() {
-  const { data, isLoading, error } = useSWR("/api/fe-drivers", fetcher)
+  const { data, isLoading, error, mutate } = useSWR("/api/fe-drivers", fetcher)
 
   if (isLoading) {
     return (
@@ -47,7 +47,8 @@ export function FeDriverStandings() {
   if (error || !data?.ok) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-muted-foreground">
-        无法加载 FE 车手积分榜
+        <p>{data?.note || "无法加载 FE 车手积分榜"}</p>
+        <button onClick={() => mutate()} className="mt-2 underline">重试</button>
       </div>
     )
   }
@@ -89,7 +90,7 @@ export function FeDriverStandings() {
               />
             ) : (
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-bold">
-                {driver.code.slice(0, 2)}
+                {driver.code.slice(0, 2).toUpperCase()}
               </div>
             )}
             <div className="flex-1 min-w-0">

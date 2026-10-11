@@ -1,4 +1,5 @@
 "use client"
+import { downloadFile } from "@/lib/download"
 
 import { useRef, useState, useEffect, useMemo } from "react"
 import { toPng } from "html-to-image"
@@ -137,11 +138,8 @@ export function WallpaperGenerator({ events, month, year }: WallpaperGeneratorPr
 
   const download = () => {
     if (!generatedUrl) return
-    const a = document.createElement("a")
     const suffix = mode === "phone" ? `${String(month + 1).padStart(2, "0")}` : "full-year"
-    a.download = `race-calendar-${year}-${suffix}.png`
-    a.href = generatedUrl
-    a.click()
+    downloadFile(generatedUrl, `race-calendar-${year}-${suffix}.png`)
   }
 
   return (

@@ -390,13 +390,13 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
                       : "未开始"}
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-4 text-[11px] text-muted-foreground">
-                  <span className="font-mono tabular-nums">
+                <div className="mt-1.5 flex flex-col gap-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:gap-4">
+                  <span className="whitespace-nowrap font-mono tabular-nums">
                     {formatDateTime(s.utc, BEIJING_TZ)}
                     <span className="ml-1 text-[10px]">北京</span>
                   </span>
                   {event.tz !== BEIJING_TZ && (
-                    <span className="font-mono tabular-nums opacity-70">
+                    <span className="whitespace-nowrap font-mono tabular-nums opacity-70">
                       {formatDateTime(s.utc, event.tz)}
                       <span className="ml-1 text-[10px]">当地</span>
                     </span>

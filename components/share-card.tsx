@@ -1,5 +1,6 @@
 "use client"
 
+import { downloadFile } from "@/lib/download"
 import { isEstimatedWrcSession } from "@/lib/session-time"
 
 import { useRef, useState, useEffect } from "react"
@@ -72,10 +73,7 @@ export function ShareCard({ event, now }: ShareCardProps) {
 
   const download = () => {
     if (!generatedUrl) return
-    const a = document.createElement("a")
-    a.download = `${event.id}-share-card.png`
-    a.href = generatedUrl
-    a.click()
+    downloadFile(generatedUrl, `${event.id}-share-card.png`)
   }
 
   const copy = async () => {

@@ -3,6 +3,7 @@ import { refreshSeries } from "@/lib/schedule-fetch"
 import { buildWrcEvents } from "@/lib/wrc-data"
 import { initCrawlTables, getLatestSnapshot, getAllOverrides, getCrawlQuota } from "@/lib/crawl-store"
 import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
+import { normalizeF1Metadata } from "@/lib/f1-metadata"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 
 export const revalidate = 3600
@@ -43,7 +44,7 @@ export async function GET() {
     : buildWrcEvents()
 
   // 合并所有赛事并应用覆盖
-  const allEvents = [...f1.events, ...wrcEvents, ...fe.events]
+  const allEvents = [...f1.events, ...wrcEvents, ...fe.events].map(normalizeF1Metadata)
   const mergedEvents = await applyOverrides(allEvents)
 
   const body: ScheduleResponse = {

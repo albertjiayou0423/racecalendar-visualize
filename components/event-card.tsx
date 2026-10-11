@@ -1,4 +1,5 @@
 "use client"
+import { eventSourceLabel } from "@/lib/f1-metadata"
 
 import { isEstimatedWrcSession } from "@/lib/session-time"
 
@@ -305,7 +306,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 className="inline-flex shrink-0 items-center gap-1 text-primary hover:underline"
               >
                 <ExternalLink className="size-3" aria-hidden />
-                <span className="hidden sm:inline">官网</span>
+                <span className="hidden sm:inline">{eventSourceLabel(event.url)}</span>
               </a>
             ) : null}
           </div>
@@ -635,7 +636,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     className="inline-flex items-center gap-1 rounded-md bg-secondary px-3 py-2 text-sm text-primary shadow-sm transition-all duration-200 hover:bg-secondary/80 hover:shadow-md hover:-translate-y-0.5"
                   >
                     <ExternalLink className="size-3.5" aria-hidden />
-                    官方网站
+                    {eventSourceLabel(event.url)}
                   </a>
                 )}
               </div>

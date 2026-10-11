@@ -636,7 +636,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.2.1 · 版本与更新
+            v2.2.2 · 修复与更新
           </Link>
         <UsageGuideButton />
         <Link

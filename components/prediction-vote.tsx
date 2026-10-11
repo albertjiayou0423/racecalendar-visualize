@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import useSWR from "swr"
 import { Trophy, CheckCircle2, Users, AlertCircle, Loader2 } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
@@ -22,28 +23,6 @@ interface PredictionResult {
 }
 
 const DRIVERS: Record<string, Driver[]> = {
-  F1: [
-    { code: "VER", name: "维斯塔潘", team: "红牛 Racing" },
-    { code: "NOR", name: "诺里斯", team: "迈凯伦" },
-    { code: "PIA", name: "皮亚斯特里", team: "迈凯伦" },
-    { code: "LEC", name: "勒克莱尔", team: "法拉利" },
-    { code: "HAM", name: "汉密尔顿", team: "法拉利" },
-    { code: "RUS", name: "拉塞尔", team: "梅赛德斯" },
-    { code: "ANT", name: "安东内利", team: "梅赛德斯" },
-    { code: "SAI", name: "塞恩斯", team: "威廉姆斯" },
-    { code: "ALO", name: "阿隆索", team: "阿斯顿马丁" },
-    { code: "STR", name: "斯特罗尔", team: "阿斯顿马丁" },
-    { code: "HUL", name: "霍肯伯格", team: "奥迪/索伯" },
-    { code: "BOT", name: "博塔斯", team: "奥迪/索伯" },
-    { code: "GAS", name: "加斯利", team: "Alpine" },
-    { code: "DOO", name: "杜汉", team: "Alpine" },
-    { code: "TSU", name: "角田裕毅", team: "红牛二队" },
-    { code: "HAD", name: "哈贾尔", team: "红牛二队" },
-    { code: "ALB", name: "阿尔本", team: "威廉姆斯" },
-    { code: "OCO", name: "奥康", team: "哈斯" },
-    { code: "BEA", name: "比尔曼", team: "哈斯" },
-    { code: "LAW", name: "劳森", team: "Racing Bulls" },
-  ],
   FE: [
     { code: "EVANS", name: "Mitch Evans", team: "Jaguar TCS Racing" },
     { code: "BIRD", name: "Sam Bird", team: "McLaren Formula E" },
@@ -79,7 +58,13 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  const drivers = DRIVERS[event.series] ?? []
+  const season = event.id.match(/^f1-(\d{4})-/)?.[1]
+  const { data: roster, isLoading: rosterLoading, mutate: retryRoster } = useSWR<{ ok: boolean; drivers: Driver[]; note?: string }>(
+    event.series === "F1" && season ? `/api/prediction-drivers?season=${season}` : null,
+    (url: string) => fetch(url).then(response => response.json()),
+    { shouldRetryOnError: false, revalidateOnFocus: false },
+  )
+  const drivers = event.series === "F1" ? roster?.drivers ?? [] : DRIVERS[event.series] ?? []
   const meta = SERIES_META[event.series]
 
   const fetchPredictions = useCallback(async () => {
@@ -139,6 +124,10 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     }
   }
 
+  if (event.series === "F1" && !drivers.length) return <div className="mt-4 rounded-xl border border-border p-4 text-sm text-muted-foreground">
+    {rosterLoading ? "加载赛季预测候选…" : roster?.note || "预测候选暂时无法加载。"}
+    {!rosterLoading && <button className="ml-2 underline" onClick={() => retryRoster()}>重试</button>}
+  </div>
   if (drivers.length === 0) return null
 
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
@@ -168,7 +157,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
               <div className="flex items-center gap-2 flex-wrap">
                 <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
                 <span className="text-sm text-muted-foreground">你预测：</span>
-                <span className="font-semibold text-foreground">{selectedDriverInfo?.name}</span>
+                <span className="font-semibold text-foreground">{selectedDriverInfo?.name ?? selectedDriver}</span>
               </div>
             ) : null}
 

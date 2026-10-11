@@ -1,5 +1,6 @@
 "use client"
 
+import { downloadFile } from "@/lib/download"
 import { isEstimatedWrcSession } from "@/lib/session-time"
 
 import { Bell, Calendar, Clock, MapPin } from "lucide-react"
@@ -24,28 +25,10 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
 
   const downloadCalendar = () => {
     if (!main || estimated) return
-    const start = new Date(main.utc)
-    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//RaceCalendar//CN",
-      "BEGIN:VEVENT",
-      `SUMMARY:${event.name} - ${event.series}`,
-      `DTSTART:${start.toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
-      `DTEND:${end.toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`,
-      `LOCATION:${event.circuit}, ${event.locality}, ${event.country}`,
-      `DESCRIPTION:${event.name} - ${event.series} 第${event.round}站`,
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ].join("\r\n")
-    const blob = new Blob([ics], { type: "text/calendar" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${event.id}.ics`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (!Number.isFinite(Date.parse(main.utc))) return
+    const params = new URLSearchParams({ id: event.id, series: event.series, round: String(event.round),
+      name: event.name, circuit: event.circuit, locality: event.locality, country: event.country, utc: main.utc })
+    downloadFile(`/api/calendar?${params}`, `${event.id}.ics`)
   }
 
   return (
