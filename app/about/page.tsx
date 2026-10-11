@@ -14,8 +14,8 @@ const changelog: ChangelogEntry[] = [
     version: "v2.2.3",
     date: "2026-10-11",
     items: [
-      { type: "feat", text: "Playground 改为组件 Cheatsheet：逐行列出所有正式组件，每行实时预览、独立可编辑 props 与单独预设胶囊；支持视口和动效调节" },
-      { type: "fix", text: "Playground 预览隔离外部请求、通知权限、反馈提交、提醒设置和 Service Worker，不递归载入组件目录" },
+      { type: "feat", text: "Playground 逐行列出正式组件，可直接预览并独立调整参数" },
+      { type: "fix", text: "Playground 移除嵌入式预览，按需挂载组件并隔离业务接口请求" },
     ],
   },
   {

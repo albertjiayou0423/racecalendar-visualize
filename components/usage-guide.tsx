@@ -124,7 +124,7 @@ export function UsageGuide() {
   }, [open, step, selected, pathname])
 
   const position = guidePanelPosition(selected ? rect : null, viewport, panelHeight, !selected ? 640 : 360)
-  if (pathname.startsWith("/playground/preview") && !playground) return null
+  if (pathname.startsWith("/playground") && !playground) return null
   return <>
     {pathname !== "/" && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && <div className="fixed bottom-4 right-4 z-40 rounded-full bg-background shadow-lg"><UsageGuideButton /></div>}
     <dialog ref={dialog} aria-labelledby="usage-guide-title" aria-describedby="usage-guide-description" onCancel={() => setOpen(false)} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">

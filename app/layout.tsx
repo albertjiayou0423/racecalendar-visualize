@@ -4,6 +4,7 @@ import './globals.css'
 import { SWRegister } from '@/components/sw-register'
 import { UsageGuide } from '@/components/usage-guide'
 import { ClientCrawl } from '@/components/client-crawl'
+import { PlaygroundNetworkGuard } from '@/components/playground-network-guard'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -44,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
       <body className="antialiased font-sans">
+        <PlaygroundNetworkGuard />
         {children}
         <UsageGuide />
         <ClientCrawl />
