@@ -158,3 +158,5 @@ WRC 统一请求层对非成功 HTTP 响应主动取消未使用的正文，释�
 WRC 抓取结果包含 diagnostics，随成功快照保存：requests 为实际请求次数，networkFailures 为收到 HTTP 响应前的网络失败数，httpStatuses 为状态码计数，cacheHits 为同一抓取中的解析缓存复用次数，durationMs 为总耗时，budgetExpired 表示总预算是否耗尽。计数按抓取隔离，不含 URL、密钥、请求头或正文；不把 HTTP 错误或正文解析失败计入 networkFailures。
 
 后台手动抓取接口返回本次尝试的 diagnostics，失败响应放在顶层、成功响应放在 data 内；回退旧快照时不会用历史快照诊断替代本次诊断。全失败不保存快照，诊断只随当次管理接口响应提供。
+
+爬虫管理页在手动 WRC 抓取后展示本次诊断（包括失败响应），显示请求/网络失败/缓存命中/HTTP 状态/耗时/预算结果；新一轮 WRC 抓取和退出登录清除旧诊断，刷新页面也清除。

@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Series } from "@/lib/types"
+import type { WrcRequestDiagnostics } from "@/lib/wrc-request-budget"
 
 // ─── 类型 ───────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ export function AdminPanel() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState<TabId>("status")
+  const [wrcDiagnostics, setWrcDiagnostics] = useState<WrcRequestDiagnostics | null>(null)
   const [status, setStatus] = useState<StatusResponse | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -191,6 +193,7 @@ export function AdminPanel() {
     setOverrides([])
     setPreviewData(null)
     setSnapshotData(null)
+    setWrcDiagnostics(null)
     setFeedbacks([])
     setHealthHistory([])
   }, [])
@@ -273,12 +276,17 @@ export function AdminPanel() {
 
   const triggerCrawl = async (series: Series) => {
     setCrawling(series)
+    if (series === "WRC") setWrcDiagnostics(null)
     try {
       const res = await fetch("/api/admin/crawl", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ series }),
       })
+      if (series === "WRC" && res.status !== 401 && res.status !== 403) {
+        const payload = await res.clone().json().catch(() => null)
+        setWrcDiagnostics(payload?.diagnostics ?? payload?.data?.diagnostics ?? null)
+      }
       const data = await handleApiResponse(res)
       alert(`${series} 爬取成功：${data.data.eventCount} 场赛事`)
     } catch (e) {
@@ -494,6 +502,21 @@ export function AdminPanel() {
           )
         })}
       </nav>
+      {activeTab === "crawl" && wrcDiagnostics && (
+        <section className="rounded-xl border border-border bg-card p-4 text-sm" aria-label="WRC 本次抓取诊断">
+          <h2 className="font-semibold">WRC 本次抓取诊断</h2>
+          <p className="mt-2 text-muted-foreground">
+            请求 {wrcDiagnostics.requests} 次 · 网络失败 {wrcDiagnostics.networkFailures} 次 · 缓存命中 {wrcDiagnostics.cacheHits} 次
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            耗时 {(wrcDiagnostics.durationMs / 1000).toFixed(1)} 秒 · {wrcDiagnostics.budgetExpired ? "已达到抓取时间上限" : "未达到抓取时间上限"}
+          </p>
+          <p className="mt-1 break-words text-muted-foreground">
+            HTTP 状态：{Object.entries(wrcDiagnostics.httpStatuses).map(([status, count]) => `${status} × ${count}`).join("，") || "未收到响应"}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">网络失败仅统计收到 HTTP 响应前的失败。本次诊断刷新页面后清除。</p>
+        </section>
+      )}
 
       {/* Tab 内容 */}
       <div className="min-h-[60vh]">
