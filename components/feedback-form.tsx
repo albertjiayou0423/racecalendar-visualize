@@ -10,6 +10,7 @@ type FeedbackType = "bug" | "feature" | "suggestion" | "other"
 
 interface FeedbackFormProps {
   onClose: () => void
+  preview?: boolean
 }
 
 const TYPE_OPTIONS: { value: FeedbackType; label: string; description: string }[] = [
@@ -19,11 +20,16 @@ const TYPE_OPTIONS: { value: FeedbackType; label: string; description: string }[
   { value: "other", label: "其他反馈", description: "其他类型的反馈" },
 ]
 
-export function FeedbackForm({ onClose }: FeedbackFormProps) {
+export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
   const playground = usePlayground()
   const dialog = useRef<HTMLDivElement>(null)
-  useFocusTrap(dialog, true)
-  useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose() }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close) }, [onClose])
+  useFocusTrap(dialog, !preview)
+  useEffect(() => {
+    if (preview) return
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose() }
+    window.addEventListener("keydown", close)
+    return () => window.removeEventListener("keydown", close)
+  }, [onClose, preview])
   const [type, setType] = useState<FeedbackType>("bug")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -76,8 +82,8 @@ export function FeedbackForm({ onClose }: FeedbackFormProps) {
 
   if (status === "success") {
     return (
-      <div ref={dialog} role="dialog" aria-modal="true" aria-label="反馈结果" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div ref={dialog} role="dialog" aria-modal={!preview} aria-label="反馈结果" className={preview ? "relative flex w-full justify-center p-2" : "fixed inset-0 z-50 flex items-center justify-center p-4"}>
+        {!preview && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
         <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-2xl">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
             <CheckCircle2 className="size-8 text-emerald-500" />
@@ -96,8 +102,8 @@ export function FeedbackForm({ onClose }: FeedbackFormProps) {
   }
 
   return (
-    <div ref={dialog} role="dialog" aria-modal="true" aria-label="提交反馈" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div ref={dialog} role="dialog" aria-modal={!preview} aria-label="提交反馈" className={preview ? "relative flex w-full justify-center p-2" : "fixed inset-0 z-50 flex items-center justify-center p-4"}>
+      {!preview && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">

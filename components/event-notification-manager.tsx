@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 interface EventNotificationManagerProps {
   event: RaceEvent
   onClose: () => void
+  preview?: boolean
 }
 
 const STORAGE_KEY = "race-notifications-enabled"
@@ -28,7 +29,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   remind5: true,
 }
 
-export function EventNotificationManager({ event, onClose }: EventNotificationManagerProps) {
+export function EventNotificationManager({ event, onClose, preview = false }: EventNotificationManagerProps) {
   const playground = usePlayground()
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [enabled, setEnabled] = useState(false)
@@ -140,8 +141,8 @@ export function EventNotificationManager({ event, onClose }: EventNotificationMa
   if (typeof window === "undefined" || !("Notification" in window)) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className={preview ? "relative flex w-full justify-center p-2" : "fixed inset-0 z-50 flex items-center justify-center p-4"}>
+      {!preview && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">

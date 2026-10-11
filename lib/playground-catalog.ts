@@ -54,9 +54,9 @@ export function componentCatalog(now: number): CatalogEntry[] {
   add("WallpaperGenerator", "wallpaper-generator", "月份使用 1–12；事件数组、月份与年份均可编辑。", { events, month: new Date(now).getMonth() + 1, year: new Date(now).getFullYear() }, { events: playgroundData("busy", now).events, month: new Date(now).getMonth() + 1, year: new Date(now).getFullYear() }, { events: [], month: 1, year: 2027 })
   add("ImmersiveCountdown", "immersive-countdown", "targetTime 为 UTC ISO；Playground 内嵌预览，不覆盖页面，关闭后可重新打开。", { targetTime: new Date(now + 90000).toISOString(), series: "F1" }, { targetTime: new Date(now + 7200000).toISOString(), series: "FE" }, { targetTime: new Date(now + 172800000).toISOString(), series: "WRC" }, ["onClose"])
   add("FeedbackButton", "feedback-button", "没有公开 props；按钮文案与弹窗交互由正式组件内部管理。", {}, {}, {})
-  add("FeedbackForm", "feedback-form", "只有 onClose 回调；填写和校验使用真实表单，预览不会提交。", {}, {}, {}, ["onClose"])
+  add("FeedbackForm", "feedback-form", "行内表单预览；填写和校验使用真实表单，关闭后可重新打开，预览不会提交。", {}, {}, {}, ["onClose"])
   add("NotificationManager", "notification-manager", "可调 events；预览只展示设置，不读写提醒偏好或请求系统权限。", { events }, { events: [wrc] }, { events: [] })
-  add("EventNotificationManager", "event-notification-manager", "可调 event；预览不发送系统通知。", { event }, { event: wrc }, { event: long }, ["onClose"])
+  add("EventNotificationManager", "event-notification-manager", "行内提醒设置预览；关闭后可重新打开，不发送系统通知。", { event }, { event: wrc }, { event: long }, ["onClose"])
   add("ScheduleView", "schedule-view", "组合组件只公开 serverTime；作为单个组件列出，不再是测试台的整页模拟入口。", { serverTime: now }, { serverTime: now + 86400000 }, { serverTime: now - 86400000 })
   add("PageTransition", "page-transition", "children 是 ReactNode；编辑器支持文字，实际使用也可传 JSX。", { children: "页面内容" }, { children: "另一段内容" }, { children: "" })
   for (const [name, file, description] of [

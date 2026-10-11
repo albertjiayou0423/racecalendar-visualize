@@ -40,22 +40,24 @@ class PreviewBoundary extends Component<{ children: ReactNode; resetKey: Catalog
 }
 
 export function PlaygroundComponentPreview({ name, props }: { name: string; props: CatalogProps }) {
-  const [countdownDismissed, setCountdownDismissed] = useState(false)
-  useEffect(() => setCountdownDismissed(false), [props])
+  const [previewDismissed, setPreviewDismissed] = useState(false)
+  useEffect(() => setPreviewDismissed(false), [props])
   const now = typeof props.now === "number" ? props.now : typeof props.serverTime === "number" ? props.serverTime : PLAYGROUND_NOW
   const data = useMemo(() => playgroundData("normal", now), [now])
   const state = useMemo(() => ({ scenario: "normal" as const, now, data, reduced: false }), [now, data])
   const ActualComponent = components[name]
   const callbacks = Object.fromEntries((componentCatalog(now).find(entry => entry.name === name)?.callbacks ?? []).map(key => [key, () => {}]))
-  if (name === "ImmersiveCountdown") callbacks.onClose = () => setCountdownDismissed(true)
+  const supportsInlinePreview = ["ImmersiveCountdown", "FeedbackForm", "EventNotificationManager"].includes(name)
+  if (supportsInlinePreview && callbacks.onClose) callbacks.onClose = () => setPreviewDismissed(true)
+  const previewCloseButton = <button type="button" className="rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary" onClick={() => setPreviewDismissed(false)}>重新打开预览</button>
   return <PlaygroundContext.Provider value={state}>
     <PreviewBoundary resetKey={props}>
       {name === "PlaygroundPreview" ? <p className="text-sm text-muted-foreground">此组件是 Playground 的挂载入口，不能在自身内部再次挂载。</p>
         : name === "ClientCrawl" || name === "SWRegister" ? <p className="text-sm text-muted-foreground">后台组件没有可视界面。</p>
             : <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">组件加载中…</p>}>
-              {name === "ImmersiveCountdown" && countdownDismissed
-                ? <button type="button" className="rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary" onClick={() => setCountdownDismissed(false)}>重新打开倒计时</button>
-                : ActualComponent ? <ActualComponent {...props} {...callbacks} {...(name === "Button" ? { onClick: () => {} } : {})} {...(name === "NextSessionPill" || name === "ImmersiveCountdown" ? { preview: true } : {})} /> : null}
+              {supportsInlinePreview && previewDismissed
+                ? previewCloseButton
+                : ActualComponent ? <ActualComponent {...props} {...callbacks} {...(name === "Button" ? { onClick: () => {} } : {})} {...(name === "NextSessionPill" || supportsInlinePreview ? { preview: true } : {})} /> : null}
               {name === "UsageGuideButton" && <components.UsageGuide />}
             </Suspense>}
     </PreviewBoundary>
