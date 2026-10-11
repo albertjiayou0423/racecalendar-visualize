@@ -176,20 +176,29 @@ const MONTH_MAP: Record<string, number> = {
 }
 
 function parseDateText(dateText: string, fallbackDate: string): [number, number, number] {
-  const match = dateText.match(/(\w+),\s*(\d{1,2})\s+(\w+)/)
+  const iso = dateText.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) return [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+  const match = dateText.match(/(?:[A-Za-z]+,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)(?:\s+(\d{4}))?\b/i)
   if (match) {
-    const day = parseInt(match[2], 10)
-    const month = MONTH_MAP[match[3]]
-    const [startY] = fallbackDate.split("-").map(Number)
-    if (month) return [startY, month, day]
+    const month = Object.entries(MONTH_MAP).find(([name]) => name.toLowerCase() === match[2].toLowerCase())?.[1]
+    const year = match[3] ? Number(match[3]) : Number(fallbackDate.split("-")[0])
+    if (month) return [year, month, Number(match[1])]
   }
-  // Unknown dates must not silently become the rally start date.
   return [NaN, NaN, NaN]
+}
+
+function itineraryUtcOffset(title: string): number | undefined {
+  const match = title.match(/\b(?:UTC|GMT)(?:\s*([+-])\s*(\d{1,2})(?::(\d{2}))?)?\b/i)
+  if (!match) return undefined
+  const hours = Number(match[2] || 0), minutes = Number(match[3] || 0)
+  if (hours > 14 || minutes > 59 || hours === 14 && minutes > 0) return NaN
+  return (hours * 60 + minutes) * (match[1] === "-" ? -1 : 1)
 }
 
 // ============ 从行程页面解析 FAQ 数据 ============
 
 interface ItineraryDay {
+  utcOffsetMinutes?: number
   date: [number, number, number]
   stages: { time: string; name: string; isPowerStage: boolean }[]
 }
@@ -329,7 +338,7 @@ function parseItineraryFromCache(cacheData: Record<string, any>, fallbackDate: s
         }
 
         if (stages.length > 0) {
-          days.push({ date, stages })
+          days.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(title) })
         }
       }
 
@@ -605,7 +614,7 @@ async function fetchItineraryFromFeedApi(uriSlug: string, startDate: string): Pr
         }
 
         if (stages.length > 0) {
-          days.push({ date, stages })
+          days.push({ date, stages, utcOffsetMinutes: itineraryUtcOffset(title) })
         }
       }
 
@@ -948,6 +957,7 @@ function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: stri
   const sessions: RaceSession[] = []
 
   for (const day of days) {
+    if (day.utcOffsetMinutes !== undefined && !Number.isFinite(day.utcOffsetMinutes)) continue
     const [y, m, d] = day.date
     const calendarDate = new Date(Date.UTC(y, m - 1, d))
     if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)
@@ -958,7 +968,9 @@ function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: stri
         || h < 0 || h > 23 || min < 0 || min > 59 || !stage.name.trim()) continue
       sessions.push({
         name: stage.name,
-        utc: zonedWallTimeToUtc(y, m, d, h, min, tz).toISOString(),
+        utc: (day.utcOffsetMinutes === undefined
+          ? zonedWallTimeToUtc(y, m, d, h, min, tz)
+          : new Date(Date.UTC(y, m - 1, d, h, min) - day.utcOffsetMinutes * 60000)).toISOString(),
         isMain: stage.isPowerStage,
         tentative: false,
       })

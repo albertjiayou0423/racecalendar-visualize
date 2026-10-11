@@ -8,7 +8,7 @@ const source = ts.transpileModule(fs.readFileSync('lib/wrc-puppeteer.ts', 'utf8'
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 const exports = {}
-vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.date = parseDateText;', {
+vm.runInNewContext(source + '\nexports.convert = convertDaysToSessions; exports.date = parseDateText; exports.cache = parseItineraryFromCache; exports.offset = itineraryUtcOffset;', {
   exports, require: name => name === './tz' ? timezone : {}, process: { env: {} }, console: { log() {}, error() {} },
 })
 const stage = (time, name = 'SS1') => ({ time, name, isPowerStage: false })
@@ -45,4 +45,27 @@ test('invalid time in first feed candidate does not hide a valid later candidate
   const sessions = await context.exports.v2('fixture-2026', 'UTC', '2026-01-01')
   assert.equal(sessions.length, 1)
   assert.equal(sessions[0].utc, '2026-01-01T09:00:00.000Z')
+})
+
+test('English ordinal dates and explicit years do not inherit the wrong rally year', () => {
+  assert.deepEqual(Array.from(exports.date('Thursday 1st October 2026', '2025-12-31')), [2026, 10, 1])
+  assert.deepEqual(Array.from(exports.date('Friday, 2 January 2027', '2026-12-31')), [2027, 1, 2])
+  assert.deepEqual(Array.from(exports.date('2026-10-01', '2025-01-01')), [2026, 10, 1])
+})
+test('FAQ UTC and GMT offsets override rally timezone without double conversion', () => {
+  const faq = title => ({ feed: { data: { data: { items: [{ type: 'faq', title, elements: [{
+    question: [{ variant: 'text', text: 'Friday, 10 July 2026' }],
+    answer: [{ type: 'list', items: [{ elements: [{ variant: 'text', text: '09:00: SS1' }] }] }],
+  }] }] } } } })
+  for (const [title, utc] of [
+    ['Itinerary (UTC)', '2026-07-10T09:00:00.000Z'],
+    ['Itinerary GMT+02:00', '2026-07-10T07:00:00.000Z'],
+    ['Itinerary UTC-3', '2026-07-10T12:00:00.000Z'],
+    ['Itinerary local time', '2026-07-10T06:00:00.000Z'],
+  ]) {
+    const days = exports.cache(faq(title), '2026-07-09')
+    assert.equal(exports.convert(days, 'Europe/Helsinki', 'fixture')[0].utc, utc)
+  }
+  assert.equal(Number.isNaN(exports.offset('Itinerary UTC+25')), true)
+  assert.equal(exports.convert(exports.cache(faq('Itinerary UTC+25'), '2026-07-09'), 'UTC', 'fixture').length, 0)
 })
