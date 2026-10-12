@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 import { fetchJolpicaResults } from '../lib/jolpica-results.ts'
-import { parseFeStandings, parseFeRaceResults, parseFeRounds, parseFeSeason } from '../lib/fe-results.ts'
+import { fetchFeStandings, parseFeStandings, parseFeRaceResults, parseFeRounds, parseFeSeason } from '../lib/fe-results.ts'
 import { beijingWeek, isoWeek, weekMonday } from '../lib/iso-week.ts'
 import { normalizeF1Metadata, eventSourceLabel } from '../lib/f1-metadata.ts'
 import { isEstimatedWrcSession } from '../lib/session-time.ts'
@@ -65,6 +65,23 @@ test('FE historical season uses the selected option rather than stale SEO metada
   const html = '<title>Season 12 - 2025-26</title><script>self.__next_f.push(' + JSON.stringify([1, frame]) + ')</script>'
   assert.equal(parseFeSeason(html), 11)
   assert.throws(() => parseFeSeason('<title>Season 12</title>'), /未返回/)
+})
+test('FE prediction roster requests and verifies the selected official season', async () => {
+  const frame = 'a:' + JSON.stringify({ items: [{ id: '12', text: 'Season 12', active: true }] }) + '\n'
+  const html = fs.readFileSync('tests/fixtures/fe-standings.html', 'utf8') + '<script>self.__next_f.push(' + JSON.stringify([1, frame]) + ')</script>'
+  const originalFetch = globalThis.fetch
+  let requestedUrl = ''
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input)
+    return new Response(html, { status: 200 })
+  }
+  try {
+    const drivers = await fetchFeStandings(12)
+    assert.match(requestedUrl, /\?season=12&tab=drivers$/)
+    assert.equal(drivers[0].code, 'pascal-wehrlein')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 test('Beijing ISO weeks handle Sunday UTC, New Year and week 53 navigation', () => {
   assert.deepEqual(beijingWeek(Date.parse('2026-10-11T16:01:00Z')), { y: 2026, w: 42 })

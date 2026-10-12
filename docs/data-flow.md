@@ -106,20 +106,20 @@
 | FE 赛果 | `/api/results` 从 championships 匹配赛季，再取 races，逐场顺序请求 results，单场失败跳过，缓存一小时。 |
 | F1 积分榜 | standings 页面直接从浏览器请求 Jolpica current/driverStandings 或 constructorStandings，不经过 Neon。 |
 | WRC 积分榜 | `/standings` 经 `/api/wrc-standings` 服务端读取 WRC 官网公开端点。页面源码加载 `p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/seasons.json`，按赛季读取 `season-detail.json?seasonId=…` 获取各分类 `championshipId`，再合并 `championship-detail.json?championshipId=…&seasonId=…` 的参赛者资料与 `championship-overall-results.json?championshipId=…&seasonId=…` 的积分、名次。API 响应由服务端与 CDN 缓存一小时；页面可切换赛季及车手、领航员、制造商等分类。该端点为官网前端使用的非公开文档 API，格式或访问策略变化时可能需要调整。 |
-| FE 积分榜 | `/api/fe-drivers` 获取当前 championship、lastFinishedRound、standings 和 drivers 后合并；standings 的 season 固定为 2026。尚未开赛或接口不可用可返回空列表及 ok=true。 |
+| FE 积分榜 | `/api/fe-drivers` 读取 Formula E 官网公开积分榜；默认使用官网当前赛季，也可通过 `season` 参数读取赛事对应的历史/指定赛季。页面 HTML 结构变化或上游不可用时返回 502。 |
 | WRC 赛果 | 暂无完整赛果获取链路；积分榜已接入 WRC 官网公开接口。实时计时链接仍供用户前往官网查看。 |
 | F1 实时计时 | 展开组件每 10 秒请求 `/api/live-timing`；服务端 OpenF1 获取本年度 sessions，找当前正在进行场次，再并行请求 drivers、position、laps，整理最新名次、最近圈和最快圈，不缓存。无进行中场次返回 404。差距字段按名次生成，进站/退赛/旗帜等字段使用默认值，并非真实上游指标。 |
 | WRC / FE 实时计时 | API 返回空 drivers 的官方来源占位对象。WRC 前端不轮询，直接引导官网；FE 组件仍有 10 秒轮询，但没有真实计时数据接入。 |
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
 | 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 为部分远程图片代理。 |
-| AI 预测 | POST `/api/predictions` 检查 AI 额度后请求 NVIDIA NIM Llama 3.1 8B，输入赛事系列、名称和赛道，未实际加载历史成绩/天气进行分析；额度耗尽或服务 HTTP 失败时返回本地默认预测。 |
-| 投票/反馈 | predictions 的 GET 统计数据库投票，POST 带 driverCode 时写投票；反馈通过 `/api/feedback` 写入/读取 Neon。它们不属于赛历上游抓取。 |
+| AI 预测 | POST `/api/predictions` 在数据库中原子占用每日额度后请求 NVIDIA NIM Llama 3.1 8B，输入赛事系列、名称和赛道，未实际加载历史成绩/天气进行分析；额度耗尽、数据库额度无法核验或服务 HTTP 失败时返回本地默认预测。额度按已发起的上游请求计数，失败请求也占用额度；无 `DATABASE_URL` 时额度无法持久化。 |
+| 投票/反馈 | predictions 的 GET 统计数据库投票并按匿名浏览器身份读取本人选择；POST 带 driverCode 时写投票。同一浏览器使用一年期 HttpOnly、SameSite=Lax 随机 cookie，在同一赛事内重复提交会更新而非重复计数；清除 cookie 或更换浏览器会被视为新匿名用户，不是防作弊身份认证。车手候选按赛事赛季动态读取，F1 使用 Jolpica 车手积分榜，WRC 使用官网车手积分榜，FE 使用官网车手积分榜；历史投票代码仍显示原标签。反馈通过 `/api/feedback` 写入/读取 Neon。它们不属于赛历上游抓取。 |
 
 ## 8. 本轮变更与剩余问题
 
 已修复：移除预测接口/脚本硬编码凭据、停止跟踪 .env、替换后台伪造 cookie 认证、阻止管理数据离线缓存、统一失败回退和后台计数、过滤失败历史快照、修复预览结构、新增只读数据库检查。
 
-仍需处理：历史凭据在服务商轮换、配额并发原子预留、年份硬编码与 WRC 重复定义、完整类型检查原有错误、F1 生成差距字段、WRC 跨实例重复抓取控制与线上性能验证。WRC 接口调研见 docs/wrc-api-research.md，本轮未替换未验证的数据源。
+仍需处理：历史凭据在服务商轮换、年份硬编码与 WRC 重复定义、完整类型检查原有错误、F1 生成差距字段、WRC 跨实例重复抓取控制与线上性能验证。WRC 接口调研见 docs/wrc-api-research.md，本轮未替换未验证的数据源。
 
 验证：认证/回退/数据库接口使用本地虚拟数据测试。首次构建意外触发原有赛历预抓取并加载仓库自带的 .env，可能访问其中的数据库；随后增加运行时请求限制，后续构建明确禁用数据库连接。实际生产数据展示与浏览器布局仍需授权浏览器访问后或由用户验证。
 
@@ -171,7 +171,7 @@ HTML 正文读取中断进入有限重试，403 等非 5xx 失败不重试。统
 - F1 赛果使用 Jolpica `limit=100&offset=...`，按实际返回的结果行数推进，并检查 `total/offset`。同站成绩可跨页，按赛季、轮次及名次合并，不截断到 20 名。任一页失败或空页提前终止时返回失败，不能把部分赛季标为完整。去年冠军资料也使用同一分页函数。单页超时 10 秒，成功响应交由 Next fetch 缓存一小时。
 - FE 积分和赛果读取 [官网公开页面](https://www.fiaformulae.com/en/results-and-standings)，不再依赖不可达的旧 PulseLive 积分/赛果接口。积分取 `standings-row-driver` 的总积分列；赛果取 `results-row-result`，保留未分类的“—”。赛历只解析 RSC 中的 JSON 轮次目录，不执行脚本；赛季结束年份减 2014 得到官方赛季编号，并校验页面实际选中的赛季编号和轮次。官网历史页的 SEO 标题可能保留当前赛季，不能用标题判断数据归属。
 - FE 历史页面先读取赛历和官网默认选中站成绩，其他单站成绩仅在用户展开时读取；新查询接受白名单格式的赛季及已知轮次 ID。每个上游请求 10 秒超时、成功页面缓存一小时；解析失败为 502、中文提示及重试，失败响应禁止缓存。积分/赛果没有新增 Neon 持久化，不应与赛历快照混为一谈；FE 赛历原有链路保持原状。官网 HTML 结构变化仍可能导致解析失败。
-- F1 预测按赛事 ID 中的赛季年份读取该赛季积分榜车手，SWR 复用同赛季请求；保留三字母代码以兼容投票，旧已投车手不在新候选时显示其代码。该列表代表赛季积分参与者，不保证未来每一站的最终出场名单。
+- 赛事投票候选按赛事赛季动态读取：F1 从赛事 ID 解析年份并读取 Jolpica 积分榜，WRC 解析年份并读取 WRC 官网车手积分榜，FE 从官方赛事 ID 解析赛季号并读取 Formula E 官网积分榜。SWR 按接口 URL 复用名单；候选代表赛季积分参与者，不保证未来每站的最终参赛名单。FE/WRC 旧投票代码仍以历史标签显示；提交失败时恢复用户之前的选择，切换赛事时清空前一场的投票状态。
 - 返回赛历前修正已有快照中的拉斯维加斯街道分类、2026 新加坡赛道长度和新增中文名称，然后应用人工覆盖；不写回快照、不改事件 ID 或场次 UTC，人工覆盖仍优先。
 - 周编号使用北京时间的 ISO 周年及周数；跨年周从 1 月 4 日所在周计算。月历计数明确是赛事日条目，并非自由练习/排位/正赛总场次数。
 - 日历导出加入稳定 UID、DTSTAMP、UTC 起止、文本转义和 UTF-8 75 字节折行；估计主场次及无效 UTC 不能导出。日历经无状态 `/api/calendar` 返回附件，校验参数，不读取或写入数据库、不触发抓取；客户端仅导出已确认主场次。下载 anchor 加入 document，图片 Blob URL 延迟一分钟回收。该修正改善兼容性，但是否能落盘仍需实际浏览器验证。

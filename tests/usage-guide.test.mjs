@@ -23,7 +23,7 @@ function mount(storage = new Map(), pathname = '/') {
     require: name => name === 'react' ? {
       useState: initial => { const index = cursor++; if (!(index in state)) state[index] = initial; return [state[index], value => { state[index] = value }] },
       useRef: () => ({ current: null }), useCallback: callback => callback, useEffect: work => effects.push(work),
-    } : name === '@/lib/usage-guide' ? guide : name === 'next/navigation' ? { usePathname: () => pathname, useRouter: () => ({ push: path => navigations.push(path) }) }
+    } : name === './playground-context' ? { usePlayground: () => null } : name === '@/lib/usage-guide' ? guide : name === 'next/navigation' ? { usePathname: () => pathname, useRouter: () => ({ push: path => navigations.push(path) }) }
       : name === 'lucide-react' ? { BookOpen: () => null, X: () => null } : require(name),
   })
   cursor = 0

@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
+import { consumeAiQuotaSlot as consumeAiQuotaSlotQuery } from "@/lib/ai-quota"
 
 let sqlInstance: NeonQueryFunction<false, false> | null = null
 let initialized = false
@@ -100,56 +101,16 @@ export async function initDb(): Promise<void> {
 }
 
 // AI API 用量管理
-const AI_DAILY_LIMIT = 50
+export const AI_DAILY_LIMIT = 50
 
-export async function checkAiQuota(): Promise<{ allowed: boolean; remaining: number; used: number }> {
+export async function consumeAiQuotaSlot(): Promise<{ allowed: boolean; remaining: number; used: number; reason: "limit" | "unavailable" | null }> {
   const sql = getSql()
   if (!sql) {
-    return { allowed: true, remaining: AI_DAILY_LIMIT, used: 0 }
+    return { allowed: true, remaining: AI_DAILY_LIMIT, used: 0, reason: null }
   }
 
   const today = new Date().toISOString().split('T')[0]
-
-  try {
-    const result = await sql`
-      SELECT count FROM ai_usage WHERE date = ${today}
-    `
-
-    const used = result[0]?.count || 0
-    const remaining = Math.max(0, AI_DAILY_LIMIT - Number(used))
-
-    return {
-      allowed: Number(used) < AI_DAILY_LIMIT,
-      remaining,
-      used: Number(used),
-    }
-  } catch {
-    return { allowed: true, remaining: AI_DAILY_LIMIT, used: 0 }
-  }
-}
-
-export async function incrementAiUsage(): Promise<number> {
-  const sql = getSql()
-  if (!sql) return 0
-
-  const today = new Date().toISOString().split('T')[0]
-
-  try {
-    // 先尝试插入
-    await sql`
-      INSERT INTO ai_usage (date, count)
-      VALUES (${today}, 1)
-      ON CONFLICT (date) DO UPDATE SET count = ai_usage.count + 1
-    `
-
-    const result = await sql`
-      SELECT count FROM ai_usage WHERE date = ${today}
-    `
-
-    return Number(result[0]?.count || 1)
-  } catch {
-    return 0
-  }
+  return consumeAiQuotaSlotQuery(sql, today, AI_DAILY_LIMIT)
 }
 
 export function isDbAvailable(): boolean {
