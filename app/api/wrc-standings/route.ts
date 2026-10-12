@@ -32,18 +32,20 @@ type EntryResult = {
   roundResults?: Array<{ eventId: number; totalPoints: number | string; position: string }>
 }
 
-async function getJson<T>(path: string): Promise<T> {
+async function getJson<T>(path: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     next: { revalidate: CACHE_SECONDS },
     headers: { Accept: "application/json" },
+    signal,
   })
   if (!response.ok) throw new Error(`WRC API returned ${response.status}`)
   return response.json() as Promise<T>
 }
 
 export async function GET(request: NextRequest) {
+  const upstreamSignal = AbortSignal.timeout(9000)
   try {
-    const seasons = (await getJson<Season[]>("/seasons.json"))
+    const seasons = (await getJson<Season[]>("/seasons.json", upstreamSignal))
       .filter((season) => season.name === "World Rally Championship")
       .sort((a, b) => b.year - a.year)
     const requestedYear = Number(request.nextUrl.searchParams.get("season"))
@@ -51,7 +53,8 @@ export async function GET(request: NextRequest) {
     if (!selectedSeason) throw new Error("No WRC seasons available")
 
     const seasonDetail = await getJson<{ championships?: Championship[] }>(
-      `/season-detail.json?seasonId=${selectedSeason.seasonId}`
+      `/season-detail.json?seasonId=${selectedSeason.seasonId}`,
+      upstreamSignal,
     )
     const championships = seasonDetail.championships ?? []
     const requestedChampionshipId = Number(request.nextUrl.searchParams.get("championship"))
@@ -63,10 +66,12 @@ export async function GET(request: NextRequest) {
 
     const [championshipDetail, results] = await Promise.all([
       getJson<Championship>(
-        `/championship-detail.json?championshipId=${selectedChampionship.championshipId}&seasonId=${selectedSeason.seasonId}`
+        `/championship-detail.json?championshipId=${selectedChampionship.championshipId}&seasonId=${selectedSeason.seasonId}`,
+        upstreamSignal,
       ),
       getJson<{ entryResults?: EntryResult[] }>(
-        `/championship-overall-results.json?championshipId=${selectedChampionship.championshipId}&seasonId=${selectedSeason.seasonId}`
+        `/championship-overall-results.json?championshipId=${selectedChampionship.championshipId}&seasonId=${selectedSeason.seasonId}`,
+        upstreamSignal,
       ),
     ])
 
