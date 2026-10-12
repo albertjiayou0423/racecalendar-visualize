@@ -4,7 +4,7 @@ export const GUIDE_CHOICES = [
   { key: "home", label: "首页赛历", detail: "搜索、筛选与视图，然后学习赛事卡片", path: "/" },
   { key: "cards", label: "赛事卡片", detail: "直接查看首页最上面的真实赛事卡片", path: "/" },
   { key: "details", label: "赛事详情", detail: "从真实赛事卡片进入详情页面", path: "/" },
-  { key: "standings", label: "积分榜", detail: "切换车手、车队与 FE 排名", path: "/standings" },
+  { key: "standings", label: "积分榜", detail: "查看 F1、FE 和 WRC 官方排名，可切换赛季与榜单类别", path: "/standings" },
   { key: "results", label: "历史赛果", detail: "选择系列与赛季", path: "/results" },
   { key: "wallpaper", label: "日历壁纸", detail: "选择布局、生成与下载", path: "/wallpaper" },
   { key: "circuits", label: "赛道数据库", detail: "搜索赛道与筛选类型", path: "/circuits" },
@@ -33,7 +33,7 @@ export function getGuideSteps(pathname: string): GuideStep[] {
     step('[data-guide="reminder"]', "设置正赛提醒", "点击后设置主场次提醒，浏览器可能请求通知权限。估计赛段时间尚未确认时，该按钮不可用。"),
     step('[data-guide="calendar"]', "加入日历", "下载日历文件，把已确认的主场次添加到日历。时间待确认时不能导出。"),
   ]
-  if (pathname === '/standings') return [step('[data-guide="standings-tabs"]', "切换积分榜", "在 F1 车手、F1 车队与 FE 之间切换，查看对应排名和积分。")]
+  if (pathname === '/standings') return [step('[data-guide="standings-tabs"]', "切换积分榜", "切换 F1 车手、F1 车队、WRC 和 FE 排名。WRC 榜单支持切换赛季及车手、领航员、制造商等类别。")]
   if (pathname === '/results') return [step('[data-guide="results-series"]', "选择赛果系列", "在 F1 和 FE 之间切换。WRC 暂未接入完整赛果，可通过赛事详情前往官网查看。"), step('select', "选择赛季", "切换年份，回看该赛季的比赛结果。")]
   if (pathname === '/wallpaper') return [step('[data-guide="wallpaper-month"]', "选择壁纸月份", "选择年份和月份，生成对应月份的赛事日历壁纸。"), step('[data-guide="wallpaper-mode"]', "选择壁纸布局", "手机布局展示当月赛历，桌面布局展示全年赛历。"), step('[data-guide="wallpaper-generate"]', "生成壁纸", "点击后生成当前设置的壁纸。完成后会出现下载按钮。"), step('[data-guide="wallpaper-download"]', "下载壁纸", "点击保存已生成的壁纸，再到设备设置中设为壁纸。")]
   if (pathname === '/circuits') return [step('input[placeholder="搜索赛道名称、城市、国家..."]', "搜索赛道", "输入赛道名称、城市或国家，缩小赛道列表。"), step('[data-guide="circuit-filters"]', "筛选赛道类型", "按街道、永久赛道等类型筛选，了解不同类型的比赛场地。")]
