@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag, BarChart3 } from "lucide-react"
+import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag } from "lucide-react"
 import Link from "next/link"
 import { FeDriverStandings } from "@/components/fe-driver-standings"
 import { StandingsChart } from "@/components/standings-chart"
+import { WrcStandings } from "@/components/wrc-standings"
 
-type StandingTab = "drivers" | "constructors" | "fe"
+type StandingTab = "drivers" | "constructors" | "wrc" | "fe"
 
 interface DriverStanding {
   position: string
@@ -41,7 +42,7 @@ export default function StandingsPage() {
   const [round, setRound] = useState("")
 
   useEffect(() => {
-    if (tab !== "fe") {
+    if (tab === "drivers" || tab === "constructors") {
       fetchStandings()
     }
   }, [tab])
@@ -89,12 +90,16 @@ export default function StandingsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">积分榜</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {tab === "fe" ? "Formula E" : `F1 ${season} 赛季${round ? ` · 第 ${round} 轮后` : ""}`}
+            {tab === "fe"
+              ? "Formula E"
+              : tab === "wrc"
+                ? "World Rally Championship"
+                : `F1 ${season} 赛季${round ? ` · 第 ${round} 轮后` : ""}`}
           </p>
         </div>
       </header>
 
-      <div data-guide="standings-tabs" className="flex gap-2 rounded-lg border border-border bg-card p-1">
+      <div data-guide="standings-tabs" className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-card p-1 sm:flex">
         <button
           onClick={() => setTab("drivers")}
           className={cn(
@@ -120,6 +125,18 @@ export default function StandingsPage() {
           F1 车队
         </button>
         <button
+          onClick={() => setTab("wrc")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            tab === "wrc"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Trophy className="size-4" />
+          WRC
+        </button>
+        <button
           onClick={() => setTab("fe")}
           className={cn(
             "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
@@ -133,7 +150,9 @@ export default function StandingsPage() {
         </button>
       </div>
 
-      {tab === "fe" ? (
+      {tab === "wrc" ? (
+        <WrcStandings />
+      ) : tab === "fe" ? (
         <FeDriverStandings />
       ) : loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
@@ -174,9 +193,7 @@ export default function StandingsPage() {
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
-        {tab === "fe"
-          ? "数据来源：Formula E 官网公开积分榜"
-          : "数据来源：Jolpica F1 API（Ergast 兼容）"}
+        {tab === "wrc" ? null : tab === "fe" ? "数据来源：Formula E 官网公开积分榜" : "数据来源：Jolpica F1 API（Ergast 兼容）"}
       </footer>
     </div>
   )

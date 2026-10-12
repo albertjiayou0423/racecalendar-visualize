@@ -29,6 +29,7 @@ import {
 } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { isEventFavorite, toggleFavorite } from "@/lib/favorites"
+import { usePlayground } from "./playground-context"
 
 interface DayGroup {
   date: string
@@ -110,6 +111,7 @@ function groupSessionsByDay(sessions: RaceSession[]): DayGroup[] {
 }
 
 export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
+  const playground = usePlayground()
   const [open, setOpen] = useState(false)
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const [showLiveTiming, setShowLiveTiming] = useState(false)
@@ -311,7 +313,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Link
+            <Link prefetch={!playground}
               data-guide="card-details"
               href={`/event/${event.id}`}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

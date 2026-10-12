@@ -19,10 +19,12 @@ interface ImmersiveCountdownProps {
   series: Series
   /** 关闭回调 */
   onClose: () => void
+  /** Playground 展示模式：嵌入预览区，不覆盖页面或锁定滚动。 */
+  preview?: boolean
 }
 
 /** 全屏沉浸式倒计时：纯黑背景 + 数字滚动 + 赛事配色 + 归零撒花 */
-export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCountdownProps) {
+export function ImmersiveCountdown({ targetTime, series, onClose, preview = false }: ImmersiveCountdownProps) {
   const targetMs = new Date(targetTime).getTime()
   const [remaining, setRemaining] = useState(() => Math.max(0, targetMs - Date.now()))
   const { burst } = useConfettiBurst()
@@ -30,7 +32,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
   const containerRef = useRef<HTMLDivElement>(null)
 
   // 焦点陷阱：限制 Tab 在沉浸式容器内循环
-  useFocusTrap(containerRef, true)
+  useFocusTrap(containerRef, !preview)
 
   // 每秒更新
   useEffect(() => {
@@ -42,6 +44,8 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
 
   // 锁定 body 滚动 + ESC 退出
   useEffect(() => {
+    if (preview) return
+
     const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
     const onKey = (e: KeyboardEvent) => {
@@ -52,11 +56,11 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
       document.body.style.overflow = prev
       document.removeEventListener("keydown", onKey)
     }
-  }, [onClose])
+  }, [onClose, preview])
 
   // 归零触发撒花 + 震动反馈（仅一次）
   useEffect(() => {
-    if (remaining === 0 && !triggeredRef.current) {
+    if (!preview && remaining === 0 && !triggeredRef.current) {
       triggeredRef.current = true
       burst(series, "grand")
       // 移动端短震反馈
@@ -64,7 +68,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
         navigator.vibrate(10)
       }
     }
-  }, [remaining, burst, series])
+  }, [remaining, burst, series, preview])
 
   const mins = Math.floor(remaining / 60000)
   const secs = Math.floor((remaining % 60000) / 1000)
@@ -73,10 +77,12 @@ export function ImmersiveCountdown({ targetTime, series, onClose }: ImmersiveCou
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-black"
+      className={preview
+        ? "relative flex min-h-64 w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black px-4 py-10"
+        : "fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-black"}
       onClick={onClose}
       role="dialog"
-      aria-modal="true"
+      aria-modal={!preview}
       aria-label="沉浸式倒计时"
     >
       <button

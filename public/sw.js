@@ -1,5 +1,5 @@
 // 赛道时刻 Service Worker — 离线缓存核心页面
-const CACHE_NAME = "race-calendar-v2.2.2"
+const CACHE_NAME = "race-calendar-v2.2.3-playground-catalog-r1"
 const CORE_ASSETS = ["/", "/about", "/standings", "/circuits"]
 
 self.addEventListener("install", (event) => {
@@ -24,6 +24,10 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return
 
   const url = new URL(request.url)
+  // Next.js assets are versioned by the build and must come from the active deployment.
+  // Caching them here can keep an old client bundle alive across deployments.
+  if (url.origin === self.location.origin && (url.pathname.startsWith("/_next/") || url.pathname === "/sw.js")) return
+
   // Admin sessions and private data must never enter Cache Storage or offline fallback.
   if (url.origin === self.location.origin && (url.pathname === "/admin" || url.pathname.startsWith("/api/admin/") || url.pathname === "/api/feedback")) return
 
@@ -43,7 +47,23 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  // 静态资源和页面：缓存优先，回退网络
+  // 页面：联网优先，离线时回退缓存，确保部署更新能及时生效。
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && response.type === "basic") {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          }
+          return response
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
+    )
+    return
+  }
+
+  // 其他同源静态资源：缓存优先，回退网络。
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached

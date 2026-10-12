@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
+import { usePlayground } from "./playground-context"
 import { Bell, BellOff, Check, Settings, X } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { mainSession, formatTime, SERIES_META } from "@/lib/format"
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils"
 interface EventNotificationManagerProps {
   event: RaceEvent
   onClose: () => void
+  preview?: boolean
 }
 
 const STORAGE_KEY = "race-notifications-enabled"
@@ -27,7 +29,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   remind5: true,
 }
 
-export function EventNotificationManager({ event, onClose }: EventNotificationManagerProps) {
+export function EventNotificationManager({ event, onClose, preview = false }: EventNotificationManagerProps) {
+  const playground = usePlayground()
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [enabled, setEnabled] = useState(false)
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
@@ -35,6 +38,7 @@ export function EventNotificationManager({ event, onClose }: EventNotificationMa
   const timersRef = useRef<Map<string, number>>(new Map())
 
   useEffect(() => {
+    if (playground) return
     if (typeof window !== "undefined" && "Notification" in window) {
       setPermission(Notification.permission)
       const stored = localStorage.getItem(STORAGE_KEY)
@@ -53,7 +57,7 @@ export function EventNotificationManager({ event, onClose }: EventNotificationMa
   }, [])
 
   useEffect(() => {
-    if (!enabled || permission !== "granted") {
+    if (playground || !enabled || permission !== "granted") {
       clearAllTimers()
       return
     }
@@ -107,6 +111,7 @@ export function EventNotificationManager({ event, onClose }: EventNotificationMa
   }
 
   const toggleNotifications = async () => {
+    if (playground) { setEnabled(value => !value); return }
     if (enabled) {
       setEnabled(false)
       localStorage.setItem(STORAGE_KEY, "false")
@@ -130,14 +135,14 @@ export function EventNotificationManager({ event, onClose }: EventNotificationMa
   const updateSettings = (key: keyof NotificationSettings, value: boolean) => {
     const next = { ...settings, [key]: value }
     setSettings(next)
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next))
+    if (!playground) localStorage.setItem(SETTINGS_KEY, JSON.stringify(next))
   }
 
   if (typeof window === "undefined" || !("Notification" in window)) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className={preview ? "relative flex w-full justify-center p-2" : "fixed inset-0 z-50 flex items-center justify-center p-4"}>
+      {!preview && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">

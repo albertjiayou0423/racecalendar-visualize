@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import confetti from "canvas-confetti"
+import { usePlayground } from "@/components/playground-context"
 
 // ─── 页面可见性 ─────────────────────────────────────────────
 
@@ -148,10 +149,11 @@ type ConfettiIntensity = "light" | "normal" | "grand"
  */
 export function useConfettiBurst() {
   const visible = usePageVisibility()
+  const playground = usePlayground()
 
   const burst = useCallback(
     (series: string, intensity: ConfettiIntensity = "normal") => {
-      if (!visible) return
+      if (!visible || playground?.reduced) return
       const colors = SERIES_COLORS[series] ?? SERIES_COLORS.F1
       const opts = {
         spread: 70,
@@ -176,7 +178,7 @@ export function useConfettiBurst() {
         confetti({ ...opts, particleCount: 35, origin: { x: 1, y: 0.7 }, angle: 130 })
       }
     },
-    [visible]
+    [visible, playground?.reduced]
   )
 
   return { burst }

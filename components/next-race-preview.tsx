@@ -17,6 +17,7 @@ import { BEIJING_TZ } from "@/lib/format"
 import { PredictionVote } from "@/components/prediction-vote"
 import { ImmersiveCountdown } from "@/components/immersive-countdown"
 import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
+import { usePlayground } from "./playground-context"
 
 interface NextRacePreviewProps {
   event: RaceEvent
@@ -49,6 +50,7 @@ function markLiveTriggered(): void {
 }
 
 export function NextRacePreview({ event, now }: NextRacePreviewProps) {
+  const playground = usePlayground()
   const targetResult = nextSession(event, now)
   const meta = SERIES_META[event.series]
   const { burst } = useConfettiBurst()
@@ -108,7 +110,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   useEffect(() => {
     if (live) {
       // 只在首次进入 LIVE 时触发一次，本会话不重复触发
-      if (!hasTriggeredLive()) {
+      if (!playground && !hasTriggeredLive()) {
         markLiveTriggered()
         play("start")
         burst(event.series, "grand")
@@ -124,30 +126,30 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
     const prev = prevStageRef.current
     if (prev !== stage) {
       if (stage === "final" && prev !== "final") {
-        play("tick")
+        if (!playground) play("tick")
       }
       prevStageRef.current = stage
     }
-  }, [stage, live, burst, play, event.series])
+  }, [stage, live, burst, play, event.series, playground])
 
   useEffect(() => {
-    if (stage !== "final" || live) return
+    if (stage !== "final" || live || playground) return
     const id = setInterval(() => play("tick"), 1000)
     return () => clearInterval(id)
-  }, [stage, live, play])
+  }, [stage, live, play, playground])
 
   // 里程碑提示文案
   const milestoneText = live
-    ? "GO! \uD83D\uDD25"
+    ? "开赛！"
     : stage === "final"
       ? "最后倒计时！"
       : stage === "urgent"
-        ? "即将开始 \u23F3"
+        ? "即将开始"
         : stage === "soon"
           ? "半小时内开赛"
           : stage === "today"
-            ? "今天开赛 \uD83C\uDFC1"
-            : "赛事倒计时中\u23F1"
+            ? "今天开赛"
+            : "赛事倒计时中"
   const milestoneColor = live
     ? "#ef4444"
     : stage === "final"
@@ -283,7 +285,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
       ) : null}
 
       {/* 预测投票 */}
-      <PredictionVote event={event} />
+      {!playground && <PredictionVote event={event} />}
 
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between">

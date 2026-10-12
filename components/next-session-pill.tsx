@@ -31,20 +31,27 @@ const STAGE_COLORS: Record<CountdownStage, string> = {
 interface NextSessionPillProps {
   event: RaceEvent
   now: number
+  /** Render inline instead of as a scroll-triggered overlay in the component catalog. */
+  preview?: boolean
 }
 
-export function NextSessionPill({ event, now }: NextSessionPillProps) {
+export function NextSessionPill({ event, now, preview = false }: NextSessionPillProps) {
   const [visible, setVisible] = useState(false)
 
   const nextResult = nextSession(event, now)
   const past = isPast(event, now)
 
   useEffect(() => {
+    if (preview) {
+      setVisible(true)
+      return
+    }
+
     // 滚动超过 120px 后显示吸顶胶囊
     const onScroll = () => setVisible(window.scrollY > 120)
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
-  }, [])
+  }, [preview])
 
   if (!nextResult || past || isEstimatedWrcSession(event, nextResult.session)) return null
 
@@ -57,7 +64,9 @@ export function NextSessionPill({ event, now }: NextSessionPillProps) {
   return (
     <div
       className={cn(
-        "fixed top-14 left-1/2 z-30 -translate-x-1/2 transition-all duration-300",
+        preview
+          ? "relative z-0 w-fit transition-all duration-300"
+          : "fixed top-14 left-1/2 z-30 -translate-x-1/2 transition-all duration-300",
         visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
       )}
       role="status"

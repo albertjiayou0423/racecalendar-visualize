@@ -11,6 +11,14 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.2.3",
+    date: "2026-10-11",
+    items: [
+      { type: "feat", text: "Playground 逐行列出正式组件，可直接预览并独立调整参数" },
+      { type: "fix", text: "Playground 移除嵌入式预览，按需挂载组件并隔离业务接口请求" },
+    ],
+  },
+  {
     version: "v2.2.2",
     date: "2026-10-11",
     items: [

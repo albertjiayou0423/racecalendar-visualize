@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
-    return ["/api/admin/:path*", "/api/feedback", "/admin"].map(source => ({
+    return [...["/api/admin/:path*", "/api/feedback", "/admin"].map(source => ({
       source,
       headers: [{ key: "Cache-Control", value: "private, no-store" }],
-    }))
+    }))]
   },
   typescript: {
     ignoreBuildErrors: true,
