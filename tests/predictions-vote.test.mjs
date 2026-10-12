@@ -81,3 +81,27 @@ test('repeated anonymous votes upsert under one voter ID and GET restores the vo
   assert.equal(calls.at(-1).values[0], storedId)
   assert.match(loaded.headers.get('cache-control'), /private, no-store/)
 })
+
+test('prediction endpoint rejects malformed, wrong-shaped and oversized request data', async () => {
+  const { sql, calls } = fakeSql()
+  const route = loadRoute(sql)
+  const bodies = [
+    '{',
+    'null',
+    '[]',
+    JSON.stringify({ eventId: 42, driverCode: 'HAM' }),
+    JSON.stringify({ eventId: 'f1-2026-17', driverCode: 42 }),
+    JSON.stringify({ eventId: 'f1-2026-17', series: 'INDYCAR' }),
+    JSON.stringify({ eventId: 'f1-2026-17', series: 'F1', eventName: 'x'.repeat(201) }),
+    JSON.stringify({ eventId: 'x'.repeat(161), driverCode: 'HAM' }),
+  ]
+
+  for (const body of bodies) {
+    const response = await route.POST(new Request('https://racecalendar.test/api/predictions', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body,
+    }))
+    assert.equal(response.status, 400, `${body.slice(0, 80)} should be rejected with 400`)
+  }
+
+  assert.equal(calls.length, 0, 'invalid input must not reach the database')
+})
