@@ -80,48 +80,29 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  let body: unknown
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 })
-  }
+    const body: PredictionRequest = await request.json()
+    const { eventId, series, eventName, circuit, driverCode } = body
 
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return NextResponse.json({ error: "Request body must be a JSON object" }, { status: 400 })
-  }
+    if (!eventId) {
+      return NextResponse.json(
+        { error: "Missing required field: eventId" },
+        { status: 400 }
+      )
+    }
 
-  const { eventId, series, eventName, circuit, driverCode } = body as Partial<PredictionRequest>
-  if (typeof eventId !== "string" || !eventId.trim() || eventId.length > 160) {
-    return NextResponse.json({ error: "eventId must be a non-empty string of at most 160 characters" }, { status: 400 })
-  }
+    // 投票不消耗 AI 配额，也不需要 series
+    if (driverCode) {
+      return handleVote(eventId, driverCode, request.headers.get("cookie"))
+    }
 
-  if (driverCode !== undefined && (typeof driverCode !== "string" || !driverCode.trim() || driverCode.length > 100)) {
-    return NextResponse.json({ error: "driverCode must be a non-empty string of at most 100 characters" }, { status: 400 })
-  }
-
-  if (eventName !== undefined && (typeof eventName !== "string" || eventName.length > 200)) {
-    return NextResponse.json({ error: "eventName must be at most 200 characters" }, { status: 400 })
-  }
-
-  if (circuit !== undefined && (typeof circuit !== "string" || circuit.length > 200)) {
-    return NextResponse.json({ error: "circuit must be at most 200 characters" }, { status: 400 })
-  }
-
-  // 投票不消耗 AI 配额，也不需要 series
-  if (driverCode !== undefined) {
-    return handleVote(eventId.trim(), driverCode.trim(), request.headers.get("cookie"))
-  }
-
-  // AI 预测需要 series
-  if (series !== "F1" && series !== "WRC" && series !== "FE") {
-    return NextResponse.json(
-      { error: "series must be F1, WRC or FE" },
-      { status: 400 }
-    )
-  }
-
-  try {
+    // AI 预测需要 series
+    if (!series) {
+      return NextResponse.json(
+        { error: "Missing required field: series" },
+        { status: 400 }
+      )
+    }
 
     if (!NVIDIA_NIM_API_KEY) {
       return NextResponse.json({ eventId, predictions: generateDefaultPredictions(series), modelUsed: "fallback", generatedAt: new Date().toISOString(), error: "AI 服务未配置，使用默认预测" })
