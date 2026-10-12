@@ -90,8 +90,9 @@ async function page(query: string, season?: number) {
   if (html.length > 5_000_000 || (season && parseFeSeason(html) !== season)) throw new Error("FE 返回的赛季不匹配")
   return html
 }
-export async function fetchFeStandings() {
-  return parseFeStandings(await page("?tab=drivers"))
+export async function fetchFeStandings(season?: number) {
+  const query = season ? `?season=${season}&tab=drivers` : "?tab=drivers"
+  return parseFeStandings(await page(query, season))
 }
 export async function fetchFeResults(year: number, raceId?: string) {
   const season = year - 2014 // Season 1 finished in 2015; season 12 in 2026.

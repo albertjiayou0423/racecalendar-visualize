@@ -1,52 +1,36 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import useSWR from "swr"
 import { Trophy, CheckCircle2, Users, AlertCircle, Loader2 } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
+import { LEGACY_DRIVER_LABELS, mapFePredictionDrivers, mapWrcPredictionDrivers, predictionRosterUrl } from "@/lib/prediction-roster"
 import { cn } from "@/lib/utils"
 
 interface PredictionVoteProps {
   event: RaceEvent
 }
 
-interface Driver {
-  code: string
-  name: string
-  team: string
-}
+type Driver = { code: string; name: string; team: string }
 
 interface PredictionResult {
   driverCode: string
   count: number
 }
 
-const DRIVERS: Record<string, Driver[]> = {
-  FE: [
-    { code: "EVANS", name: "Mitch Evans", team: "Jaguar TCS Racing" },
-    { code: "BIRD", name: "Sam Bird", team: "McLaren Formula E" },
-    { code: "VANDOORNE", name: "Stoffel Vandoorne", team: "MASERATI MSG" },
-    { code: "DA_COSTA", name: "Antonio Felix da Costa", team: "TAG Heuer Porsche" },
-    { code: "VERGNE", name: "Jean-Eric Vergne", team: "DS PENSKE" },
-    { code: "MORTARA", name: "Edoardo Mortara", team: "Mahindra Racing" },
-    { code: "JEV", name: "Nicolas Prost", team: "Renault e.dams" },
-    { code: "DI_GRASSI", name: "Lucas di Grassi", team: "ROKiT Venturi" },
-    { code: "WEHRLEIN", name: "Pascal Wehrlein", team: "Porsche Formula E" },
-    { code: "EVANS_B", name: "Nick Cassidy", team: "Envision Racing" },
-  ],
-  WRC: [
-    { code: "OGIER", name: "塞巴斯蒂安·奥吉尔 / 文森特·兰布拉斯", team: "丰田 Gazoo Racing" },
-    { code: "LOEB", name: "塞巴斯蒂安·勒布 / 伊夫·穆勒", team: "现代 N" },
-    { code: "NEUVILLE", name: "蒂埃里·诺伊维尔 / 马蒂亚斯·韦伊勒", team: "现代 N" },
-    { code: "TÄNAK", name: "奥特·塔纳克 / 马丁·亚尔韦", team: "现代 N" },
-    { code: "ROVANPERÄ", name: "卡勒·罗万佩拉 / 乔尼·哈尔塔宁", team: "丰田 Gazoo Racing" },
-    { code: "EVANS", name: "埃尔芬·埃文斯 / 斯科特·马丁", team: "丰田 Gazoo Racing" },
-    { code: "KATSI", name: "格雷瓜尔·穆纳 / 塞巴斯蒂安·德尔普拉多", team: "现代 N" },
-    { code: "SUNINEN", name: "蒂莫·苏尼宁 / 米卡·安蒂拉", team: "现代 N" },
-    { code: "BREEN", name: "克雷格·布林 / 詹姆斯·富尔顿", team: "福特 M-Sport" },
-    { code: "FOURNIER", name: "亚多·福尼耶 / 文森特·兰布拉斯", team: "丰田 Gazoo Racing" },
-  ],
+async function fetchRoster(url: string): Promise<{ drivers: Driver[] }> {
+  const response = await fetch(url)
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || !data.ok) throw new Error(data.note || "预测候选暂时无法加载，请稍后重试。")
+
+  const drivers = Array.isArray(data.standings)
+    ? mapWrcPredictionDrivers(data.standings)
+    : Array.isArray(data.drivers) && url.startsWith("/api/fe-drivers")
+      ? mapFePredictionDrivers(data.drivers)
+      : data.drivers
+  if (!Array.isArray(drivers) || !drivers.length) throw new Error(data.note || "当前赛季暂无可用的预测候选。")
+  return { drivers }
 }
 
 export function PredictionVote({ event }: PredictionVoteProps) {
@@ -58,20 +42,23 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  const season = event.id.match(/^f1-(\d{4})-/)?.[1]
-  const { data: roster, isLoading: rosterLoading, mutate: retryRoster } = useSWR<{ ok: boolean; drivers: Driver[]; note?: string }>(
-    event.series === "F1" && season ? `/api/prediction-drivers?season=${season}` : null,
-    (url: string) => fetch(url).then(response => response.json()),
+  const rosterUrl = predictionRosterUrl(event.series, event.id)
+  const { data: roster, error: rosterError, isLoading: rosterLoading, mutate: retryRoster } = useSWR<{ drivers: Driver[] }>(
+    rosterUrl,
+    fetchRoster,
     { shouldRetryOnError: false, revalidateOnFocus: false },
   )
-  const drivers = event.series === "F1" ? roster?.drivers ?? [] : DRIVERS[event.series] ?? []
+  const drivers = roster?.drivers ?? []
   const meta = SERIES_META[event.series]
+  const activeEventId = useRef(event.id)
+  activeEventId.current = event.id
 
   const fetchPredictions = useCallback(async () => {
     try {
       const res = await fetch(`/api/predictions?eventId=${event.id}`)
       if (res.ok) {
         const data = await res.json()
+        if (activeEventId.current !== event.id) return
         setResults(data.results ?? [])
         setTotal(data.total ?? 0)
         if (data.myVote) {
@@ -81,11 +68,17 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     } catch (err) {
       console.error("Failed to fetch predictions:", err)
     } finally {
-      setIsLoading(false)
+      if (activeEventId.current === event.id) setIsLoading(false)
     }
   }, [event.id])
 
   useEffect(() => {
+    setSelectedDriver("")
+    setResults([])
+    setTotal(0)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+    setIsLoading(true)
     fetchPredictions()
   }, [fetchPredictions])
 
@@ -96,6 +89,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     setErrorMsg(null)
     setSuccessMsg(null)
     setIsVoting(true)
+    const previousDriver = selectedDriver
     // 先乐观更新，让用户有即时反馈
     setSelectedDriver(driverCode)
 
@@ -118,17 +112,16 @@ export function PredictionVote({ event }: PredictionVoteProps) {
       console.error("Failed to vote:", err)
       setErrorMsg(err instanceof Error ? err.message : "投票失败，请重试")
       // 失败时回滚
-      setSelectedDriver("")
+      setSelectedDriver(previousDriver)
     } finally {
       setIsVoting(false)
     }
   }
 
-  if (event.series === "F1" && !drivers.length) return <div className="mt-4 rounded-xl border border-border p-4 text-sm text-muted-foreground">
-    {rosterLoading ? "加载赛季预测候选…" : roster?.note || "预测候选暂时无法加载。"}
+  if (!drivers.length) return <div className="mt-4 rounded-xl border border-border p-4 text-sm text-muted-foreground">
+    {rosterLoading ? "加载赛季预测候选…" : rosterError?.message || "当前赛季暂无可用的预测候选。"}
     {!rosterLoading && <button className="ml-2 underline" onClick={() => retryRoster()}>重试</button>}
   </div>
-  if (drivers.length === 0) return null
 
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
 
@@ -220,7 +213,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
                   <div key={result.driverCode} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className={cn("truncate", isMyVote && "font-medium text-primary")}>
-                        {driver?.name ?? result.driverCode}
+                        {driver?.name ?? LEGACY_DRIVER_LABELS[event.series]?.[result.driverCode] ?? result.driverCode}
                         {isMyVote && " (你的预测)"}
                       </span>
                       <span className="text-muted-foreground shrink-0 ml-2">
