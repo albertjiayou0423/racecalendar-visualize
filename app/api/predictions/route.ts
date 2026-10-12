@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSqlOrFail, initDb, isDbAvailable, checkAiQuota, incrementAiUsage } from "@/lib/db"
+import { anonymousVoterCookie, resolveAnonymousVoterId } from "@/lib/anonymous-voter"
 
 const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY
 const AI_DAILY_LIMIT = 50
@@ -26,6 +27,7 @@ interface PredictionResponse {
 }
 
 export async function GET(request: Request) {
+  const voter = resolveAnonymousVoterId(request.headers.get("cookie"))
   try {
     const url = new URL(request.url)
     const eventId = url.searchParams.get("eventId")
@@ -38,19 +40,19 @@ export async function GET(request: Request) {
     }
 
     if (!isDbAvailable()) {
-      return NextResponse.json({
+      return voterResponse({
         eventId,
         results: [],
         total: 0,
         myVote: null,
-      })
+      }, voter)
     }
 
     await initDb()
     const sql = await getSqlOrFail()
 
     const results = await sql`
-      SELECT driver_code, COUNT(*) as count
+      SELECT driver_code, COUNT(*) as count, BOOL_OR(voter_id = ${voter.id}) as is_mine
       FROM predictions
       WHERE event_id = ${eventId}
       GROUP BY driver_code
@@ -59,20 +61,21 @@ export async function GET(request: Request) {
 
     const total = results.reduce((sum: number, r: any) => sum + Number(r.count), 0)
 
-    return NextResponse.json({
+    return voterResponse({
       eventId,
       results: results.map((r: any) => ({
         driverCode: r.driver_code,
         count: Number(r.count),
       })),
       total,
-      myVote: null,
-    })
+      myVote: results.find((result: any) => result.is_mine)?.driver_code ?? null,
+    }, voter)
   } catch (error) {
     console.error("GET predictions error:", error)
-    return NextResponse.json(
+    return voterResponse(
       { error: "Failed to fetch predictions" },
-      { status: 500 }
+      voter,
+      500,
     )
   }
 }
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
 
     // 投票不消耗 AI 配额，也不需要 series
     if (driverCode) {
-      return handleVote(eventId, driverCode)
+      return handleVote(eventId, driverCode, request.headers.get("cookie"))
     }
 
     // AI 预测需要 series
@@ -196,7 +199,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function handleVote(eventId: string, driverCode: string) {
+async function handleVote(eventId: string, driverCode: string, cookieHeader: string | null) {
   try {
     if (!isDbAvailable()) {
       return NextResponse.json({
@@ -207,12 +210,11 @@ async function handleVote(eventId: string, driverCode: string) {
 
     await initDb()
     const sql = await getSqlOrFail()
-
-    const voterId = "anonymous-" + Math.random().toString(36).slice(2)
+    const voter = resolveAnonymousVoterId(cookieHeader)
 
     await sql`
       INSERT INTO predictions (event_id, driver_code, voter_id)
-      VALUES (${eventId}, ${driverCode}, ${voterId})
+      VALUES (${eventId}, ${driverCode}, ${voter.id})
       ON CONFLICT (event_id, voter_id) DO UPDATE SET driver_code = ${driverCode}
     `
 
@@ -226,7 +228,7 @@ async function handleVote(eventId: string, driverCode: string) {
 
     const total = results.reduce((sum: number, r: any) => sum + Number(r.count), 0)
 
-    return NextResponse.json({
+    return voterResponse({
       success: true,
       results: results.map((r: any) => ({
         driverCode: r.driver_code,
@@ -234,7 +236,7 @@ async function handleVote(eventId: string, driverCode: string) {
       })),
       total,
       myVote: driverCode,
-    })
+    }, voter)
   } catch (error) {
     console.error("Vote error:", error)
     return NextResponse.json(
@@ -242,6 +244,12 @@ async function handleVote(eventId: string, driverCode: string) {
       { status: 500 }
     )
   }
+}
+
+function voterResponse(body: Record<string, unknown>, voter: ReturnType<typeof resolveAnonymousVoterId>, status = 200) {
+  const response = NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store" } })
+  if (voter.isNew) response.headers.append("Set-Cookie", anonymousVoterCookie(voter.id))
+  return response
 }
 
 function parsePredictions(content: string, series: string) {

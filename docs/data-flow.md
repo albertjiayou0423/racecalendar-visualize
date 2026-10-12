@@ -113,7 +113,7 @@
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
 | 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 为部分远程图片代理。 |
 | AI 预测 | POST `/api/predictions` 检查 AI 额度后请求 NVIDIA NIM Llama 3.1 8B，输入赛事系列、名称和赛道，未实际加载历史成绩/天气进行分析；额度耗尽或服务 HTTP 失败时返回本地默认预测。 |
-| 投票/反馈 | predictions 的 GET 统计数据库投票，POST 带 driverCode 时写投票；车手候选按赛事赛季动态读取，F1 使用 Jolpica 车手积分榜，WRC 使用官网车手积分榜，FE 使用官网车手积分榜；历史投票代码仍显示原标签。反馈通过 `/api/feedback` 写入/读取 Neon。它们不属于赛历上游抓取。 |
+| 投票/反馈 | predictions 的 GET 统计数据库投票并按匿名浏览器身份读取本人选择；POST 带 driverCode 时写投票。同一浏览器使用一年期 HttpOnly、SameSite=Lax 随机 cookie，在同一赛事内重复提交会更新而非重复计数；清除 cookie 或更换浏览器会被视为新匿名用户，不是防作弊身份认证。车手候选按赛事赛季动态读取，F1 使用 Jolpica 车手积分榜，WRC 使用官网车手积分榜，FE 使用官网车手积分榜；历史投票代码仍显示原标签。反馈通过 `/api/feedback` 写入/读取 Neon。它们不属于赛历上游抓取。 |
 
 ## 8. 本轮变更与剩余问题
 
