@@ -18,7 +18,7 @@ function loadRoute(sql) {
   vm.runInNewContext(source, {
     exports,
     require: name => name === 'next/server' ? next
-      : name === '@/lib/db' ? { getSqlOrFail: async () => sql, initDb: async () => {}, isDbAvailable: () => true, checkAiQuota: async () => ({ allowed: true, remaining: 1 }), incrementAiUsage: async () => {} }
+      : name === '@/lib/db' ? { getSqlOrFail: async () => sql, initDb: async () => {}, isDbAvailable: () => true, consumeAiQuotaSlot: async () => ({ allowed: true, remaining: 49, used: 1, reason: null }), AI_DAILY_LIMIT: 50 }
         : name === '@/lib/anonymous-voter' ? { anonymousVoterCookie, resolveAnonymousVoterId }
           : require(name),
     process: { env: {} },

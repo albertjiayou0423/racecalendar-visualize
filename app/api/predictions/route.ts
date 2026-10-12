@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import { getSqlOrFail, initDb, isDbAvailable, checkAiQuota, incrementAiUsage } from "@/lib/db"
+import { getSqlOrFail, initDb, isDbAvailable, consumeAiQuotaSlot, AI_DAILY_LIMIT } from "@/lib/db"
 import { anonymousVoterCookie, resolveAnonymousVoterId } from "@/lib/anonymous-voter"
 
 const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY
-const AI_DAILY_LIMIT = 50
 
 interface PredictionRequest {
   eventId: string
@@ -105,23 +104,25 @@ export async function POST(request: Request) {
       )
     }
 
-    // 检查 AI 配额
+    if (!NVIDIA_NIM_API_KEY) {
+      return NextResponse.json({ eventId, predictions: generateDefaultPredictions(series), modelUsed: "fallback", generatedAt: new Date().toISOString(), error: "AI 服务未配置，使用默认预测" })
+    }
+
+    // 原子占用额度后再请求上游，避免并发请求同时通过额度检查。
     await initDb()
-    const quota = await checkAiQuota()
+    const quota = await consumeAiQuotaSlot()
     if (!quota.allowed) {
       return NextResponse.json({
         eventId,
         predictions: generateDefaultPredictions(series),
         generatedAt: new Date().toISOString(),
         modelUsed: "fallback",
-        quotaExceeded: true,
+        quotaExceeded: quota.reason === "limit",
         quotaRemaining: 0,
-        error: `今日 AI 预测次数已用完（${AI_DAILY_LIMIT}次/天），使用默认预测`
+        error: quota.reason === "limit"
+          ? `今日 AI 预测次数已用完（${AI_DAILY_LIMIT}次/天），使用默认预测`
+          : "AI 额度暂时无法核验，使用默认预测",
       })
-    }
-
-    if (!NVIDIA_NIM_API_KEY) {
-      return NextResponse.json({ eventId, predictions: generateDefaultPredictions(series), modelUsed: "fallback", generatedAt: new Date().toISOString(), error: "AI 服务未配置，使用默认预测" })
     }
 
     const prompt = `你是赛车运动分析师。请根据历史数据、车手表现、赛道特性预测 ${series} ${eventName} 的比赛结果。
@@ -178,17 +179,13 @@ export async function POST(request: Request) {
 
     const predictions = parsePredictions(content, series)
 
-    // AI 调用成功，增加使用计数
-    await incrementAiUsage()
-    const newQuota = await checkAiQuota()
-
     return NextResponse.json({
       eventId,
       predictions,
       generatedAt: new Date().toISOString(),
       modelUsed: "nvidia-nim/llama-3.1-8b-instruct",
       rawAnalysis: content,
-      quotaRemaining: newQuota.remaining,
+      quotaRemaining: quota.remaining,
     })
   } catch (error) {
     console.error("Prediction API error:", error)
