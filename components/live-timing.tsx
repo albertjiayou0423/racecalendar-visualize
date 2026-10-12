@@ -131,7 +131,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
     )
   }
 
-  // 如果没有数据（WRC/FE 默认返回空数据）
+  // 如果没有数据（FE 默认返回空数据，F1 首次请求也会短暂经过这里）
   if (!data || (data.drivers.length === 0 && series !== "F1")) {
     return (
       <div className="border-t border-border bg-card px-4 py-6">
@@ -139,7 +139,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
           <Activity className="size-5 text-primary" />
           <p className="text-sm font-medium">{eventName} Live Timing</p>
           <p className="text-xs text-muted-foreground">
-            {series === "WRC" ? "WRC 实时计时数据" : "Formula E 实时计时数据"}
+            {series === "F1" ? "F1 实时计时数据" : "Formula E 实时计时数据"}
           </p>
           <a
             href={officialLink}

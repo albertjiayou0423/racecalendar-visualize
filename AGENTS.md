@@ -69,7 +69,7 @@
 常用命令：`pnpm install --frozen-lockfile`、`pnpm dev`、`pnpm exec tsc --noEmit`、`pnpm build`。
 
 - 使用 Node 24 运行 `pnpm test`，测试覆盖认证、数据失败回退、数据库只读查询与分页。`pnpm lint` 引用 eslint，但 package.json 未声明 eslint，也没有已提交的 ESLint 配置。不能宣称 lint 已通过。
-- 完整类型检查目前有原有问题，包括未被使用、内容损坏的 `lib/circuit-db.ts` 及其他页面类型错误；报告实际限制，不能只看忽略类型的构建结果。
+- 保持 `pnpm exec tsc --noEmit` 可用于全仓库类型检查；出现诊断时修复真实调用路径上的类型问题，不用忽略类型校验的构建结果代替。
 - `next.config.mjs` 开启 `typescript.ignoreBuildErrors`，所以构建通过不代表类型检查通过。分别报告类型检查和构建结果，区分原有错误与新增错误。
 - 文档和低影响改动做相应静态检查即可；数据逻辑改动覆盖成功、部分失败、全失败、无数据库、快照与配额耗尽、估计标记、时区边界等相关路径。
 - UI 改动检查手机和桌面视图、加载/空数据/错误状态；保留中文产品文案与现有风格。

@@ -122,6 +122,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [inView, setInView] = useState(false)
   useFocusTrap(detailRef, showDetail)
   const meta = SERIES_META[event.series]
+  const wikipediaUrl = event.circuitWikipediaUrl || event.wikipediaUrl
 
   // 卡片进入视口时淡入（尊重 reduced-motion）
   useEffect(() => {
@@ -378,7 +379,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                                 {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                                 <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
                                 {!isEstimatedWrcSession(event, s) && isNightRace(s.utc, event.tz) && (
-                                  <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
+                                  <span title="夜赛" aria-label="夜赛">
+                                    <Moon className="size-3 text-indigo-400" aria-hidden="true" />
+                                  </span>
                                 )}
                                 {s.tentative ? (
                                   <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
@@ -519,10 +522,10 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     alt={`${event.circuit} 赛道平面图`}
                   />
                 </div>
-              ) : (event.circuitWikipediaUrl || event.wikipediaUrl) ? (
+              ) : wikipediaUrl ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold">赛道图片</h4>
-                  <WikipediaImage url={event.circuitWikipediaUrl || event.wikipediaUrl} />
+                  <WikipediaImage url={wikipediaUrl} />
                 </div>
               ) : null}
 

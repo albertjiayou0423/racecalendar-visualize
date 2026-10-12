@@ -210,7 +210,9 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           </span>
         )}
         {isNight && (
-          <Moon className="size-4 text-indigo-400" title="夜赛" aria-label="夜赛" />
+          <span title="夜赛" aria-label="夜赛">
+            <Moon className="size-4 text-indigo-400" aria-hidden="true" />
+          </span>
         )}
       </h2>
 
@@ -316,7 +318,9 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
                   )}
                   <span className="font-medium">{session.name}</span>
                   {sessionIsNight && (
-                    <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
+                    <span title="夜赛" aria-label="夜赛">
+                      <Moon className="size-3 text-indigo-400" aria-hidden="true" />
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
