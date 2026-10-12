@@ -4,6 +4,13 @@ const ALLOWED_ORIGINS = new Set([
   "https://upload.wikimedia.org",
   "https://en.wikipedia.org",
 ])
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+])
 const MAX_REDIRECTS = 3
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 10000
@@ -122,9 +129,9 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase()
-    if (!contentType?.startsWith("image/")) {
+    if (!contentType || !ALLOWED_IMAGE_TYPES.has(contentType)) {
       await cancelBody(response)
-      throw new ImageProxyError(502, "Image source returned an unsupported content type")
+      throw new ImageProxyError(415, "Image source returned an unsupported image type")
     }
 
     const image = await readImageBody(response)

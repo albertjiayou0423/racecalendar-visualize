@@ -65,7 +65,7 @@ test("image proxy follows only allowlisted HTTPS redirects and caches valid imag
   assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [1, 2, 3])
 })
 
-test("image proxy blocks cross-origin redirects and non-image responses", async () => {
+test("image proxy blocks cross-origin redirects and active or non-image content", async () => {
   let fetches = 0
   const redirectGet = loadRoute(async () => {
     fetches++
@@ -77,8 +77,14 @@ test("image proxy blocks cross-origin redirects and non-image responses", async 
 
   const htmlGet = loadRoute(async () => new Response("not an image", { headers: { "content-type": "text/html" } }))
   const htmlResponse = await htmlGet(request("https://upload.wikimedia.org/image.jpg"))
-  assert.equal(htmlResponse.status, 502)
+  assert.equal(htmlResponse.status, 415)
   assert.equal(htmlResponse.headers.get("cache-control"), "no-store")
+
+  const svgGet = loadRoute(async () => new Response("<svg><script>alert(1)</script></svg>", {
+    headers: { "content-type": "image/svg+xml" },
+  }))
+  const svgResponse = await svgGet(request("https://upload.wikimedia.org/image.svg"))
+  assert.equal(svgResponse.status, 415)
 })
 
 test("image proxy rejects oversized bodies before buffering them", async () => {
