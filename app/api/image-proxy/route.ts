@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 const ALLOWED_ORIGINS = new Set([
   "https://upload.wikimedia.org",
+  "https://thumb.wikimedia.org",
   "https://en.wikipedia.org",
 ])
 const ALLOWED_IMAGE_TYPES = new Set([

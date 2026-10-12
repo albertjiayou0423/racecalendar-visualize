@@ -111,7 +111,7 @@
 | F1 实时计时 | 展开组件每 10 秒请求 `/api/live-timing`；服务端 OpenF1 获取本年度 sessions，找当前正在进行场次，再并行请求 drivers、position、laps，整理最新名次、最近圈和最快圈，不缓存。无进行中场次返回 404。差距字段按名次生成，进站/退赛/旗帜等字段使用默认值，并非真实上游指标。 |
 | WRC / FE 实时计时 | API 返回空 drivers 的官方来源占位对象。WRC 前端不轮询，直接引导官网；FE 组件仍有 10 秒轮询，但没有真实计时数据接入。 |
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
-| 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 仅代理 `upload.wikimedia.org` 与 `en.wikipedia.org` 的 HTTPS 图片，仅返回 AVIF/GIF/JPEG/PNG/WebP 等栅格图片，拒绝可执行 SVG 和其他内容类型；最多跟随 3 次同名单允许重定向，10 秒超时并限制响应体为 8 MiB；成功响应共享缓存一天并允许过期内容最多 stale 7 天，异常响应不缓存。 |
+| 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 仅代理 `upload.wikimedia.org`、`thumb.wikimedia.org` 与 `en.wikipedia.org` 的 HTTPS 图片，仅返回 AVIF/GIF/JPEG/PNG/WebP 等栅格图片，拒绝可执行 SVG 和其他内容类型；最多跟随 3 次同名单允许重定向，10 秒超时并限制响应体为 8 MiB；成功响应共享缓存一天并允许过期内容最多 stale 7 天，异常响应不缓存。 |
 | AI 预测 | POST `/api/predictions` 在数据库中原子占用每日额度后请求 NVIDIA NIM Llama 3.1 8B，输入赛事系列、名称和赛道，未实际加载历史成绩/天气进行分析；额度耗尽、数据库额度无法核验或服务 HTTP 失败时返回本地默认预测。额度按已发起的上游请求计数，失败请求也占用额度；无 `DATABASE_URL` 时额度无法持久化。 |
 | 投票/反馈 | predictions 的 GET 统计数据库投票并按匿名浏览器身份读取本人选择；POST 带 driverCode 时写投票。同一浏览器使用一年期 HttpOnly、SameSite=Lax 随机 cookie，在同一赛事内重复提交会更新而非重复计数；清除 cookie 或更换浏览器会被视为新匿名用户，不是防作弊身份认证。车手候选按赛事赛季动态读取，F1 使用 Jolpica 车手积分榜，WRC 使用官网车手积分榜，FE 使用官网车手积分榜；历史投票代码仍显示原标签。反馈通过 `/api/feedback` 写入/读取 Neon。它们不属于赛历上游抓取。 |
 

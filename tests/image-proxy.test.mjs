@@ -45,21 +45,21 @@ test("image proxy validates input before making an upstream request", async () =
   assert.equal(fetches, 0)
 })
 
-test("image proxy follows only allowlisted HTTPS redirects and caches valid images", async () => {
+test("image proxy allows official thumbnail URLs and only follows allowlisted HTTPS redirects", async () => {
   const requested = []
   const get = loadRoute(async (url, init) => {
     requested.push({ url: String(url), redirect: init.redirect })
     if (requested.length === 1) {
-      return new Response(null, { status: 302, headers: { location: "https://upload.wikimedia.org/image.jpg" } })
+      return new Response(null, { status: 302, headers: { location: "https://upload.wikimedia.org/image.png" } })
     }
-    return new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg; charset=binary" } })
+    return new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/png; charset=binary" } })
   })
 
-  const response = await get(request("https://en.wikipedia.org/wiki/Image.jpg"))
+  const response = await get(request("https://thumb.wikimedia.org/wikipedia/commons/thumb/example.png"))
   assert.equal(response.status, 200)
   assert.deepEqual(requested.map((entry) => entry.redirect), ["manual", "manual"])
   assert.equal(new URL(requested[1].url).origin, "https://upload.wikimedia.org")
-  assert.equal(response.headers.get("content-type"), "image/jpeg")
+  assert.equal(response.headers.get("content-type"), "image/png")
   assert.equal(response.headers.get("x-content-type-options"), "nosniff")
   assert.match(response.headers.get("cache-control"), /s-maxage=86400/)
   assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [1, 2, 3])
