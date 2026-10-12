@@ -99,7 +99,7 @@ export default function StandingsPage() {
         </div>
       </header>
 
-      <div data-guide="standings-tabs" className="flex gap-2 rounded-lg border border-border bg-card p-1">
+      <div data-guide="standings-tabs" className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-card p-1 sm:flex">
         <button
           onClick={() => setTab("drivers")}
           className={cn(
