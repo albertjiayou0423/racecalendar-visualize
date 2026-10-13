@@ -29,7 +29,7 @@
 
 ## 代码地图
 
-- `app/`：页面；`app/api/`：服务端接口。
+- `app/`：页面；`app/api/`：服务端接口，`app/api/f1-standings/route.ts` 为带超时和缓存的 Jolpica F1 积分榜适配。
 - `components/schedule-view.tsx`：首页数据请求、离线缓存、筛选和视图。
 - `lib/types.ts`：`RaceEvent`、`RaceSession`、`ScheduleResponse` 数据契约。
 - `lib/fetchers.ts`：F1 / FE 适配，重新导出 WRC 获取函数。
