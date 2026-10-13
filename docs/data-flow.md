@@ -6,7 +6,7 @@
 
 `/api/schedule` 使用 `connection()` 限定运行时获取，构建不会预抓取赛季。`app/page.tsx` 只提供服务器时间给 `ScheduleView`，没有服务端预取赛历。首页客户端通过 SWR 请求 `GET /api/schedule`。SWR 关闭焦点刷新，没有设置定时轮询；每秒更新的是倒计时，不是赛历数据。
 
-首页 fetcher 在 HTTP 成功后将返回 JSON 写入 localStorage 的 `schedule-cache`。网络错误或非 2xx 时读取该缓存，增加 `offline=true`。接口返回 200 但某系列 `ok=false` 不触发这里的离线回退。
+首页 fetcher 将每个 `ok=true` 且含有赛事的系列分别保存在 localStorage 的 `schedule-cache-v2` 中。接口返回 200 但某系列失败或没有赛事时，不会用失败/估算结果覆盖该系列的成功缓存；页面用本机该系列最近一次成功数据补齐，并在来源栏以“本机缓存”和悬浮说明标出缓存时间及本次获取状态。其他成功系列仍正常更新。网络错误或非 2xx 时，从各系列缓存组合页面数据并增加 `offline=true`。旧版完整响应缓存只迁移其中 `ok=true` 且有赛事的系列。
 
 赛事详情页也请求 `/api/schedule`，再找匹配 ID；其请求不复用首页的 localStorage fetcher。
 
@@ -19,7 +19,7 @@
 5. 人工覆盖使用一次 getAllOverrides 查询后按事件 ID 合并，保持顶层浅合并和 F1 图片匹配行为。
 6. 返回 events、sources、生成响应时间 fetchedAt；sources.note 包含快照时间。
 
-首页挂载后从 localStorage 恢复上次赛历，在网络更新期间继续显示；缓存不意味着处于离线模式。后台编辑后的最新覆盖在下一次接口读取时生效。
+首页挂载后从 localStorage 恢复各系列最近成功的赛历，在网络更新期间继续显示；缓存不意味着处于离线模式。来源栏会用琥珀色标记本机缓存数据，鼠标悬浮可查看上次成功时间和当前请求结果。后台编辑后的最新覆盖在下一次接口读取时生效。浏览器缓存仅在本机保存；服务端数据库快照和此缓存相互独立。
 
 `refreshSeries` 使用共用 `fetchWithSnapshot`：上游抛异常、返回 ok=false 或成功空列表时，读取最近成功快照；没有可用快照时保留失败结果（WRC 可含估计数据）。失败结果不写入快照，也不增加计数。新数据获取成功但数据库保存失败时显式标记 persistenceError，后台不会假报持久化成功。
 

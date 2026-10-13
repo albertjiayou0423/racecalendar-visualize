@@ -85,6 +85,10 @@ export interface ScheduleResponse {
     label: string
     ok: boolean
     note?: string
+    /** Client-only metadata indicating this series is displayed from local last-known-good data. */
+    cached?: boolean
+    /** ISO timestamp for the locally cached successful series data. */
+    cacheFetchedAt?: string
   }[]
   /** 数据生成时间（UTC ISO） */
   fetchedAt: string

@@ -40,6 +40,7 @@
 - `lib/admin-session.ts` / `lib/admin-auth.ts`：签名管理员会话及服务端授权。
 - `app/api/admin/database/route.ts` / `components/database-inspector.tsx`：业务表只读检查。
 - `lib/fetch-with-snapshot.ts` / `lib/schedule-fetch.ts`：首页与后台共用的失败回退、成功持久化及计数策略。
+- `lib/client-schedule-cache.ts`：浏览器端按系列保存最近成功赛历、兼容旧缓存并合并部分失败响应。
 - `components/client-crawl.tsx` / `app/api/client-crawl/route.ts` / `lib/client-crawl.ts` / `lib/client-crawl-store.ts`：访客网络辅助采集、任务令牌、自动补缺和事务持久化；细节见 `docs/client-crawl.md`。
 - `lib/tz.ts`、`lib/format.ts`：UTC 转换和北京时间展示。
 - `public/sw.js`：PWA 缓存；`public/circuits/`：实际使用的赛道图。
