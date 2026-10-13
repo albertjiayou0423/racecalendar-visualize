@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Cloud, CloudRain, CloudSnow, Sun, CloudSun, RefreshCw, Droplets } from "lucide-react"
+import { sessionWeatherDate } from "@/lib/weather-date"
 
 interface WeatherStripProps {
   city: string
@@ -43,7 +44,7 @@ export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStrip
     () => JSON.parse(sessionsKey) as { utc: string; name: string }[],
     [sessionsKey]
   )
-  const firstSessionUtc = weatherSessions[0]?.utc ?? ""
+  const firstSessionUtc = weatherSessions.find(({ utc }) => sessionWeatherDate(utc))?.utc ?? ""
 
   useEffect(() => {
     let cancelled = false
@@ -89,8 +90,8 @@ export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStrip
   // 按 session 日期匹配天气
   const sessionWeather = useMemo(() => {
     return weatherSessions.map((s) => {
-      const dateStr = new Date(s.utc).toISOString().slice(0, 10)
-      const match = daily.find((d) => d.date === dateStr)
+      const dateStr = sessionWeatherDate(s.utc)
+      const match = dateStr ? daily.find((d) => d.date === dateStr) : undefined
       return { session: s, weather: match }
     })
   }, [weatherSessions, daily])
