@@ -266,21 +266,14 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                   {showCircuitMap ? "收起赛道图" : "展开赛道图"}
                   <ChevronDown className={cn("size-3.5 transition-transform duration-200", showCircuitMap && "rotate-180")} />
                 </button>
-                <div
-                  id={`circuit-map-${event.id}`}
-                  className={cn(
-                    "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
-                    showCircuitMap ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-                  )}
-                  aria-hidden={!showCircuitMap}
-                >
-                  <div className="min-h-0 overflow-hidden pt-2">
+                {showCircuitMap && (
+                  <div id={`circuit-map-${event.id}`} className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none">
                     <CircuitImage
                       src={event.circuitImageUrl}
                       alt={`${event.circuit} 赛道平面图`}
                     />
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
