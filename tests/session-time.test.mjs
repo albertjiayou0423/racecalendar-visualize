@@ -17,7 +17,6 @@ import { createRequire } from 'node:module'
 import ts from 'typescript'
 import { renderToStaticMarkup } from 'react-dom/server'
 import React from 'react'
-import { timelineDays } from '../lib/timeline.ts'
 const require = createRequire(import.meta.url)
 function timeline(event) {
   const source = ts.transpileModule(fs.readFileSync('components/session-timeline.tsx', 'utf8'), {
@@ -26,8 +25,7 @@ function timeline(event) {
   const exports = {}
   vm.runInNewContext(source, {
     exports, require: name => name === '@/lib/session-time' ? { isEstimatedWrcSession }
-      : name === '@/lib/timeline' ? { timelineDays }
-      : name === '@/lib/format' ? { BEIJING_TZ: 'Asia/Shanghai', formatDateTime: () => 'CONFIRMED_TIME', formatDate: () => 'DATE', formatTime: () => 'TIME', countdown: () => ({ days: 1, hours: 0 }) }
+      : name === '@/lib/format' ? { BEIJING_TZ: 'Asia/Shanghai', formatDateTime: () => 'CONFIRMED_TIME' }
       : name === '@/lib/utils' ? { cn: (...args) => args.filter(Boolean).join(' ') }
       : name === '@/components/weather-strip' ? { WeatherStrip: () => null } : require(name),
   })
