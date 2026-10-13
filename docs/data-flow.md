@@ -108,7 +108,7 @@
 | WRC 积分榜 | `/standings` 经 `/api/wrc-standings` 服务端读取 WRC 官网公开端点。页面源码加载 `p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/seasons.json`，按赛季读取 `season-detail.json?seasonId=…` 获取各分类 `championshipId`，再合并 `championship-detail.json?championshipId=…&seasonId=…` 的参赛者资料与 `championship-overall-results.json?championshipId=…&seasonId=…` 的积分、名次。整条上游请求链共享 9 秒超时，超时返回 502 且不缓存失败结果；成功响应由服务端与 CDN 缓存一小时。页面可切换赛季及车手、领航员、制造商等分类。该端点为官网前端使用的非公开文档 API，格式或访问策略变化时可能需要调整。 |
 | FE 积分榜 | `/api/fe-drivers` 读取 Formula E 官网公开积分榜；默认使用官网当前赛季，也可通过 `season` 参数读取赛事对应的历史/指定赛季。页面 HTML 结构变化或上游不可用时返回 502。 |
 | WRC 赛果 | 暂无完整赛果获取链路；积分榜已接入 WRC 官网公开接口。实时计时链接仍供用户前往官网查看。 |
-| F1 实时计时 | 展开组件每 10 秒请求 `/api/live-timing`；服务端 OpenF1 获取本年度 sessions，找当前正在进行场次，再并行请求 drivers、position、laps，整理最新名次、最近圈和最快圈，不缓存。无进行中场次返回 404。差距字段按名次生成，进站/退赛/旗帜等字段使用默认值，并非真实上游指标。 |
+| F1 实时计时 | 展开组件请求 `/api/live-timing`，每次请求结束后再计时刷新，避免请求慢时重叠；收起组件会取消浏览器请求。服务端用同一个 8 秒截止时间访问 OpenF1：获取本年度 sessions，找到当前场次后并行请求 drivers、position、laps。成功数据 CDN 缓存 5 秒并可后台保留旧响应 10 秒；无活动场次的 404 缓存 30 秒并提示客户端 30 秒后重试。整理最新名次、最近圈和最快圈。差距字段按名次生成，进站/退赛/旗帜等字段使用默认值，并非真实上游指标。 |
 | WRC / FE 实时计时 | API 返回空 drivers 的官方来源占位对象。WRC 前端不轮询，直接引导官网；FE 组件仍有 10 秒轮询，但没有真实计时数据接入。 |
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
 | 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 仅代理 `upload.wikimedia.org`、`thumb.wikimedia.org` 与 `en.wikipedia.org` 的 HTTPS 图片，仅返回 AVIF/GIF/JPEG/PNG/WebP 等栅格图片，拒绝可执行 SVG 和其他内容类型；最多跟随 3 次同名单允许重定向，10 秒超时并限制响应体为 8 MiB；成功响应共享缓存一天并允许过期内容最多 stale 7 天，异常响应不缓存。 |

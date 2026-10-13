@@ -25,50 +25,66 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<number>(0)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const requestRef = useRef<AbortController | null>(null)
 
-  const fetchData = useCallback(async () => {
-    if (playground) { setError("预览模式不请求实时计时"); return }
-    if (!isExpanded) return
+  const fetchData = useCallback(async (): Promise<number> => {
+    if (playground) { setError("预览模式不请求实时计时"); return 0 }
+    if (!isExpanded) return 0
     // WRC 无真实计时 API，直接走官方链接兜底，避免无效轮询
     if (series === "WRC") {
       setData(null)
       setLoading(false)
-      return
+      return 0
     }
+    if (requestRef.current && !requestRef.current.signal.aborted) return 10000
+    const controller = new AbortController()
+    requestRef.current = controller
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/live-timing?series=${series}`)
+      const res = await fetch(`/api/live-timing?series=${series}`, { signal: controller.signal })
       if (res.ok) {
         const json = await res.json()
         setData(json)
         setLastRefresh(Date.now())
+        return 10000
       } else {
         const err = await res.json().catch(() => ({}))
         setError(err.error || "获取数据失败")
+        const retryAfter = Number(res.headers.get("Retry-After"))
+        return Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 120000) : 30000
       }
     } catch (err) {
-      setError("网络错误")
+      if (!controller.signal.aborted) setError("网络错误")
+      return 30000
     } finally {
-      setLoading(false)
+      if (requestRef.current === controller) {
+        requestRef.current = null
+        setLoading(false)
+      }
     }
   }, [series, isExpanded, playground])
 
-  // 首次加载 + 轮询（WRC 不轮询）
+  // 请求完成后再安排下一次刷新，避免慢响应叠加；收起或卸载时取消当前请求。
   useEffect(() => {
-    if (isExpanded) {
-      fetchData()
-      if (series !== "WRC" && !playground) {
-        intervalRef.current = setInterval(fetchData, 10000) // 每10秒刷新
+    if (!isExpanded) return
+    let active = true
+    const poll = async () => {
+      const delay = await fetchData()
+      if (active && delay > 0 && series !== "WRC" && !playground) {
+        intervalRef.current = setTimeout(poll, delay)
       }
     }
+    void poll()
     return () => {
+      active = false
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        clearTimeout(intervalRef.current)
         intervalRef.current = null
       }
+      requestRef.current?.abort()
     }
-  }, [isExpanded, fetchData, series])
+  }, [isExpanded, fetchData, series, playground])
 
   if (!isExpanded) return null
 

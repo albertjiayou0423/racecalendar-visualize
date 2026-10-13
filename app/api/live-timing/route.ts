@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import type { LiveTimingData, LiveTimingDriver, OpenF1Session, OpenF1Driver, OpenF1Position, OpenF1Lap } from "@/lib/live-timing"
 
 const OPENF1_BASE = "https://api.openf1.org/v1"
+const UPSTREAM_TIMEOUT_MS = 8000
 
-async function fetchOpenF1<T>(endpoint: string, params?: Record<string, string>): Promise<T | null> {
+async function fetchOpenF1<T>(endpoint: string, params: Record<string, string> | undefined, signal: AbortSignal): Promise<T | null> {
   try {
     const url = new URL(`${OPENF1_BASE}/${endpoint}`)
     if (params) {
@@ -11,7 +12,7 @@ async function fetchOpenF1<T>(endpoint: string, params?: Record<string, string>)
         if (value) url.searchParams.set(key, value)
       })
     }
-    const res = await fetch(url.toString(), { next: { revalidate: 0 } })
+    const res = await fetch(url.toString(), { next: { revalidate: 0 }, signal })
     if (!res.ok) return null
     return await res.json() as T
   } catch (err) {
@@ -21,9 +22,10 @@ async function fetchOpenF1<T>(endpoint: string, params?: Record<string, string>)
 }
 
 async function getF1LiveTiming(): Promise<LiveTimingData | null> {
+  const upstreamSignal = AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
   const sessions = await fetchOpenF1<OpenF1Session[]>("sessions", {
     year: new Date().getFullYear().toString(),
-  })
+  }, upstreamSignal)
 
   if (!sessions || sessions.length === 0) return null
 
@@ -37,9 +39,9 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
   const sessionKey = activeSession.session_key.toString()
 
   const [drivers, positions, laps] = await Promise.all([
-    fetchOpenF1<OpenF1Driver[]>("drivers", { session_key: sessionKey }),
-    fetchOpenF1<OpenF1Position[]>("position", { session_key: sessionKey }),
-    fetchOpenF1<OpenF1Lap[]>("laps", { session_key: sessionKey }),
+    fetchOpenF1<OpenF1Driver[]>("drivers", { session_key: sessionKey }, upstreamSignal),
+    fetchOpenF1<OpenF1Position[]>("position", { session_key: sessionKey }, upstreamSignal),
+    fetchOpenF1<OpenF1Lap[]>("laps", { session_key: sessionKey }, upstreamSignal),
   ])
 
   if (!drivers || drivers.length === 0) return null
@@ -174,10 +176,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (!data) {
-      return NextResponse.json({ error: "No live timing data available" }, { status: 404 })
+      return NextResponse.json({ error: "No live timing data available" }, {
+        status: 404,
+        headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30", "Retry-After": "30" },
+      })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
+    })
   } catch (err) {
     console.error("Live timing error:", err)
     return NextResponse.json({ error: "Failed to fetch live timing" }, { status: 500 })
