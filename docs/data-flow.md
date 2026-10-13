@@ -104,11 +104,11 @@
 | --- | --- |
 | F1 赛果 | `/api/results` 请求 Jolpica `/{season}/results.json?limit=1000`，缓存一小时；首页上一场赛果直接从浏览器请求 current/last/results.json。 |
 | FE 赛果 | `/api/results` 从 championships 匹配赛季，再取 races，逐场顺序请求 results，单场失败跳过，缓存一小时。 |
-| F1 积分榜 | standings 页面直接从浏览器请求 Jolpica current/driverStandings 或 constructorStandings，不经过 Neon。 |
+| F1 积分榜 | `/standings` 页面经 `/api/f1-standings` 服务端请求 Jolpica current/driverStandings 或 constructorStandings；单次上游超时 10 秒，成功缓存一小时，失败可重试，不使用 Neon。 |
 | WRC 积分榜 | `/standings` 经 `/api/wrc-standings` 服务端读取 WRC 官网公开端点。页面源码加载 `p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/seasons.json`，按赛季读取 `season-detail.json?seasonId=…` 获取各分类 `championshipId`，再合并 `championship-detail.json?championshipId=…&seasonId=…` 的参赛者资料与 `championship-overall-results.json?championshipId=…&seasonId=…` 的积分、名次。整条上游请求链共享 9 秒超时，超时返回 502 且不缓存失败结果；成功响应由服务端与 CDN 缓存一小时。页面可切换赛季及车手、领航员、制造商等分类。该端点为官网前端使用的非公开文档 API，格式或访问策略变化时可能需要调整。 |
 | FE 积分榜 | `/api/fe-drivers` 读取 Formula E 官网公开积分榜；默认使用官网当前赛季，也可通过 `season` 参数读取赛事对应的历史/指定赛季。页面 HTML 结构变化或上游不可用时返回 502。 |
 | WRC 赛果 | 暂无完整赛果获取链路；积分榜已接入 WRC 官网公开接口。实时计时链接仍供用户前往官网查看。 |
-| F1 实时计时 | 展开组件请求 `/api/live-timing`，每次请求结束后再计时刷新，避免请求慢时重叠；收起组件会取消浏览器请求。服务端用同一个 8 秒截止时间访问 OpenF1：获取本年度 sessions，找到当前场次后并行请求 drivers、position、laps。成功数据 CDN 缓存 5 秒并可后台保留旧响应 10 秒；无活动场次的 404 缓存 30 秒并提示客户端 30 秒后重试。整理最新名次、最近圈和最快圈。差距字段按名次生成，进站/退赛/旗帜等字段使用默认值，并非真实上游指标。 |
+| F1 实时计时 | 展开组件请求 `/api/live-timing`，每次请求结束后再计时刷新，避免请求慢时重叠；收起组件会取消浏览器请求。服务端用同一个 8 秒截止时间访问 OpenF1：获取本年度 sessions，找到当前场次后并行请求 drivers、position、laps、intervals、pit、race_control。名次、圈速、圈差和进站次数来自对应上游字段，不再按名次伪造差距或用 `0` 冒充缺失数据；车手退赛状态当前无法从实时源可靠确定，显示未确认。旗帜/安全车状态按最新 race control 消息归纳，源不可用时保持未知。成功数据 CDN 缓存 5 秒并可后台保留旧响应 10 秒；无活动场次的 404 缓存 30 秒并提示客户端 30 秒后重试。[OpenF1 文档说明其实时数据需要付费订阅](https://openf1.org/docs/)，当前部署未配置其认证，因此实时阶段可能只能显示官方页面回退。 |
 | WRC / FE 实时计时 | API 返回空 drivers 的官方来源占位对象。WRC 前端不轮询，直接引导官网；FE 组件仍有 10 秒轮询，但没有真实计时数据接入。 |
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
 | 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 仅代理 `upload.wikimedia.org`、`thumb.wikimedia.org` 与 `en.wikipedia.org` 的 HTTPS 图片，仅返回 AVIF/GIF/JPEG/PNG/WebP 等栅格图片，拒绝可执行 SVG 和其他内容类型；最多跟随 3 次同名单允许重定向，10 秒超时并限制响应体为 8 MiB；成功响应共享缓存一天并允许过期内容最多 stale 7 天，异常响应不缓存。 |

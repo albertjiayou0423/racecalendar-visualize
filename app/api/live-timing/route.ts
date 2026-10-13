@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import type { LiveTimingData, LiveTimingDriver, OpenF1Session, OpenF1Driver, OpenF1Position, OpenF1Lap } from "@/lib/live-timing"
+import { formatGap } from "@/lib/live-timing"
+import type { LiveTimingData, LiveTimingDriver, OpenF1Session, OpenF1Driver, OpenF1Position, OpenF1Lap, OpenF1Interval, OpenF1Pit, OpenF1RaceControl } from "@/lib/live-timing"
 
 const OPENF1_BASE = "https://api.openf1.org/v1"
 const UPSTREAM_TIMEOUT_MS = 8000
@@ -38,10 +39,13 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
 
   const sessionKey = activeSession.session_key.toString()
 
-  const [drivers, positions, laps] = await Promise.all([
+  const [drivers, positions, laps, intervals, pits, raceControl] = await Promise.all([
     fetchOpenF1<OpenF1Driver[]>("drivers", { session_key: sessionKey }, upstreamSignal),
     fetchOpenF1<OpenF1Position[]>("position", { session_key: sessionKey }, upstreamSignal),
     fetchOpenF1<OpenF1Lap[]>("laps", { session_key: sessionKey }, upstreamSignal),
+    fetchOpenF1<OpenF1Interval[]>("intervals", { session_key: sessionKey }, upstreamSignal),
+    fetchOpenF1<OpenF1Pit[]>("pit", { session_key: sessionKey }, upstreamSignal),
+    fetchOpenF1<OpenF1RaceControl[]>("race_control", { session_key: sessionKey }, upstreamSignal),
   ])
 
   if (!drivers || drivers.length === 0) return null
@@ -70,11 +74,24 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
     })
   }
 
+  const latestIntervals = new Map<number, OpenF1Interval>()
+  if (intervals) {
+    intervals.forEach((item) => {
+      const existing = latestIntervals.get(item.driver_number)
+      if (!existing || new Date(item.date) > new Date(existing.date)) latestIntervals.set(item.driver_number, item)
+    })
+  }
+
+  const pitStops = new Map<number, number>()
+  if (pits) pits.forEach((item) => pitStops.set(item.driver_number, (pitStops.get(item.driver_number) ?? 0) + 1))
+  const raceFlags = getRaceFlags(raceControl)
+
   const driverList: LiveTimingDriver[] = drivers
     .map((d) => {
       const pos = latestPositions.get(d.driver_number)
       const lap = latestLaps.get(d.driver_number)
       const bestLap = bestLaps.get(d.driver_number)
+      const interval = latestIntervals.get(d.driver_number)
 
       return {
         position: pos?.position ?? 0,
@@ -83,23 +100,17 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
         driverName: d.broadcast_name || d.full_name,
         team: d.team_name,
         teamColor: d.team_colour ? `#${d.team_colour}` : undefined,
-        gap: "—",
-        interval: "—",
+        gap: formatGap(interval?.gap_to_leader),
+        interval: formatGap(interval?.interval),
         lastLap: lap?.lap_duration ? formatLapTime(lap.lap_duration) : "—",
         bestLap: bestLap ? formatLapTime(bestLap) : "—",
         laps: lap?.lap_number ?? 0,
-        pitStops: 0,
-        retired: false,
+        pitStops: pits ? pitStops.get(d.driver_number) ?? 0 : null,
+        retired: null,
       }
     })
     .filter((d) => d.position > 0)
     .sort((a, b) => a.position - b.position)
-
-  if (driverList.length > 1) {
-    for (let i = 1; i < driverList.length; i++) {
-      driverList[i].gap = `+${i * 2}.5`
-    }
-  }
 
   return {
     series: "F1",
@@ -107,13 +118,34 @@ async function getF1LiveTiming(): Promise<LiveTimingData | null> {
     status: "live",
     totalLaps: 0,
     currentLap: Math.max(...driverList.map((d) => d.laps), 0),
-    safetyCar: false,
-    virtualSafetyCar: false,
-    redFlag: false,
+    safetyCar: raceFlags.safetyCar,
+    virtualSafetyCar: raceFlags.virtualSafetyCar,
+    redFlag: raceFlags.redFlag,
     drivers: driverList,
     lastUpdated: new Date().toISOString(),
     source: "OpenF1",
   }
+}
+
+function getRaceFlags(events: OpenF1RaceControl[] | null) {
+  const flags = { safetyCar: null as boolean | null, virtualSafetyCar: null as boolean | null, redFlag: null as boolean | null }
+  if (!events) return flags
+  const sorted = [...events].sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+  for (const event of sorted) {
+    const message = event.message.toUpperCase()
+    if (event.category === "SafetyCar") {
+      const isVirtual = message.includes("VIRTUAL SAFETY CAR")
+      const key = isVirtual ? "virtualSafetyCar" : "safetyCar"
+      if (message.includes("DEPLOYED")) flags[key] = true
+      else if (/\b(IN THIS LAP|ENDING|ENDED|WITHDRAWN)\b/.test(message)) flags[key] = false
+    }
+    if (event.category === "Flag" && (event.scope === "Track" || event.scope === null)) {
+      const value = (event.flag ?? "").toUpperCase()
+      if (value === "RED" || message.includes("RED FLAG")) flags.redFlag = true
+      else if (value === "GREEN" || value === "CHEQUERED") flags.redFlag = false
+    }
+  }
+  return flags
 }
 
 function formatLapTime(seconds: number): string {

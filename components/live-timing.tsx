@@ -340,7 +340,7 @@ function DriverRow({ driver, index }: { driver: LiveTimingDriver; index: number 
         {driver.bestLap}
       </td>
       <td className="px-4 py-2 text-right font-mono tabular-nums">{driver.laps}</td>
-      <td className="px-4 py-2 text-right">{driver.pitStops}</td>
+      <td className="px-4 py-2 text-right">{driver.pitStops ?? "—"}</td>
     </tr>
   )
 }
