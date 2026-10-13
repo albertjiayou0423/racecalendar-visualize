@@ -6,6 +6,7 @@ import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
 import type { ScheduleResponse, Series } from "@/lib/types"
+import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 import {
     BEIJING_TZ,
     SERIES_META,
@@ -24,28 +25,49 @@ import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
-const CACHE_KEY = "schedule-cache"
+const CACHE_KEY = "schedule-cache-v2"
+const LEGACY_CACHE_KEY = "schedule-cache"
+
+function readScheduleCache() {
+  try {
+    const current = parseClientScheduleCache(localStorage.getItem(CACHE_KEY))
+    if (current) return current
+    const legacy = parseClientScheduleCache(localStorage.getItem(LEGACY_CACHE_KEY))
+    if (legacy) {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(legacy))
+        localStorage.removeItem(LEGACY_CACHE_KEY)
+      } catch { /* Keep using the legacy cache if storage is read-only. */ }
+    }
+    return legacy
+  } catch {
+    return null
+  }
+}
 
 const fetcher = async (url: string): Promise<ScheduleResponse> => {
   try {
     const res = await fetch(url)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json() as ScheduleResponse
-    // 成功获取数据，保存到 localStorage
+    if (!Array.isArray(data?.events) || !Array.isArray(data?.sources) || typeof data?.fetchedAt !== "string") {
+      throw new Error("Invalid schedule response")
+    }
+    const { response, cache } = mergeScheduleWithClientCache(data, readScheduleCache())
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+      localStorage.removeItem(LEGACY_CACHE_KEY)
     } catch {
       // localStorage 不可用时忽略
     }
-    return data
+    return response
   } catch (err) {
     // 网络请求失败，尝试从缓存读取
     try {
-      const cached = localStorage.getItem(CACHE_KEY)
-      if (cached) {
-        const data = JSON.parse(cached) as ScheduleResponse
+      const cache = readScheduleCache()
+      if (cache) {
+        const data = scheduleFromClientCache(cache, true)
         // 标记为离线模式
-        ;(data as { offline?: boolean }).offline = true
         return data
       }
     } catch {
@@ -122,12 +144,12 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
       <span className="font-medium text-foreground">数据来源：</span>
       {data.sources.map((s) => (
-        <span key={s.series} className="flex items-center gap-1.5">
+        <span key={s.series} className="flex items-center gap-1.5" title={s.note || s.label} aria-label={`${SERIES_META[s.series].label}：${s.note || s.label}`}>
           <span
-            className={cn("size-1.5 rounded-full", s.ok ? "bg-emerald-400" : "bg-destructive")}
+            className={cn("size-1.5 rounded-full", s.cached ? "bg-amber-400" : s.ok ? "bg-emerald-400" : "bg-destructive")}
             aria-hidden
           />
-          {SERIES_META[s.series].label} · {s.label}
+          {SERIES_META[s.series].label} · {s.label}{s.cached ? " · 本机缓存" : ""}
         </span>
       ))}
     </div>
@@ -142,8 +164,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   useEffect(() => {
     if (playground) return
     try {
-      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null")
-      if (Array.isArray(cached?.events) && Array.isArray(cached?.sources)) setCachedSchedule(cached)
+      const cache = readScheduleCache()
+      if (cache) setCachedSchedule(scheduleFromClientCache(cache))
     } catch { /* Invalid or unavailable browser cache. */ }
   }, [playground])
   const request = useSWR(playground ? null : "/api/schedule", fetcher, {

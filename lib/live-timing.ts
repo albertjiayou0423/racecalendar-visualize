@@ -13,8 +13,8 @@ export interface LiveTimingDriver {
   bestLap: string
   tyre?: string
   laps: number
-  pitStops: number
-  retired: boolean
+  pitStops: number | null
+  retired: boolean | null
 }
 
 export interface LiveTimingData {
@@ -27,9 +27,9 @@ export interface LiveTimingData {
   trackTemp?: number
   airTemp?: number
   weather?: string
-  safetyCar: boolean
-  virtualSafetyCar: boolean
-  redFlag: boolean
+  safetyCar: boolean | null
+  virtualSafetyCar: boolean | null
+  redFlag: boolean | null
   drivers: LiveTimingDriver[]
   lastUpdated: string
   source: string
@@ -64,6 +64,30 @@ export interface OpenF1Position {
   driver_number: number
   meeting_key: number
   position: number
+  session_key: number
+}
+
+export interface OpenF1Interval {
+  date: string
+  driver_number: number
+  gap_to_leader: number | string | null
+  interval: number | string | null
+  session_key: number
+}
+
+export interface OpenF1Pit {
+  date: string
+  driver_number: number
+  lap_number: number
+  session_key: number
+}
+
+export interface OpenF1RaceControl {
+  category: string
+  date: string
+  flag: string | null
+  message: string
+  scope: string | null
   session_key: number
 }
 
@@ -109,8 +133,10 @@ export interface OpenF1Session {
 }
 
 // 格式化时间差
-export function formatGap(seconds: number | null): string {
+export function formatGap(seconds: number | string | null | undefined): string {
   if (seconds === null || seconds === undefined) return "—"
+  if (typeof seconds === "string") return seconds.trim() || "—"
+  if (!Number.isFinite(seconds)) return "—"
   if (seconds === 0) return "—"
   const abs = Math.abs(seconds)
   const mins = Math.floor(abs / 60)

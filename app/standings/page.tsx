@@ -38,42 +38,42 @@ export default function StandingsPage() {
   const [constructors, setConstructors] = useState<ConstructorStanding[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const [season, setSeason] = useState("2026")
   const [round, setRound] = useState("")
 
   useEffect(() => {
     if (tab === "drivers" || tab === "constructors") {
-      fetchStandings()
+      const controller = new AbortController()
+      void fetchStandings(tab, controller.signal)
+      return () => controller.abort()
     }
-  }, [tab])
+  }, [tab, retryCount])
 
-  const fetchStandings = async () => {
+  const fetchStandings = async (standingTab: "drivers" | "constructors", signal?: AbortSignal) => {
     setLoading(true)
     setError(false)
     try {
-      const endpoint = tab === "drivers" ? "driverStandings" : "constructorStandings"
-      const res = await fetch(
-        `https://api.jolpi.ca/ergast/f1/current/${endpoint}.json?limit=50`
-      )
+      const res = await fetch(`/api/f1-standings?type=${standingTab}`, { signal })
       const json = await res.json()
-      const table = json?.MRData?.StandingsTable
-      const standings = table?.StandingsLists?.[0]
+      if (!res.ok || !json?.ok) throw new Error("No data")
 
-      if (!standings) throw new Error("No data")
+      setSeason(json.season || String(new Date().getFullYear()))
+      setRound(json.round || "")
 
-      setSeason(table.season || "2026")
-      setRound(standings.round || "")
-
-      if (tab === "drivers") {
-        setDrivers(standings.DriverStandings || [])
+      if (standingTab === "drivers") {
+        if (!Array.isArray(json.drivers)) throw new Error("Invalid driver standings")
+        setDrivers(json.drivers)
       } else {
-        setConstructors(standings.ConstructorStandings || [])
+        if (!Array.isArray(json.constructors)) throw new Error("Invalid constructor standings")
+        setConstructors(json.constructors)
       }
     } catch (e) {
+      if (signal?.aborted) return
       console.error("Failed to fetch standings:", e)
       setError(true)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
@@ -160,41 +160,53 @@ export default function StandingsPage() {
           加载积分榜数据…
         </div>
       ) : error ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 py-10 text-sm text-foreground">
-          <TriangleAlert className="size-5 text-destructive" />
-          数据加载失败，请稍后重试。
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 py-10 text-sm text-foreground">
+          <div className="flex items-center gap-2"><TriangleAlert className="size-5 text-destructive" />数据加载失败，请稍后重试。</div>
+          <button type="button" onClick={() => setRetryCount((count) => count + 1)} className="rounded-md border border-border px-3 py-1.5 text-xs transition-colors hover:bg-secondary">重新加载</button>
         </div>
       ) : tab === "drivers" ? (
-        <>
-          <StandingsChart
-            title="F1 车手积分对比"
-            data={drivers.slice(0, 10).map((d) => ({
-              name: `${d.Driver.givenName} ${d.Driver.familyName}`,
-              shortName: d.Driver.code,
-              points: Number(d.points),
-              wins: Number(d.wins),
-            }))}
-          />
-          <DriverStandingsList data={drivers} />
-        </>
+        drivers.length === 0 ? <EmptyF1Standings category="车手" /> : (
+          <>
+            <StandingsChart
+              title="F1 车手积分对比"
+              data={drivers.slice(0, 10).map((d) => ({
+                name: `${d.Driver.givenName} ${d.Driver.familyName}`,
+                shortName: d.Driver.code,
+                points: Number(d.points),
+                wins: Number(d.wins),
+              }))}
+            />
+            <DriverStandingsList data={drivers} />
+          </>
+        )
       ) : (
-        <>
-          <StandingsChart
-            title="F1 车队积分对比"
-            data={constructors.slice(0, 10).map((c) => ({
-              name: c.Constructor.name,
-              shortName: c.Constructor.name.split(" ")[0],
-              points: Number(c.points),
-              wins: Number(c.wins),
-            }))}
-          />
-          <ConstructorStandingsList data={constructors} />
-        </>
+        constructors.length === 0 ? <EmptyF1Standings category="车队" /> : (
+          <>
+            <StandingsChart
+              title="F1 车队积分对比"
+              data={constructors.slice(0, 10).map((c) => ({
+                name: c.Constructor.name,
+                shortName: c.Constructor.name.split(" ")[0],
+                points: Number(c.points),
+                wins: Number(c.wins),
+              }))}
+            />
+            <ConstructorStandingsList data={constructors} />
+          </>
+        )
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
         {tab === "wrc" ? null : tab === "fe" ? "数据来源：Formula E 官网公开积分榜" : "数据来源：Jolpica F1 API（Ergast 兼容）"}
       </footer>
+    </div>
+  )
+}
+
+function EmptyF1Standings({ category }: { category: "车手" | "车队" }) {
+  return (
+    <div role="status" className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+      当前赛季暂无 F1 {category}积分数据，官方公布后会显示在这里。
     </div>
   )
 }

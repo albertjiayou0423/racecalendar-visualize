@@ -6,7 +6,7 @@
 
 `/api/schedule` 使用 `connection()` 限定运行时获取，构建不会预抓取赛季。`app/page.tsx` 只提供服务器时间给 `ScheduleView`，没有服务端预取赛历。首页客户端通过 SWR 请求 `GET /api/schedule`。SWR 关闭焦点刷新，没有设置定时轮询；每秒更新的是倒计时，不是赛历数据。
 
-首页 fetcher 在 HTTP 成功后将返回 JSON 写入 localStorage 的 `schedule-cache`。网络错误或非 2xx 时读取该缓存，增加 `offline=true`。接口返回 200 但某系列 `ok=false` 不触发这里的离线回退。
+首页 fetcher 将每个 `ok=true` 且含有赛事的系列分别保存在 localStorage 的 `schedule-cache-v2` 中。接口返回 200 但某系列失败或没有赛事时，不会用失败/估算结果覆盖该系列的成功缓存；页面用本机该系列最近一次成功数据补齐，并在来源栏以“本机缓存”和悬浮说明标出缓存时间及本次获取状态。其他成功系列仍正常更新。网络错误或非 2xx 时，从各系列缓存组合页面数据并增加 `offline=true`。旧版完整响应缓存只迁移其中 `ok=true` 且有赛事的系列。
 
 赛事详情页也请求 `/api/schedule`，再找匹配 ID；其请求不复用首页的 localStorage fetcher。
 
@@ -19,7 +19,7 @@
 5. 人工覆盖使用一次 getAllOverrides 查询后按事件 ID 合并，保持顶层浅合并和 F1 图片匹配行为。
 6. 返回 events、sources、生成响应时间 fetchedAt；sources.note 包含快照时间。
 
-首页挂载后从 localStorage 恢复上次赛历，在网络更新期间继续显示；缓存不意味着处于离线模式。后台编辑后的最新覆盖在下一次接口读取时生效。
+首页挂载后从 localStorage 恢复各系列最近成功的赛历，在网络更新期间继续显示；缓存不意味着处于离线模式。来源栏会用琥珀色标记本机缓存数据，鼠标悬浮可查看上次成功时间和当前请求结果。后台编辑后的最新覆盖在下一次接口读取时生效。浏览器缓存仅在本机保存；服务端数据库快照和此缓存相互独立。
 
 `refreshSeries` 使用共用 `fetchWithSnapshot`：上游抛异常、返回 ok=false 或成功空列表时，读取最近成功快照；没有可用快照时保留失败结果（WRC 可含估计数据）。失败结果不写入快照，也不增加计数。新数据获取成功但数据库保存失败时显式标记 persistenceError，后台不会假报持久化成功。
 
@@ -104,14 +104,14 @@
 | --- | --- |
 | F1 赛果 | `/api/results` 请求 Jolpica `/{season}/results.json?limit=1000`，缓存一小时；首页上一场赛果直接从浏览器请求 current/last/results.json。 |
 | FE 赛果 | `/api/results` 从 championships 匹配赛季，再取 races，逐场顺序请求 results，单场失败跳过，缓存一小时。 |
-| F1 积分榜 | standings 页面直接从浏览器请求 Jolpica current/driverStandings 或 constructorStandings，不经过 Neon。 |
-| WRC 积分榜 | `/standings` 经 `/api/wrc-standings` 服务端读取 WRC 官网公开端点。页面源码加载 `p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/seasons.json`，按赛季读取 `season-detail.json?seasonId=…` 获取各分类 `championshipId`，再合并 `championship-detail.json?championshipId=…&seasonId=…` 的参赛者资料与 `championship-overall-results.json?championshipId=…&seasonId=…` 的积分、名次。API 响应由服务端与 CDN 缓存一小时；页面可切换赛季及车手、领航员、制造商等分类。该端点为官网前端使用的非公开文档 API，格式或访问策略变化时可能需要调整。 |
+| F1 积分榜 | `/standings` 页面经 `/api/f1-standings` 服务端请求 Jolpica current/driverStandings 或 constructorStandings；单次上游超时 10 秒，成功缓存一小时，失败可重试，不使用 Neon。 |
+| WRC 积分榜 | `/standings` 经 `/api/wrc-standings` 服务端读取 WRC 官网公开端点。页面源码加载 `p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/seasons.json`，按赛季读取 `season-detail.json?seasonId=…` 获取各分类 `championshipId`，再合并 `championship-detail.json?championshipId=…&seasonId=…` 的参赛者资料与 `championship-overall-results.json?championshipId=…&seasonId=…` 的积分、名次。整条上游请求链共享 9 秒超时，超时返回 502 且不缓存失败结果；成功响应由服务端与 CDN 缓存一小时。页面可切换赛季及车手、领航员、制造商等分类。该端点为官网前端使用的非公开文档 API，格式或访问策略变化时可能需要调整。 |
 | FE 积分榜 | `/api/fe-drivers` 读取 Formula E 官网公开积分榜；默认使用官网当前赛季，也可通过 `season` 参数读取赛事对应的历史/指定赛季。页面 HTML 结构变化或上游不可用时返回 502。 |
 | WRC 赛果 | 暂无完整赛果获取链路；积分榜已接入 WRC 官网公开接口。实时计时链接仍供用户前往官网查看。 |
-| F1 实时计时 | 展开组件每 10 秒请求 `/api/live-timing`；服务端 OpenF1 获取本年度 sessions，找当前正在进行场次，再并行请求 drivers、position、laps，整理最新名次、最近圈和最快圈，不缓存。无进行中场次返回 404。差距字段按名次生成，进站/退赛/旗帜等字段使用默认值，并非真实上游指标。 |
+| F1 实时计时 | 展开组件请求 `/api/live-timing`，每次请求结束后再计时刷新，避免请求慢时重叠；收起组件会取消浏览器请求。服务端用同一个 8 秒截止时间访问 OpenF1：获取本年度 sessions，找到当前场次后并行请求 drivers、position、laps、intervals、pit、race_control。名次、圈速、圈差和进站次数来自对应上游字段，不再按名次伪造差距或用 `0` 冒充缺失数据；车手退赛状态当前无法从实时源可靠确定，显示未确认。旗帜/安全车状态按最新 race control 消息归纳，源不可用时保持未知。成功数据 CDN 缓存 5 秒并可后台保留旧响应 10 秒；无活动场次的 404 缓存 30 秒并提示客户端 30 秒后重试。[OpenF1 文档说明其实时数据需要付费订阅](https://openf1.org/docs/)，当前部署未配置其认证，因此实时阶段可能只能显示官方页面回退。 |
 | WRC / FE 实时计时 | API 返回空 drivers 的官方来源占位对象。WRC 前端不轮询，直接引导官网；FE 组件仍有 10 秒轮询，但没有真实计时数据接入。 |
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
-| 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 为部分远程图片代理。 |
+| 图片 | F1 赛道图为 public 本地资源；WikipediaImage 浏览器请求 Wikipedia REST summary；image-proxy 仅代理 `upload.wikimedia.org`、`thumb.wikimedia.org` 与 `en.wikipedia.org` 的 HTTPS 图片，仅返回 AVIF/GIF/JPEG/PNG/WebP 等栅格图片，拒绝可执行 SVG 和其他内容类型；最多跟随 3 次同名单允许重定向，10 秒超时并限制响应体为 8 MiB；成功响应共享缓存一天并允许过期内容最多 stale 7 天，异常响应不缓存。 |
 | AI 预测 | POST `/api/predictions` 在数据库中原子占用每日额度后请求 NVIDIA NIM Llama 3.1 8B，输入赛事系列、名称和赛道，未实际加载历史成绩/天气进行分析；额度耗尽、数据库额度无法核验或服务 HTTP 失败时返回本地默认预测。额度按已发起的上游请求计数，失败请求也占用额度；无 `DATABASE_URL` 时额度无法持久化。 |
 | 投票/反馈 | predictions 的 GET 统计数据库投票并按匿名浏览器身份读取本人选择；POST 带 driverCode 时写投票。同一浏览器使用一年期 HttpOnly、SameSite=Lax 随机 cookie，在同一赛事内重复提交会更新而非重复计数；清除 cookie 或更换浏览器会被视为新匿名用户，不是防作弊身份认证。车手候选按赛事赛季动态读取，F1 使用 Jolpica 车手积分榜，WRC 使用官网车手积分榜，FE 使用官网车手积分榜；历史投票代码仍显示原标签。反馈通过 `/api/feedback` 写入/读取 Neon。它们不属于赛历上游抓取。 |
 
@@ -176,3 +176,7 @@ HTML 正文读取中断进入有限重试，403 等非 5xx 失败不重试。统
 - 周编号使用北京时间的 ISO 周年及周数；跨年周从 1 月 4 日所在周计算。月历计数明确是赛事日条目，并非自由练习/排位/正赛总场次数。
 - 日历导出加入稳定 UID、DTSTAMP、UTC 起止、文本转义和 UTF-8 75 字节折行；估计主场次及无效 UTC 不能导出。日历经无状态 `/api/calendar` 返回附件，校验参数，不读取或写入数据库、不触发抓取；客户端仅导出已确认主场次。下载 anchor 加入 document，图片 Blob URL 延迟一分钟回收。该修正改善兼容性，但是否能落盘仍需实际浏览器验证。
 - Service Worker 缓存版本提升至 `race-calendar-v2.2.2`，利用已有激活流程淘汰旧版本资源缓存；指南已读标记和用户投票不清除。
+
+## 13. F1 积分榜请求
+
+积分榜页的 F1 车手和车队数据由 `/api/f1-standings` 服务端适配 Jolpica API。浏览器不再直接连接第三方；接口只接受 `drivers` / `constructors` 两种类别，默认读取当前赛季，设置单次 10 秒上游超时，成功数据缓存一小时并允许 CDN 在缓存失效时提供旧响应一天。上游失败或结构异常返回不缓存的 502，页面提供重试；切换车手/车队标签会取消前一个浏览器请求，避免迟到响应覆盖当前状态。接口成功但积分榜为空时显示“官方暂未提供”提示，而非空白图表。WRC 和 FE 积分榜仍使用各自既有链路。

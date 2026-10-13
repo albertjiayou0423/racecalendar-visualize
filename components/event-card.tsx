@@ -116,12 +116,14 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const [showLiveTiming, setShowLiveTiming] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
+  const [showCircuitMap, setShowCircuitMap] = useState(false)
   const [showClientInfo, setShowClientInfo] = useState(false)
   const articleRef = useRef<HTMLElement>(null)
   const detailRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(false)
   useFocusTrap(detailRef, showDetail)
   const meta = SERIES_META[event.series]
+  const wikipediaUrl = event.circuitWikipediaUrl || event.wikipediaUrl
 
   // 卡片进入视口时淡入（尊重 reduced-motion）
   useEffect(() => {
@@ -254,10 +256,24 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {/* F1 赛道平面图 */}
             {event.series === "F1" && event.circuitImageUrl && (
               <div className="mt-2">
-                <CircuitImage
-                  src={event.circuitImageUrl}
-                  alt={`${event.circuit} 赛道平面图`}
-                />
+                <button
+                  type="button"
+                  aria-expanded={showCircuitMap}
+                  aria-controls={`circuit-map-${event.id}`}
+                  onClick={() => setShowCircuitMap((value) => !value)}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  {showCircuitMap ? "收起赛道图" : "展开赛道图"}
+                  <ChevronDown className={cn("size-3.5 transition-transform duration-200", showCircuitMap && "rotate-180")} />
+                </button>
+                {showCircuitMap && (
+                  <div id={`circuit-map-${event.id}`} className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none">
+                    <CircuitImage
+                      src={event.circuitImageUrl}
+                      alt={`${event.circuit} 赛道平面图`}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -378,7 +394,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                                 {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                                 <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
                                 {!isEstimatedWrcSession(event, s) && isNightRace(s.utc, event.tz) && (
-                                  <Moon className="size-3 text-indigo-400" title="夜赛" aria-label="夜赛" />
+                                  <span title="夜赛" aria-label="夜赛">
+                                    <Moon className="size-3 text-indigo-400" aria-hidden="true" />
+                                  </span>
                                 )}
                                 {s.tentative ? (
                                   <TriangleAlert className="size-3 text-muted-foreground" aria-label="时间待确认" />
@@ -519,10 +537,10 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                     alt={`${event.circuit} 赛道平面图`}
                   />
                 </div>
-              ) : (event.circuitWikipediaUrl || event.wikipediaUrl) ? (
+              ) : wikipediaUrl ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold">赛道图片</h4>
-                  <WikipediaImage url={event.circuitWikipediaUrl || event.wikipediaUrl} />
+                  <WikipediaImage url={wikipediaUrl} />
                 </div>
               ) : null}
 

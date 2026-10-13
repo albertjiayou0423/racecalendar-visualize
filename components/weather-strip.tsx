@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Cloud, CloudRain, CloudSnow, Sun, CloudSun, RefreshCw, Droplets } from "lucide-react"
+import { sessionWeatherDate } from "@/lib/weather-date"
 
 interface WeatherStripProps {
   city: string
@@ -33,45 +34,93 @@ function getWeatherIcon(code: number) {
 export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStripProps) {
   const [loading, setLoading] = useState(true)
   const [daily, setDaily] = useState<HourlyWeather[]>([])
+  const [weatherStatus, setWeatherStatus] = useState<"unavailable" | "error" | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  // SessionTimeline updates its countdown every second and constructs a fresh
+  // sessions array on each render. Keep request and display dependencies tied
+  // to the actual values so those countdown updates do not refetch weather.
+  const sessionsKey = JSON.stringify(sessions.map(({ utc, name }) => [utc, name]))
+  const weatherSessions = useMemo(
+    () => JSON.parse(sessionsKey) as { utc: string; name: string }[],
+    [sessionsKey]
+  )
+  const firstSessionUtc = weatherSessions.find(({ utc }) => sessionWeatherDate(utc))?.utc ?? ""
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function fetchWeather() {
+      if (!firstSessionUtc) {
+        setDaily([])
+        setWeatherStatus(null)
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      setDaily([])
+      setWeatherStatus(null)
       try {
-        const params = new URLSearchParams({ city, country, date: sessions[0]?.utc ?? "" })
+        const params = new URLSearchParams({ city, country, date: firstSessionUtc })
         if (lat !== undefined) params.set("lat", lat.toString())
         if (lon !== undefined) params.set("lon", lon.toString())
-        const res = await fetch(`/api/weather?${params.toString()}`)
-        if (res.ok) {
-          const json = await res.json()
-          if (!cancelled) {
-            setDaily(json.daily || [])
-          }
+        const res = await fetch(`/api/weather?${params.toString()}`, { signal: controller.signal })
+        const json = await res.json()
+        if (cancelled) return
+
+        if (!res.ok || !Array.isArray(json?.daily) || json.daily.length === 0) {
+          setWeatherStatus(res.status === 400 || res.status === 404 || res.ok ? "unavailable" : "error")
+          return
         }
+
+        setDaily(json.daily)
       } catch {
-        // 静默失败
+        if (!cancelled) setWeatherStatus("error")
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     fetchWeather()
-    return () => { cancelled = true }
-  }, [city, country, lat, lon, sessions])
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [city, country, lat, lon, firstSessionUtc, retryCount])
 
   // 按 session 日期匹配天气
   const sessionWeather = useMemo(() => {
-    return sessions.map((s) => {
-      const dateStr = new Date(s.utc).toISOString().slice(0, 10)
-      const match = daily.find((d) => d.date === dateStr)
+    return weatherSessions.map((s) => {
+      const dateStr = sessionWeatherDate(s.utc)
+      const match = dateStr ? daily.find((d) => d.date === dateStr) : undefined
       return { session: s, weather: match }
     })
-  }, [sessions, daily])
+  }, [weatherSessions, daily])
 
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <RefreshCw className="size-3 animate-spin" />
         天气加载中...
+      </div>
+    )
+  }
+
+  if (weatherStatus) {
+    return (
+      <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+        <span>
+          {weatherStatus === "unavailable"
+            ? "该赛事日期或赛道位置暂无可用天气预报。"
+            : "天气服务暂时不可用。"}
+        </span>
+        <button
+          type="button"
+          onClick={() => setRetryCount((count) => count + 1)}
+          className="inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 text-primary transition-colors hover:bg-secondary"
+        >
+          <RefreshCw className="size-3" />
+          重试
+        </button>
       </div>
     )
   }

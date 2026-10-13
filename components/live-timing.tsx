@@ -25,50 +25,66 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<number>(0)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const requestRef = useRef<AbortController | null>(null)
 
-  const fetchData = useCallback(async () => {
-    if (playground) { setError("预览模式不请求实时计时"); return }
-    if (!isExpanded) return
+  const fetchData = useCallback(async (): Promise<number> => {
+    if (playground) { setError("预览模式不请求实时计时"); return 0 }
+    if (!isExpanded) return 0
     // WRC 无真实计时 API，直接走官方链接兜底，避免无效轮询
     if (series === "WRC") {
       setData(null)
       setLoading(false)
-      return
+      return 0
     }
+    if (requestRef.current && !requestRef.current.signal.aborted) return 10000
+    const controller = new AbortController()
+    requestRef.current = controller
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/live-timing?series=${series}`)
+      const res = await fetch(`/api/live-timing?series=${series}`, { signal: controller.signal })
       if (res.ok) {
         const json = await res.json()
         setData(json)
         setLastRefresh(Date.now())
+        return 10000
       } else {
         const err = await res.json().catch(() => ({}))
         setError(err.error || "获取数据失败")
+        const retryAfter = Number(res.headers.get("Retry-After"))
+        return Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 120000) : 30000
       }
     } catch (err) {
-      setError("网络错误")
+      if (!controller.signal.aborted) setError("网络错误")
+      return 30000
     } finally {
-      setLoading(false)
+      if (requestRef.current === controller) {
+        requestRef.current = null
+        setLoading(false)
+      }
     }
   }, [series, isExpanded, playground])
 
-  // 首次加载 + 轮询（WRC 不轮询）
+  // 请求完成后再安排下一次刷新，避免慢响应叠加；收起或卸载时取消当前请求。
   useEffect(() => {
-    if (isExpanded) {
-      fetchData()
-      if (series !== "WRC" && !playground) {
-        intervalRef.current = setInterval(fetchData, 10000) // 每10秒刷新
+    if (!isExpanded) return
+    let active = true
+    const poll = async () => {
+      const delay = await fetchData()
+      if (active && delay > 0 && series !== "WRC" && !playground) {
+        intervalRef.current = setTimeout(poll, delay)
       }
     }
+    void poll()
     return () => {
+      active = false
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        clearTimeout(intervalRef.current)
         intervalRef.current = null
       }
+      requestRef.current?.abort()
     }
-  }, [isExpanded, fetchData, series])
+  }, [isExpanded, fetchData, series, playground])
 
   if (!isExpanded) return null
 
@@ -131,7 +147,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
     )
   }
 
-  // 如果没有数据（WRC/FE 默认返回空数据）
+  // 如果没有数据（FE 默认返回空数据，F1 首次请求也会短暂经过这里）
   if (!data || (data.drivers.length === 0 && series !== "F1")) {
     return (
       <div className="border-t border-border bg-card px-4 py-6">
@@ -139,7 +155,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
           <Activity className="size-5 text-primary" />
           <p className="text-sm font-medium">{eventName} Live Timing</p>
           <p className="text-xs text-muted-foreground">
-            {series === "WRC" ? "WRC 实时计时数据" : "Formula E 实时计时数据"}
+            {series === "F1" ? "F1 实时计时数据" : "Formula E 实时计时数据"}
           </p>
           <a
             href={officialLink}
@@ -324,7 +340,7 @@ function DriverRow({ driver, index }: { driver: LiveTimingDriver; index: number 
         {driver.bestLap}
       </td>
       <td className="px-4 py-2 text-right font-mono tabular-nums">{driver.laps}</td>
-      <td className="px-4 py-2 text-right">{driver.pitStops}</td>
+      <td className="px-4 py-2 text-right">{driver.pitStops ?? "—"}</td>
     </tr>
   )
 }
