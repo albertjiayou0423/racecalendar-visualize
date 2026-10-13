@@ -116,6 +116,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const [openDays, setOpenDays] = useState<Set<string>>(new Set())
   const [showLiveTiming, setShowLiveTiming] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
+  const [showCircuitMap, setShowCircuitMap] = useState(false)
   const [showClientInfo, setShowClientInfo] = useState(false)
   const articleRef = useRef<HTMLElement>(null)
   const detailRef = useRef<HTMLDivElement>(null)
@@ -255,10 +256,31 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             {/* F1 赛道平面图 */}
             {event.series === "F1" && event.circuitImageUrl && (
               <div className="mt-2">
-                <CircuitImage
-                  src={event.circuitImageUrl}
-                  alt={`${event.circuit} 赛道平面图`}
-                />
+                <button
+                  type="button"
+                  aria-expanded={showCircuitMap}
+                  aria-controls={`circuit-map-${event.id}`}
+                  onClick={() => setShowCircuitMap((value) => !value)}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  {showCircuitMap ? "收起赛道图" : "展开赛道图"}
+                  <ChevronDown className={cn("size-3.5 transition-transform duration-200", showCircuitMap && "rotate-180")} />
+                </button>
+                <div
+                  id={`circuit-map-${event.id}`}
+                  className={cn(
+                    "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
+                    showCircuitMap ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                  )}
+                  aria-hidden={!showCircuitMap}
+                >
+                  <div className="min-h-0 overflow-hidden pt-2">
+                    <CircuitImage
+                      src={event.circuitImageUrl}
+                      alt={`${event.circuit} 赛道平面图`}
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
