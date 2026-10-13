@@ -33,15 +33,32 @@ function getWeatherIcon(code: number) {
 export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStripProps) {
   const [loading, setLoading] = useState(true)
   const [daily, setDaily] = useState<HourlyWeather[]>([])
+  // SessionTimeline updates its countdown every second and constructs a fresh
+  // sessions array on each render. Keep request and display dependencies tied
+  // to the actual values so those countdown updates do not refetch weather.
+  const sessionsKey = JSON.stringify(sessions.map(({ utc, name }) => [utc, name]))
+  const weatherSessions = useMemo(
+    () => JSON.parse(sessionsKey) as { utc: string; name: string }[],
+    [sessionsKey]
+  )
+  const firstSessionUtc = weatherSessions[0]?.utc ?? ""
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function fetchWeather() {
+      if (!firstSessionUtc) {
+        setDaily([])
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
       try {
-        const params = new URLSearchParams({ city, country, date: sessions[0]?.utc ?? "" })
+        const params = new URLSearchParams({ city, country, date: firstSessionUtc })
         if (lat !== undefined) params.set("lat", lat.toString())
         if (lon !== undefined) params.set("lon", lon.toString())
-        const res = await fetch(`/api/weather?${params.toString()}`)
+        const res = await fetch(`/api/weather?${params.toString()}`, { signal: controller.signal })
         if (res.ok) {
           const json = await res.json()
           if (!cancelled) {
@@ -55,17 +72,20 @@ export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStrip
       }
     }
     fetchWeather()
-    return () => { cancelled = true }
-  }, [city, country, lat, lon, sessions])
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [city, country, lat, lon, firstSessionUtc])
 
   // 按 session 日期匹配天气
   const sessionWeather = useMemo(() => {
-    return sessions.map((s) => {
+    return weatherSessions.map((s) => {
       const dateStr = new Date(s.utc).toISOString().slice(0, 10)
       const match = daily.find((d) => d.date === dateStr)
       return { session: s, weather: match }
     })
-  }, [sessions, daily])
+  }, [weatherSessions, daily])
 
   if (loading) {
     return (
