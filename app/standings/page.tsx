@@ -165,36 +165,48 @@ export default function StandingsPage() {
           <button type="button" onClick={() => setRetryCount((count) => count + 1)} className="rounded-md border border-border px-3 py-1.5 text-xs transition-colors hover:bg-secondary">重新加载</button>
         </div>
       ) : tab === "drivers" ? (
-        <>
-          <StandingsChart
-            title="F1 车手积分对比"
-            data={drivers.slice(0, 10).map((d) => ({
-              name: `${d.Driver.givenName} ${d.Driver.familyName}`,
-              shortName: d.Driver.code,
-              points: Number(d.points),
-              wins: Number(d.wins),
-            }))}
-          />
-          <DriverStandingsList data={drivers} />
-        </>
+        drivers.length === 0 ? <EmptyF1Standings category="车手" /> : (
+          <>
+            <StandingsChart
+              title="F1 车手积分对比"
+              data={drivers.slice(0, 10).map((d) => ({
+                name: `${d.Driver.givenName} ${d.Driver.familyName}`,
+                shortName: d.Driver.code,
+                points: Number(d.points),
+                wins: Number(d.wins),
+              }))}
+            />
+            <DriverStandingsList data={drivers} />
+          </>
+        )
       ) : (
-        <>
-          <StandingsChart
-            title="F1 车队积分对比"
-            data={constructors.slice(0, 10).map((c) => ({
-              name: c.Constructor.name,
-              shortName: c.Constructor.name.split(" ")[0],
-              points: Number(c.points),
-              wins: Number(c.wins),
-            }))}
-          />
-          <ConstructorStandingsList data={constructors} />
-        </>
+        constructors.length === 0 ? <EmptyF1Standings category="车队" /> : (
+          <>
+            <StandingsChart
+              title="F1 车队积分对比"
+              data={constructors.slice(0, 10).map((c) => ({
+                name: c.Constructor.name,
+                shortName: c.Constructor.name.split(" ")[0],
+                points: Number(c.points),
+                wins: Number(c.wins),
+              }))}
+            />
+            <ConstructorStandingsList data={constructors} />
+          </>
+        )
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
         {tab === "wrc" ? null : tab === "fe" ? "数据来源：Formula E 官网公开积分榜" : "数据来源：Jolpica F1 API（Ergast 兼容）"}
       </footer>
+    </div>
+  )
+}
+
+function EmptyF1Standings({ category }: { category: "车手" | "车队" }) {
+  return (
+    <div role="status" className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+      当前赛季暂无 F1 {category}积分数据，官方公布后会显示在这里。
     </div>
   )
 }

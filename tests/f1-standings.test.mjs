@@ -57,6 +57,14 @@ test("F1 standings proxy reports invalid upstream data and disables caching", as
   assert.equal(response.headers["Cache-Control"], "no-store")
 })
 
+test("F1 standings proxy preserves a valid empty championship table", async () => {
+  const GET = loadRoute(async () => Response.json({ MRData: { StandingsTable: { season: "2026", StandingsLists: [{ round: "0", DriverStandings: [] }] } } }))
+  const response = await GET(request())
+  assert.equal(response.body.ok, true)
+  assert.deepEqual(response.body.drivers, [])
+  assert.equal(response.body.round, "0")
+})
+
 test("F1 standings proxy reports upstream timeouts distinctly", async () => {
   const timeout = Object.assign(new Error("timed out"), { name: "TimeoutError" })
   const GET = loadRoute(async () => { throw timeout })
