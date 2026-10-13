@@ -16,6 +16,21 @@ import { NextSessionPill } from "@/components/next-session-pill"
 import { PageTransition } from "@/components/page-transition"
 import { AIPrediction } from "@/components/ai-prediction"
 import { ShareCard } from "@/components/share-card"
+import { parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
+
+const SCHEDULE_CACHE_KEY = "schedule-cache-v2"
+const LEGACY_SCHEDULE_CACHE_KEY = "schedule-cache"
+const SCHEDULE_REQUEST_TIMEOUT_MS = 20000
+
+function readCachedEvent(id: string): RaceEvent | null {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_CACHE_KEY) ?? localStorage.getItem(LEGACY_SCHEDULE_CACHE_KEY)
+    const cache = parseClientScheduleCache(raw)
+    return cache ? scheduleFromClientCache(cache).events.find((event) => event.id === id) ?? null : null
+  } catch {
+    return null
+  }
+}
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -23,6 +38,8 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<RaceEvent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [stale, setStale] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [now, setNow] = useState(Date.now())
   const [notificationManager, setNotificationManager] = useState(false)
 
@@ -33,27 +50,56 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     if (!id) return
-    fetchEvent()
+    const controller = new AbortController()
+    const cachedEvent = readCachedEvent(id)
+    setEvent(cachedEvent)
+    setLoading(!cachedEvent)
+    setError(null)
+    setStale(false)
+    void fetchEvent(id, controller.signal, !!cachedEvent)
+    return () => controller.abort()
   }, [id])
 
-  async function fetchEvent() {
-    setLoading(true)
+  async function fetchEvent(targetId = id, parentSignal?: AbortSignal, hasCachedEventOverride = false) {
+    if (!targetId) return
+    const hasCachedEvent = hasCachedEventOverride || event?.id === targetId
+    const controller = new AbortController()
+    const abortFromParent = () => controller.abort()
+    parentSignal?.addEventListener("abort", abortFromParent, { once: true })
+    const timeout = window.setTimeout(() => controller.abort(), SCHEDULE_REQUEST_TIMEOUT_MS)
+    setRefreshing(hasCachedEvent)
+    if (!hasCachedEvent) setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/schedule`)
+      const res = await fetch("/api/schedule", { signal: controller.signal })
       if (!res.ok) throw new Error("Failed to fetch schedule")
       const data = await res.json()
-      const found = data.events.find((e: RaceEvent) => e.id === id)
+      if (!Array.isArray(data?.events)) throw new Error("Invalid schedule response")
+      const found = data.events.find((e: RaceEvent) => e.id === targetId)
       if (!found) {
-        setError("赛事不存在")
+        if (hasCachedEvent) {
+          setStale(true)
+        } else {
+          setError("赛事不存在")
+        }
         setLoading(false)
         return
       }
       setEvent(found)
+      setStale(false)
       setLoading(false)
-    } catch (e) {
-      setError("加载失败，请重试")
+    } catch {
+      if (parentSignal?.aborted) return
+      if (hasCachedEvent) {
+        setStale(true)
+      } else {
+        setError(controller.signal.aborted ? "加载超时，请重试" : "加载失败，请重试")
+      }
       setLoading(false)
+    } finally {
+      window.clearTimeout(timeout)
+      parentSignal?.removeEventListener("abort", abortFromParent)
+      if (!parentSignal?.aborted) setRefreshing(false)
     }
   }
 
@@ -92,7 +138,7 @@ export default function EventDetailPage() {
             <WifiOff className="mb-4 size-10 text-muted-foreground" />
             <p className="mb-2 text-sm font-medium">{error}</p>
             <button
-              onClick={fetchEvent}
+              onClick={() => void fetchEvent()}
               className="flex items-center gap-1 rounded-md border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary"
             >
               <RefreshCw className="size-4" />
@@ -104,7 +150,7 @@ export default function EventDetailPage() {
     )
   }
 
-  if (!event) return null
+  if (!event || event.id !== id) return null
 
   const meta = SERIES_META[event.series]
 
@@ -128,6 +174,19 @@ export default function EventDetailPage() {
       </header>
 
       <main className="mx-auto max-w-2xl p-4">
+        {stale && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground" role="status">
+            <span>赛程暂时无法更新，正在显示上次成功加载的数据。</span>
+            <button
+              type="button"
+              onClick={() => void fetchEvent()}
+              disabled={refreshing}
+              className="shrink-0 font-medium text-primary hover:underline disabled:opacity-50"
+            >
+              {refreshing ? "更新中…" : "重试"}
+            </button>
+          </div>
+        )}
         <PageTransition>
           <EventHeader
             event={event}
