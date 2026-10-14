@@ -21,3 +21,5 @@ F1 实时状态来自 `/api/f1-start`，详见 `docs/data-flow.md`。明确 FORM
 资料：[FIA 灯光图](https://argent.fia.com/web/fia-public.nsf/1330F0769A59327AC125736200478FB9/$FILE/03__Recommended_light_signals.pdf)、[F1 2026 蓝色预启动](https://www.formula1.com/en/latest/article/explained-why-race-starts-will-be-different-in-2026.7ADR4zkfl299T7i3ZYVTYK)、[FE 2025–26 规则](https://www.fia.com/system/files/documents/2025-2026_fia_formula_e_world_championship_-_sporting_regulations_27.02.2026_-_clean.pdf)、[马德里 FE 起跑画面](https://mediasetinfinity.mediaset.it/video/formulae/la-partenza-delle-prix-di-madrid_F314264701006C01)、[WRC 墨西哥设备实拍](https://www.aztecabajio.com/deportes/rally-guanajuato-2023-itinerario-las-etapas-cuando-inicia-rally-2023)、[FastF1 免费源客户端](https://github.com/theOehrly/Fast-F1/blob/master/fastf1/livetiming/client.py)。
 
 全屏是覆盖页面的模态层，不自动调用浏览器 Fullscreen API。支持关闭与 ESC、焦点限制与恢复、滚动恢复。无自动音频。减少动态效果模式关闭动画，保留信号状态。Playground 仍是内联预览，不自动覆盖或锁滚动。
+
+归零瞬间播放一次 1.8 秒的全屏视觉冲击：F1 白色光带扩散、FE 青色斜向光带、WRC 绿色点阵扫屏。仅从倒计时未到达切换为已到达时触发；打开已过期场次不会播放。关闭按钮保持可操作，减少动态效果模式不播放。

@@ -88,6 +88,17 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   const phaseLabel = freshLive ? ({ formation: '暖胎圈信号', delayed: '发车延迟', racing: '比赛已开始', finished: '场次已结束', unknown: '等待信号' }[freshLive.phase])
     : null
   const accentColor = SERIES_COLORS[series]
+  const previousStarted = useRef(started)
+  const [launchBurst, setLaunchBurst] = useState(false)
+  useEffect(() => {
+    const crossedStart = !previousStarted.current && started
+    previousStarted.current = started
+    if (!started) { setLaunchBurst(false); return }
+    if (!crossedStart || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    setLaunchBurst(true)
+    const timeout = setTimeout(() => setLaunchBurst(false), 1800)
+    return () => clearTimeout(timeout)
+  }, [started])
 
   return (
     <div
@@ -99,6 +110,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       aria-label="沉浸式倒计时"
     >
       {entrance && !preview && <div className="race-entry-wave" aria-hidden="true"><svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 45 Q360 -20 720 40 T1440 35 V80 H0Z" fill="currentColor" /></svg></div>}
+      {launchBurst && <div className="race-launch-burst" aria-hidden="true"><i /><i /><i /><i /><i /></div>}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"

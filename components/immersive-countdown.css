@@ -23,6 +23,15 @@
 @keyframes signal-warning{50%{opacity:.3}}
 .race-launch{animation:race-launch .8s cubic-bezier(.16,1,.3,1) both;letter-spacing:.12em}
 @keyframes race-launch{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.race-launch-burst{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;color:#fff}
+.race-launch-burst i{position:absolute;left:-10%;width:120%;height:2px;top:50%;background:currentColor;box-shadow:0 0 28px 4px currentColor;animation:race-start-impact 1700ms cubic-bezier(.16,1,.3,1) both}
+.race-launch-burst i:nth-child(2){top:25%;animation-delay:60ms}.race-launch-burst i:nth-child(3){top:75%;animation-delay:60ms}.race-launch-burst i:nth-child(4){top:10%;animation-delay:100ms}.race-launch-burst i:nth-child(5){top:90%;animation-delay:100ms}
+[data-series=FE] .race-launch-burst{color:#46e5ff}
+[data-series=FE] .race-launch-burst i{transform-origin:0 50%;rotate:-12deg}
+[data-series=WRC] .race-launch-burst{color:#58df89}
+[data-series=WRC] .race-launch-burst i{height:12px;background:radial-gradient(circle,currentColor 2px,transparent 3px) 0 0/12px 12px;box-shadow:none;animation-name:rally-start-impact}
+@keyframes race-start-impact{0%{opacity:0;transform:scaleX(.03)}12%{opacity:.85;transform:scaleX(1)}45%{opacity:.4;transform:scaleX(1.2) scaleY(4)}100%{opacity:0;transform:scaleX(1.4) scaleY(12)}}
+@keyframes rally-start-impact{0%{opacity:0;transform:translateY(50vh)}15%{opacity:.85}100%{opacity:0;transform:translateY(-100vh)}}
 @media(max-width:640px){.race-immersive-overlay{padding-top:64px}.start-signal{width:min(280px,74vw)}}
 .race-immersive-overlay{overflow-y:auto;justify-content:safe center}
 @media(prefers-reduced-motion:reduce){.race-immersive *{animation:none!important;transition:none!important}.race-entry-wave{display:none}}
