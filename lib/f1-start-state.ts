@@ -34,14 +34,3 @@ export function parseF1StartState(snapshot: Record<string, any>, targetMs: numbe
   if (snapshot.SessionStatus?.Status === 'Started' && snapshot.LapCount?.CurrentLap >= 1) return { ...base, phase: 'racing' }
   return base
 }
-
-export function simulatedStartPhase(series: 'F1' | 'FE', elapsed: number, compressed = false) {
-  const formationEnd = compressed ? 12 : series === 'F1' ? 90 : 20
-  const blueEnd = formationEnd + (series === 'F1' ? 5 : 0)
-  if (elapsed < 0) return { phase: 'waiting', lit: 0 }
-  if (elapsed < formationEnd) return { phase: elapsed < (compressed ? 8 : 30) ? 'green' : 'formation', lit: 0 }
-  if (elapsed < blueEnd) return { phase: 'blue', lit: 0 }
-  if (elapsed < blueEnd + 5) return { phase: 'red', lit: Math.min(5, Math.floor(elapsed - blueEnd) + 1) }
-  if (elapsed < blueEnd + 6.5) return { phase: 'hold', lit: 5 }
-  return { phase: 'out', lit: 0 }
-}

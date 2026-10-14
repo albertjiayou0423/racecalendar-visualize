@@ -1,11 +1,10 @@
 import { useId } from 'react'
 /** Based on photographed fixtures: F1 five four-lamp columns, FE a two-row panel. */
-export function StartLights({ series, lit, green, blue, delayed }: { series: 'F1' | 'FE'; lit: number; green: boolean; blue: boolean; delayed: boolean }) {
+export function StartLights({ series, lit, green, delayed }: { series: 'F1' | 'FE'; lit: number; green: boolean; delayed: boolean }) {
   const patternId = useId().replaceAll(':', '')
   const width = 420
   const rows = series === 'F1' ? 4 : 2
   return <div className={`start-signal ${series === 'FE' ? 'fe-signal' : ''}`}>
-    {blue && <div className="prestart-panels" aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <span key={i} />)}</div>}
     <svg viewBox={`0 0 ${width} ${rows * 54 + 22}`} aria-hidden="true">
       <defs>{Object.entries({ green: '#4deb77', red: '#ff3541', amber: '#ffbb42', off: '#45494b' }).map(([name, color]) => <pattern key={name} id={`${patternId}-${name}`} width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill={color} /></pattern>)}</defs>
       <path d="M0 8H420" stroke="#34373b" strokeWidth="4" />
@@ -24,6 +23,5 @@ export function StartLights({ series, lit, green, blue, delayed }: { series: 'F1
         })}
       </g>)}
     </svg>
-    {blue && <p className="prestart-label">预启动</p>}
   </div>
 }
