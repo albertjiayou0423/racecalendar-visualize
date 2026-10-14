@@ -1,0 +1,32 @@
+.race-immersive{--accent:#ff323f;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;isolation:isolate;overflow:hidden;background:#060709;color:white}
+.race-immersive[data-series=WRC]{--accent:#ffb347}.race-immersive[data-series=FE]{--accent:#46e5ff}
+.race-immersive-overlay{position:fixed;inset:0;z-index:10000;min-height:100dvh;padding:70px 16px 32px}
+.race-immersive-preview{min-height:480px;width:100%;border-radius:16px;padding:64px 16px 32px}
+.race-atmosphere{position:absolute;inset:-30%;z-index:-1;background:radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 48%);transition:opacity 1s;opacity:.5}
+.is-final .race-atmosphere{opacity:1}
+.race-stage{position:relative;width:min(640px,90vw);height:clamp(120px,25vh,240px);display:grid;place-items:center;margin:24px 0}
+.race-lights{display:flex;gap:clamp(8px,2vw,20px);perspective:800px}
+.race-light-housing{display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid #ffffff18;border-radius:18px;background:linear-gradient(140deg,#26272b,#08090c);box-shadow:0 12px 30px #0008}
+.race-light-housing i{display:block;width:clamp(30px,6vw,62px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 40% 35%,#3d151a,#18070a);box-shadow:inset 0 3px 8px #0009;transition:background .15s,box-shadow .15s}
+.race-light-housing.lit i{background:radial-gradient(circle at 40% 35%,#ffafaf,#ff2639 55%,#9b0611);box-shadow:0 0 28px #ff263980,0 0 70px #ff26392b}
+.is-started .race-lights{animation:race-depart 900ms cubic-bezier(.2,.7,.2,1) both}
+.rally-road{position:absolute;inset:-20% 10%;background:repeating-linear-gradient(0deg,transparent 0 48px,#ffb34722 49px 50px),linear-gradient(90deg,transparent 20%,#ffb34755 20.2%,transparent 20.5% 79.5%,#ffb34755 79.8%,transparent 80%);transform:perspective(300px) rotateX(55deg);mask-image:linear-gradient(transparent,#000 40%,#000 75%,transparent)}
+.is-final .rally-road{animation:rally-flow 2s linear infinite}.is-started .rally-road{animation:rally-flow .65s linear 3}
+.rally-gate{display:flex;gap:20px;padding:18px 24px;border:1px solid #ffffff20;border-radius:50px;background:#101114;box-shadow:0 20px 50px #0009;z-index:1}
+.rally-gate span{width:clamp(35px,7vw,58px);aspect-ratio:1;border-radius:50%;background:#252628}
+.rally-gate .ready{background:#ffb347;box-shadow:0 0 60px #ffb34766}.rally-gate .go{background:#55ff9c;box-shadow:0 0 90px #55ff9c88}
+.energy-core{position:relative;width:clamp(100px,20vh,190px);aspect-ratio:1;border:1px solid #46e5ff66;border-radius:50%;box-shadow:0 0 70px #46e5ff15,inset 0 0 45px #46e5ff22}
+.energy-core div,.energy-core i,.energy-core b{position:absolute;inset:12%;border:2px solid transparent;border-top-color:#46e5ff;border-bottom-color:#46e5ff33;border-radius:50%;animation:energy-orbit 6s linear infinite}
+.energy-core i{inset:-18%;border-width:1px;animation-direction:reverse}.energy-core b{inset:35%;background:#46e5ff33;box-shadow:0 0 35px #46e5ff66;animation:none}
+.energy-core.charged{box-shadow:0 0 100px #46e5ff55,inset 0 0 50px #46e5ff66;transition:box-shadow 1s}.charged div{animation-duration:1.5s}
+.is-started .energy-core{animation:energy-release 1.2s cubic-bezier(.1,.6,.2,1) both}
+.race-number{animation:race-number-in .28s ease-out both;line-height:1.1;font-size:clamp(60px,12vw,140px)}
+.race-launch{animation:race-launch .8s cubic-bezier(.16,1,.3,1) both;letter-spacing:.12em}
+@keyframes race-number-in{from{opacity:.4;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes race-launch{from{opacity:0;transform:scale(.7);filter:blur(12px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
+@keyframes race-depart{to{transform:translateZ(200px) scale(1.2);opacity:.25}}
+@keyframes rally-flow{to{background-position:0 100px,0 0}}
+@keyframes energy-orbit{to{transform:rotate(360deg)}}
+@keyframes energy-release{to{transform:scale(3);opacity:0}}
+@media(max-width:640px){.race-stage{height:160px}.race-light-housing{padding:8px;gap:8px}.race-immersive-overlay{padding-top:64px}.race-number{font-size:clamp(42px,12vw,90px)}}
+@media(prefers-reduced-motion:reduce){.race-immersive *{animation:none!important;transition:none!important}.is-started .energy-core{opacity:.5}}

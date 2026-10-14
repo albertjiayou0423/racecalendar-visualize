@@ -381,6 +381,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
         <ImmersiveCountdown
           targetTime={target.utc}
           series={event.series}
+          title={`${event.name} · ${target.name}`}
           onClose={() => setImmersiveOpen(false)}
         />
       )}
