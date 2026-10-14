@@ -26,10 +26,19 @@ interface ImmersiveCountdownProps {
   preview?: boolean
   title?: string
   isRace?: boolean
+  entrance?: boolean
 }
 
 /** 全屏倒计时：按位滚动，最后半小时显示系列起跑装置。 */
-export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false }: ImmersiveCountdownProps) {
+export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false, entrance = false }: ImmersiveCountdownProps) {
+  const vibrated = useRef(false)
+  useEffect(() => {
+    if (!entrance || preview || vibrated.current) return
+    vibrated.current = true
+    if (window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      try { navigator.vibrate?.(35) } catch { /* Unsupported or blocked haptics do not interrupt entry. */ }
+    }
+  }, [entrance, preview])
   const [clock, setClock] = useState(Date.now)
   const [demoStart, setDemoStart] = useState<number | null>(null)
   const [previewTarget, setPreviewTarget] = useState<number | null>(null)
@@ -81,12 +90,13 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   return (
     <div
       ref={containerRef}
-      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''}`}
+      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance && !preview ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''}`}
       data-series={series}
       role="dialog"
       aria-modal={!preview}
       aria-label="沉浸式倒计时"
     >
+      {entrance && !preview && <div className="race-entry-wave" aria-hidden="true"><svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 45 Q360 -20 720 40 T1440 35 V80 H0Z" fill="currentColor" /></svg></div>}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"

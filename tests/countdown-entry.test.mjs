@@ -16,3 +16,10 @@ test('choose earliest session and suppression keys distinguish sessions', () => 
   assert.equal(countdownCandidate([event(25), event(5)], now).session.utc, event(5).sessions[0].utc)
   assert.notEqual(countdownKey(event(5), 'a'), countdownKey(event(5), 'b'))
 })
+test('WRC only the first chronological stage triggers, including after it has passed', () => {
+  const first = event(10).sessions[0]
+  const rally = { ...event(25), series: 'WRC', sessions: [event(25).sessions[0], first] }
+  assert.equal(countdownCandidate([rally], now).session, first)
+  assert.equal(countdownCandidate([rally], now + 15000), undefined)
+  assert.equal(countdownCandidate([{ ...rally, sessions: [{ ...first, tentative: true }, event(25).sessions[0]] }], now), undefined)
+})
