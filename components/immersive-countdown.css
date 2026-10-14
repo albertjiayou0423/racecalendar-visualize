@@ -2,6 +2,13 @@
 .race-immersive[data-series=WRC]{--accent:#ffb347}.race-immersive[data-series=FE]{--accent:#46e5ff}
 .race-immersive-overlay{position:fixed;inset:0;z-index:10000;min-height:100dvh;padding:70px 16px 32px}
 .race-immersive-preview{min-height:480px;width:100%;border-radius:16px;padding:64px 16px 32px}
+.race-clock{display:flex;align-items:flex-start;justify-content:center;gap:clamp(12px,3vw,48px);width:100%;max-width:1050px}
+.race-clock-unit{display:flex;flex-direction:column;align-items:center;min-width:0}
+.race-flow-number{font-family:var(--font-geist-sans),system-ui,sans-serif;font-weight:550;letter-spacing:-.055em;font-variant-numeric:tabular-nums;font-size:clamp(44px,10vw,132px);line-height:1.08}
+.has-days .race-flow-number{font-size:clamp(36px,8vw,112px)}
+.final-seconds .race-flow-number{font-size:clamp(100px,20vw,210px);font-weight:600}
+.race-immersive-preview .race-flow-number{font-size:clamp(30px,5vw,72px)}
+.race-immersive-preview .final-seconds .race-flow-number{font-size:96px}
 .race-atmosphere{position:absolute;inset:-30%;z-index:-1;background:radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 48%);transition:opacity 1s;opacity:.5}
 .is-final .race-atmosphere{opacity:1}
 .race-stage{position:relative;width:min(640px,90vw);height:clamp(120px,25vh,240px);display:grid;place-items:center;margin:24px 0}

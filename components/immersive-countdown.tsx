@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { X } from "lucide-react"
+import NumberFlow, { NumberFlowGroup } from '@number-flow/react'
+import { countdownDisplay } from '@/lib/countdown-display'
 import './immersive-countdown.css'
 import { useFocusTrap } from "@/lib/use-focus-trap"
 import type { Series } from "@/lib/types"
@@ -24,7 +26,7 @@ interface ImmersiveCountdownProps {
   title?: string
 }
 
-/** 全屏沉浸式倒计时：纯黑背景 + 数字滚动 + 赛事配色 + 归零撒花 */
+/** 全屏倒计时：按位滚动，最后半小时显示系列起跑装置。 */
 export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title }: ImmersiveCountdownProps) {
   const [previewTarget, setPreviewTarget] = useState<number | null>(null)
   const targetMs = preview && previewTarget !== null ? previewTarget : new Date(targetTime).getTime()
@@ -61,9 +63,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
     }
   }, [preview])
 
-  const total = Math.ceil(remaining / 1000)
-  const mins = Math.floor(total / 60)
-  const secs = total % 60
+  const { total, days, hours, minutes, seconds, showSignals } = countdownDisplay(remaining)
   const started = Number.isFinite(targetMs) && remaining === 0
   const lit = started ? 0 : Math.max(0, 6 - total)
   const accentColor = SERIES_COLORS[series]
@@ -77,7 +77,6 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       aria-modal={!preview}
       aria-label="沉浸式倒计时"
     >
-      <div className="race-atmosphere" aria-hidden="true" />
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
@@ -86,30 +85,36 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
         <X className="size-5" />
       </button>
       {preview && <button type="button" className="absolute left-4 top-4 z-20 rounded-full bg-white/10 px-3 py-2 text-xs text-white" onClick={() => setPreviewTarget(Date.now() + 10000)}>重播最后 10 秒</button>}
-      <header className="relative z-10 px-6 text-center"><p className="text-xs tracking-[0.35em] text-white/50">{series} / START SEQUENCE</p><h2 className="mt-3 max-w-2xl text-sm text-white/85 sm:text-xl">{title || '等待下一场出发'}</h2></header>
-      <div className="race-stage" aria-hidden="true">
+      <header className="relative z-10 px-6 text-center"><p className="text-xs tracking-[0.15em] text-white/40">{series}</p><h2 className="mt-3 max-w-2xl text-sm text-white/85 sm:text-xl">{title || '等待下一场出发'}</h2></header>
+      {Number.isFinite(targetMs) && showSignals && <div className="race-stage" aria-hidden="true">
         {series === 'F1' && <div className="race-lights">{Array.from({ length: 5 }, (_, i) => <div key={i} className={`race-light-housing ${i < lit ? 'lit' : ''}`}><i /><i /></div>)}</div>}
         {series === 'WRC' && <><div className="rally-road" /><div className="rally-gate"><span /><span /><span className={started ? 'go' : total <= 5 ? 'ready' : ''} /></div></>}
         {series === 'FE' && <div className={`energy-core ${total <= 5 ? 'charged' : ''}`}><div /><i /><b /></div>}
-      </div>
+      </div>}
 
       <div
-        className="relative z-10 flex flex-col items-center px-4 text-center"
+        className={`relative z-10 flex w-full flex-col items-center px-4 text-center ${!showSignals ? 'my-12 sm:my-20' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {!Number.isFinite(targetMs) ? <span className="text-white">时间待确认</span> : started ? (
           <span
             className="race-launch text-5xl font-bold sm:text-7xl"
-            style={{ color: accentColor, textShadow: `0 0 40px ${accentColor}66` }}
+            style={{ color: accentColor }}
           >
             出发
           </span>
         ) : (
           <>
-            <div className="mb-2 text-sm uppercase tracking-[0.3em] text-white/50">距开赛</div>
-            <div className="flex items-end justify-center gap-2 sm:gap-4">
-              {total > 5 && <RollingUnit value={mins} label="分" />}
-              <RollingUnit value={secs} label="秒" highlight accentColor={accentColor} />
+            <div className="mb-6 text-xs text-white/40">距离开赛</div>
+            <div className={`race-clock ${days > 0 ? 'has-days' : ''} ${total <= 5 ? 'final-seconds' : ''}`}>
+              <NumberFlowGroup>
+                {days > 0 && <RollingUnit value={days} label="天" />}
+                {total > 5 && <>
+                  <RollingUnit value={hours} label="时" />
+                  <RollingUnit value={minutes} label="分" maxTens={5} />
+                </>}
+                <RollingUnit value={seconds} label="秒" maxTens={5} highlight accentColor={accentColor} />
+              </NumberFlowGroup>
             </div>
           </>
         )}
@@ -125,31 +130,23 @@ function RollingUnit({
   label,
   highlight,
   accentColor = "#ef4444",
+  maxTens,
 }: {
   value: number
   label: string
   highlight?: boolean
   accentColor?: string
+  maxTens?: number
 }) {
-  const display = String(value).padStart(2, "0")
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative overflow-hidden">
-        <div
-          key={display}
-          className={`race-number font-mono font-black tabular-nums text-7xl sm:text-9xl ${
-            highlight ? "" : "text-white"
-          }`}
-          style={
-            highlight
-              ? { color: accentColor, textShadow: `0 0 40px ${accentColor}66` }
-              : undefined
-          }
-        >
-          {display}
-        </div>
-      </div>
-      <div className="mt-1 text-xs uppercase tracking-widest text-white/40">{label}</div>
+    <div className="race-clock-unit">
+      <NumberFlow value={value} locales="en-US" format={{ minimumIntegerDigits: 2, useGrouping: false }}
+        trend={-1} digits={maxTens === undefined ? undefined : { 1: { max: maxTens } }}
+        transformTiming={{ duration: 420, easing: 'cubic-bezier(.22,1,.36,1)' }}
+        spinTiming={{ duration: 520, easing: 'cubic-bezier(.22,1,.36,1)' }}
+        opacityTiming={{ duration: 180, easing: 'ease-out' }}
+        className="race-flow-number" style={{ color: highlight ? accentColor : '#f5f5f5' }} />
+      <div className="mt-3 text-xs text-white/35">{label}</div>
     </div>
   )
 }
