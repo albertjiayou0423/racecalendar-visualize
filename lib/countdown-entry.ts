@@ -10,7 +10,8 @@ export function countdownCandidate(events: RaceEvent[], now: number) {
   })
     .filter(({ event, session }) => {
       const delta = Date.parse(session.utc) - now
-      return delta > 0 && delta <= 30_000 && !(session.tentative ?? event.tentative ?? false) && !session.clientUploadedAt
+      const afterStartWindow = session.isMain && event.series !== 'WRC' ? (event.series === 'F1' ? 120_000 : 30_000) : 0
+      return (delta > 0 || (afterStartWindow > 0 && delta >= -afterStartWindow)) && delta <= 30_000 && !(session.tentative ?? event.tentative ?? false) && !session.clientUploadedAt
     }).sort((a, b) => Date.parse(a.session.utc) - Date.parse(b.session.utc))[0]
 }
 export function countdownKey(event: RaceEvent, utc: string) { return `race-countdown:${event.id}:${utc}` }

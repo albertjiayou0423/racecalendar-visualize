@@ -383,6 +383,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           series={event.series}
           title={`${event.name} · ${target.name}`}
           isRace={!!target.isMain}
+          timeZone={event.tz}
           onClose={() => setImmersiveOpen(false)}
         />
       )}

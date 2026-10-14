@@ -23,3 +23,8 @@ test('WRC only the first chronological stage triggers, including after it has pa
   assert.equal(countdownCandidate([rally], now + 15000), undefined)
   assert.equal(countdownCandidate([{ ...rally, sessions: [{ ...first, tentative: true }, event(25).sessions[0]] }], now), undefined)
 })
+test('race viewers arriving just after scheduled start may enter the signal program once', () => {
+  assert.ok(countdownCandidate([event(-60, { isMain: true })], now))
+  assert.equal(countdownCandidate([event(-121, { isMain: true })], now), undefined)
+  assert.equal(countdownCandidate([{ ...event(-31, { isMain: true }), series: 'FE' }], now), undefined)
+})
