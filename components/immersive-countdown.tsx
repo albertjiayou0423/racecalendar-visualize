@@ -13,8 +13,8 @@ import type { Series } from "@/lib/types"
 
 const SERIES_COLORS: Record<Series, string> = {
   F1: "#ef4444",
-  WRC: "#3b82f6",
-  FE: "#10b981",
+  WRC: "#d9e782",
+  FE: "#46e5ff",
 }
 
 interface ImmersiveCountdownProps {
@@ -131,10 +131,9 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       >
         {!Number.isFinite(targetMs) ? <span className="text-white">时间待确认</span> : remaining === 0 || started ? (
           <span
-            className="race-launch text-5xl font-bold sm:text-7xl"
-            style={{ color: accentColor }}
+            className="race-launch"
           >
-            {phaseLabel || '赛程时间已到'}
+            {phaseLabel || (series === 'WRC' ? '赛段开赛' : '开赛')}
           </span>
         ) : series === 'WRC' && showSignals ? <span className="text-xs text-white/40">距赛段首车出发</span> : (
           <>
@@ -153,7 +152,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
         )}
       </div>
 
-      <div className="relative z-10 mt-8 px-6 text-center text-[11px] leading-6 text-white/40"><p>{freshLive ? 'F1 实时赛事控制消息 · 灯位为界面演绎，非现场灯具遥测' : '按赛程时间倒计时 · 灯光并非官方实时发车信号'}</p><p>按 ESC 或关闭按钮返回赛历</p></div>
+      <footer className="race-countdown-note"><p>{freshLive ? '实时赛事状态 · 灯光为视觉呈现' : '依据赛程时间 · 非现场发车信号'}</p></footer>
     </div>
   )
 }
