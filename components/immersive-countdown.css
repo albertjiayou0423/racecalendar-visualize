@@ -12,6 +12,17 @@
 .race-atmosphere{position:absolute;inset:-30%;z-index:-1;background:radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 48%);transition:opacity 1s;opacity:.5}
 .is-final .race-atmosphere{opacity:1}
 .race-stage{position:relative;width:min(640px,90vw);height:clamp(120px,25vh,240px);display:grid;place-items:center;margin:24px 0}
+.rally-clock{width:min(360px,78vw);padding:18px;border:1px solid #ffffff20;border-radius:5px;background:#080a08;color:#ffc348;box-shadow:0 8px 30px #0008}
+.rally-clock.go{color:#58df89}.rally-clock svg{display:block;width:100%;height:auto}
+.pre-start .race-light-housing i{background:#4294ff;box-shadow:0 0 25px #4294ff44;animation:prestart-blue 1s ease-in-out 5}
+.formation-demo{position:relative;width:300px;height:120px;color:#ffffff60}
+.formation-demo svg{width:300px;height:120px;fill:none;stroke:#ffffff30;stroke-width:2}
+.formation-car{position:absolute;top:0;left:0;width:12px;height:6px;border-radius:2px;background:var(--accent);offset-path:path('M65 30 H235 A30 30 0 0 1 235 90 H65 A30 30 0 0 1 65 30');animation:formation-lap 12s linear both}
+.formation-demo p{position:absolute;top:48px;width:100%;text-align:center;font-size:11px}
+.grid-positioning svg{opacity:.2}.grid-positioning .formation-car{offset-path:none;left:50px;top:28px;animation:grid-position 12s ease-in-out both}
+@keyframes formation-lap{to{offset-distance:100%}}
+@keyframes grid-position{to{transform:translateX(180px)}}
+@keyframes prestart-blue{50%{opacity:.3}}
 .race-lights{display:flex;gap:clamp(8px,2vw,20px);perspective:800px}
 .race-light-housing{display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid #ffffff18;border-radius:18px;background:linear-gradient(140deg,#26272b,#08090c);box-shadow:0 12px 30px #0008}
 .race-light-housing i{display:block;width:clamp(30px,6vw,62px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 40% 35%,#3d151a,#18070a);box-shadow:inset 0 3px 8px #0009;transition:background .15s,box-shadow .15s}

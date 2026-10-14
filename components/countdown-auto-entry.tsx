@@ -20,5 +20,5 @@ export function CountdownAutoEntry({ events, now }: { events: RaceEvent[]; now: 
     setActive(candidate)
   }, [events, now, pathname, active])
   if (!active || pathname !== '/') return null
-  return <ImmersiveCountdown targetTime={active.session.utc} series={active.event.series} title={`${active.event.name} · ${active.session.name}`} onClose={() => setActive(undefined)} />
+  return <ImmersiveCountdown targetTime={active.session.utc} series={active.event.series} isRace={!!active.session.isMain} title={`${active.event.name} · ${active.session.name}`} onClose={() => setActive(undefined)} />
 }

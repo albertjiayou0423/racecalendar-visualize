@@ -382,6 +382,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           targetTime={target.utc}
           series={event.series}
           title={`${event.name} · ${target.name}`}
+          isRace={!!target.isMain}
           onClose={() => setImmersiveOpen(false)}
         />
       )}
