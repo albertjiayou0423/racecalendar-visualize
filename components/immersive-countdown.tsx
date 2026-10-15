@@ -136,26 +136,21 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
         className={`relative z-10 flex w-full flex-col items-center px-4 text-center ${!showSignals ? 'my-12 sm:my-20' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {!Number.isFinite(targetMs) ? <span className="text-white">时间待确认</span> : remaining === 0 || started ? (
-          <span
-            className="race-launch"
-          >
-            {phaseLabel || (series === 'WRC' ? '赛段开赛' : '开赛')}
-          </span>
-        ) : series === 'WRC' && showSignals ? <span className="text-xs text-white/40">距赛段首车出发</span> : (
-          <>
+        {!Number.isFinite(targetMs) ? <span className="text-white">时间待确认</span> : (
+          <div className={`race-countdown-body ${started ? 'is-complete' : ''}`}>
+            <div className="race-countdown-content" aria-hidden={started}>
             <div className="mb-6 text-xs text-white/40">距离开赛</div>
             <div className={`race-clock ${days > 0 ? 'has-days' : ''} ${total <= 5 ? 'final-seconds' : ''}`}>
               <NumberFlowGroup>
-                {days > 0 && <RollingUnit value={days} label="天" />}
-                {total > 5 && <>
-                  <RollingUnit value={hours} label="时" />
-                  <RollingUnit value={minutes} label="分" maxTens={5} />
-                </>}
+                <RollingUnit value={days} label="天" collapsed={days === 0} />
+                <RollingUnit value={hours} label="时" collapsed={total <= 5} />
+                <RollingUnit value={minutes} label="分" maxTens={5} collapsed={total <= 5} />
                 <RollingUnit value={seconds} label="秒" maxTens={5} highlight accentColor={accentColor} />
               </NumberFlowGroup>
             </div>
-          </>
+            </div>
+            {started && <span className="race-launch race-launch-result">{phaseLabel || '开赛'}</span>}
+          </div>
         )}
       </div>}
 
@@ -171,15 +166,17 @@ function RollingUnit({
   highlight,
   accentColor = "#ef4444",
   maxTens,
+  collapsed = false,
 }: {
   value: number
   label: string
   highlight?: boolean
   accentColor?: string
   maxTens?: number
+  collapsed?: boolean
 }) {
   return (
-    <div className="race-clock-unit">
+    <div className={`race-clock-unit ${collapsed ? 'is-collapsed' : ''}`} aria-hidden={collapsed || undefined}>
       <NumberFlow value={value} locales="en-US" format={{ minimumIntegerDigits: 2, useGrouping: false }}
         trend={-1} digits={maxTens === undefined ? undefined : { 1: { max: maxTens } }}
         transformTiming={{ duration: 420, easing: 'cubic-bezier(.22,1,.36,1)' }}
