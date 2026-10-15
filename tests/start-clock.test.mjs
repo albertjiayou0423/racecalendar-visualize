@@ -20,7 +20,8 @@ test('rally countdown retains an accessible duration and explicit clock timezone
     const html = render({ seconds, started: false })
     assert.match(html, new RegExp(`aria-label="倒计时 ${seconds} 秒"`))
     assert.match(html, /23:59:59/)
-    assert.match(html, /北京时间/)
+    assert.match(html, /当地时间/)
+    assert.match(html, /title="Asia\/Shanghai"/)
     assert.match(html, seconds >= 60 ? /分钟 \/ 秒/ : />秒</)
     assert.doesNotMatch(html, /NaN|undefined|赛程时间已到/)
   }
