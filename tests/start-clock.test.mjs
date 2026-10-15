@@ -18,13 +18,28 @@ const render = props => renderToStaticMarkup(React.createElement(exports.StartCl
 test('rally countdown retains an accessible duration and explicit clock timezone across minute rollover', () => {
   for (const seconds of [61, 60, 59, 1]) {
     const html = render({ seconds, started: false })
-    assert.match(html, new RegExp(`倒计时 ${seconds} 秒`))
+    if (seconds <= 60) assert.match(html, new RegExp(`倒计时 ${seconds} 秒`))
+    else assert.doesNotMatch(html, /倒计时/)
     assert.match(html, /23:59:59/)
     assert.match(html, /当地时间/)
     assert.match(html, /title="Asia\/Shanghai"/)
     assert.doesNotMatch(html, /<small|<time|rally-timer/)
     assert.doesNotMatch(html, /NaN|undefined|赛程时间已到/)
   }
+})
+
+test('countdown appears at sixty seconds with two digits and never moves either clock', () => {
+  const variants = [120, 61, 60, 59, 9, 0].map(seconds => render({ seconds, started: seconds === 0 }))
+  const boxes = variants.map(html => html.match(/viewBox="([^"]+)"/)[1])
+  assert.equal(new Set(boxes).size, 1)
+  for (let index = 0; index < variants.length; index++) {
+    const html = variants[index]
+    const count = (html.match(/data-digit=/g) ?? []).length
+    assert.equal(count, index < 2 ? 6 : 8)
+    assert.doesNotMatch(html, /width:\d+%|<polygon/)
+  }
+  const starts = variants.slice(2).map(html => html.match(/class="rally-countdown-digits"><g[^>]*transform="([^"]+)"/)[1])
+  assert.equal(new Set(starts).size, 1)
 })
 
 test('rally release clearly means scheduled time reached, without claiming live car telemetry', () => {

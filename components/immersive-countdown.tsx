@@ -11,12 +11,8 @@ import { useF1Start } from '@/lib/use-f1-start'
 import './immersive-countdown.css'
 import { useFocusTrap } from "@/lib/use-focus-trap"
 import type { Series } from "@/lib/types"
-
-const SERIES_COLORS: Record<Series, string> = {
-  F1: "#ef4444",
-  WRC: "#d9e782",
-  FE: "#46e5ff",
-}
+import { SERIES_THEME_COLORS } from '@/lib/series-theme'
+import { didCountdownStart } from '@/lib/countdown-transition'
 
 interface ImmersiveCountdownProps {
   /** 目标 UTC 时间 */
@@ -48,10 +44,10 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
     }
   }, [entrance, preview])
   const [clock, setClock] = useState(Date.now)
-  const [previewTarget, setPreviewTarget] = useState<number | null>(null)
-  const targetMs = preview && previewTarget !== null ? previewTarget : new Date(targetTime).getTime()
+  const [previewTarget, setPreviewTarget] = useState<{ time: number; source: string; series: Series } | null>(null)
+  const targetMs = preview && previewTarget?.source === targetTime && previewTarget.series === series ? previewTarget.time : new Date(targetTime).getTime()
   const liveState = useF1Start(targetTime, !preview && series === 'F1' && isRace && targetMs - clock <= 30 * 60000 && clock - targetMs <= 10 * 60000)
-  const [remaining, setRemaining] = useState(() => Number.isFinite(targetMs) ? Math.max(0, targetMs - Date.now()) : 0)
+  const remaining = Number.isFinite(targetMs) ? Math.max(0, targetMs - clock) : 0
   const closeRef = useRef(onClose)
   closeRef.current = onClose
   const containerRef = useRef<HTMLDivElement>(null)
@@ -59,13 +55,10 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   // 焦点陷阱：限制 Tab 在沉浸式容器内循环
   useFocusTrap(containerRef, !preview)
 
-  // 每秒更新
+  // One clock drives both the digits and transition state.
   useEffect(() => {
-    setRemaining(Number.isFinite(targetMs) ? Math.max(0, targetMs - Date.now()) : 0)
-    const id = setInterval(() => {
-      setClock(Date.now())
-      setRemaining(Number.isFinite(targetMs) ? Math.max(0, targetMs - Date.now()) : 0)
-    }, 100)
+    setClock(Date.now())
+    const id = setInterval(() => setClock(Date.now()), 100)
     return () => clearInterval(id)
   }, [targetMs])
 
@@ -93,25 +86,26 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   const phaseLabel = freshLive ? ({ formation: '暖胎圈信号', delayed: '发车延迟', racing: '比赛已开始', finished: '场次已结束', unknown: '等待信号' }[freshLive.phase])
     : null
   const impactDuration = series === 'WRC' ? 2600 : 1800
-  const accentColor = SERIES_COLORS[series]
+  const accentColor = SERIES_THEME_COLORS[series]
   const inspectFrame = preview && Number.isFinite(previewFrameMs) && previewFrameMs >= 0
-  const previousStarted = useRef(started)
+  const previousStarted = useRef({ targetMs, series, started })
   const [launchBurst, setLaunchBurst] = useState(false)
   useEffect(() => {
-    const crossedStart = !previousStarted.current && started
-    previousStarted.current = started
+    const current = { targetMs, series, started }
+    const crossedStart = didCountdownStart(previousStarted.current, current)
+    previousStarted.current = current
     if (!started) { setLaunchBurst(false); return }
     if (!crossedStart || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setLaunchBurst(false); return }
     setLaunchBurst(true)
     const timeout = setTimeout(() => setLaunchBurst(false), impactDuration)
     return () => clearTimeout(timeout)
-  }, [started, impactDuration])
+  }, [started, impactDuration, targetMs, series])
 
   return (
     <div
       ref={containerRef}
       className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
-      style={inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } as CSSProperties : undefined}
+      style={{ '--accent': accentColor, ...(inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } : {}) } as CSSProperties}
       data-series={series}
       data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
       role="dialog"
@@ -128,7 +122,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       >
         <X className="size-5" />
       </button>
-      {preview && <button type="button" className="absolute left-4 top-4 z-20 rounded-full bg-white/10 px-3 py-2 text-xs text-white" onClick={() => setPreviewTarget(Date.now() + 10000)}>重播最后 10 秒</button>}
+      {preview && <button type="button" className="absolute left-4 top-4 z-20 rounded-full bg-white/10 px-3 py-2 text-xs text-white" onClick={() => setPreviewTarget({ time: Date.now() + 10000, source: targetTime, series })}>重播最后 10 秒</button>}
       <header className="relative z-10 px-6 text-center"><p className="text-xs tracking-[0.15em] text-white/40">{series}</p><h2 className="mt-3 max-w-2xl text-sm text-white/85 sm:text-xl">{title || '等待下一场出发'}</h2></header>
       {Number.isFinite(targetMs) && showSignals && <div className="race-stage" aria-hidden={series !== 'WRC'}>
         {(series === 'F1' || series === 'FE') && <StartLights series={series} lit={lit} green={green} delayed={freshLive?.phase === 'delayed'} />}

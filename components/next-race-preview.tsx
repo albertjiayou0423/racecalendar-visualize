@@ -18,16 +18,11 @@ import { PredictionVote } from "@/components/prediction-vote"
 import { ImmersiveCountdown } from "@/components/immersive-countdown"
 import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
 import { usePlayground } from "./playground-context"
+import { SERIES_THEME_COLORS as SERIES_ACCENT } from '@/lib/series-theme'
 
 interface NextRacePreviewProps {
   event: RaceEvent
   now: number
-}
-
-const SERIES_ACCENT: Record<Series, string> = {
-  F1: "#ef4444",
-  WRC: "#3b82f6",
-  FE: "#10b981",
 }
 
 type CountdownStage = "far" | "today" | "soon" | "urgent" | "final" | "past"

@@ -28,14 +28,14 @@ function Code({ text, x }: { text: string; x: number }) {
 
 /** One baseline and one digit scale for both clocks; no font dependency. */
 export function StartClock({ seconds, started, now = Date.now(), timeZone = 'Asia/Shanghai' }: { seconds: number; started: boolean; now?: number; timeZone?: string }) {
-  const text = started ? '00' : seconds >= 60 ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : String(seconds).padStart(2, '0')
+  const showCountdown = started || seconds <= 60
+  const text = String(started ? 0 : Math.max(0, Math.min(60, Math.ceil(seconds)))).padStart(2, '0')
   const time = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(now)
-  const label = `当地时间 ${time}；${started ? '赛程时间已到' : `倒计时 ${seconds} 秒`}`
-  // A shared scale keeps both clocks equal; trim unused countdown slots instead of leaving a gap.
+  const label = `当地时间 ${time}${showCountdown ? `；${started ? '赛程时间已到' : `倒计时 ${seconds} 秒`}` : ''}`
+  // Always reserve two positions, including before the countdown becomes visible.
   const countStart = width(time) + 8
-  const end = countStart + width(text)
-  const referenceWidth = width('00:00:00') + 8 + width('00:00')
+  const end = countStart + width('00')
   return <div className="rally-inline" role="img" aria-label={label} title={timeZone}>
-    <svg style={{ width: `${end / Math.max(referenceWidth, end) * 100}%` }} viewBox={`0 0 ${end} 30`} aria-hidden="true"><g className="rally-local-digits"><Code text={time} x={0} /></g><Code text={text} x={countStart} /></svg>
+    <svg viewBox={`0 0 ${end} 30`} aria-hidden="true"><g className="rally-local-digits"><Code text={time} x={0} /></g><g className="rally-countdown-digits">{showCountdown && <Code text={text} x={countStart} />}</g></svg>
   </div>
 }

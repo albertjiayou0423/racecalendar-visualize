@@ -10,6 +10,7 @@ import { StartClock } from './start-clock'
 import { CountdownEntrance, CountdownImpact, CountdownFinalPulse } from './countdown-effects'
 import { immersionCases, type ImmersionCaseId } from '@/lib/immersion-catalog'
 import type { Series } from '@/lib/types'
+import { SERIES_THEME_COLORS } from '@/lib/series-theme'
 import './immersive-countdown.css'
 
 const button = 'inline-flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring'
@@ -35,10 +36,12 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const [paused, setPaused] = useState(true)
   const [effectActive, setEffectActive] = useState(false)
   const [closed, setClosed] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const countdown = id === 'countdown' || id === 'countdown-entry'
   const effect = id === 'entrance' || id === 'final-pulse' || id === 'impact'
   const lights = id === 'lights-f1' || id === 'lights-fe'
   const duration = id === 'entrance' ? 1250 : id === 'final-pulse' ? 850 : series === 'WRC' ? 2600 : 1800
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (id !== 'clock-wrc') return
@@ -68,7 +71,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const controls = <div className="grid gap-4">
     {!lights && id !== 'clock-wrc' && id !== 'final-pulse' && <Field label="赛事系列"><select aria-label="赛事系列" className={input} value={series} onChange={event => setSeries(event.target.value as Series)}>{(['WRC', 'F1', 'FE'] as const).map(value => <option key={value}>{value}</option>)}</select></Field>}
     {(countdown || id === 'clock-wrc') && <>
-      <div className="flex flex-wrap gap-2">{[5, 10, 30, 120, 3600, 0].map(value => <button key={value} className={button} onClick={() => { setDelay(value); replay(value) }}>{value === 0 ? '已归零' : value === 3600 ? '长倒计时' : `${value} 秒`}</button>)}</div>
+      <div className="flex flex-wrap gap-2">{[5, 10, 30, 60, 61, 120, 3600, 0].map(value => <button key={value} className={button} onClick={() => { setDelay(value); replay(value) }}>{value === 0 ? '已归零' : value === 3600 ? '长倒计时' : `${value} 秒`}</button>)}</div>
       <Field label="倒计时秒数"><input aria-label="倒计时秒数" className={input} type="number" min="0" max="864000" value={delay} onChange={event => setDelay(Math.max(0, Math.min(864000, Number(event.target.value))))} /></Field>
       <Field label="当地时区"><select aria-label="当地时区" className={input} value={timeZone} onChange={event => setTimeZone(event.target.value)}>{['Europe/Paris', 'Asia/Shanghai', 'Asia/Riyadh', 'America/New_York'].map(value => <option key={value}>{value}</option>)}</select></Field>
     </>}
@@ -81,21 +84,21 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
       <Field label={paused ? `动画位置：${Math.min(frame, duration)} 毫秒` : effectActive ? '正在播放完整动画' : '播放结束'}><input aria-label="动画位置" type="range" min="0" max={duration} step="10" value={Math.min(frame, duration)} onChange={event => { setFrame(Number(event.target.value)); setPaused(true) }} /></Field>
       <div className="flex flex-wrap gap-2">{[0, Math.round(duration * .2), Math.round(duration * .5), duration].map(value => <button key={value} className={button} onClick={() => { setFrame(value); setPaused(true) }}>{value} ms</button>)}</div>
     </>}
-    <button className={button} onClick={() => replay()}><RotateCcw size={14} />{effect ? '播放完整动画' : '重新开始'}</button>
-    {!fullscreen && <Link className={button} href={`/playground/immersion/${id}`}><Maximize2 size={14} />独立全屏测试</Link>}
+    <button className={button} onClick={() => replay()}><RotateCcw aria-hidden="true" size={14} />{effect ? '播放完整动画' : '重新开始'}</button>
+    {!fullscreen && <Link className={button} href={`/playground/immersion/${id}`}><Maximize2 aria-hidden="true" size={14} />独立全屏测试</Link>}
   </div>
 
   const remaining = Math.max(0, Math.ceil((target - clock) / 1000))
   const fullscreenControls = <nav className="fixed left-3 right-20 top-3 z-[10030] flex flex-wrap items-start gap-2" aria-label="全屏测试控制">
-    <Link className={`${button} bg-background/95`} href="/playground/immersion"><ArrowLeft size={14} />返回</Link>
-    <button className={`${button} bg-background/95`} onClick={() => replay()}><Play size={14} />重播</button>
+    <Link className={`${button} bg-background/95`} href="/playground/immersion"><ArrowLeft aria-hidden="true" size={14} />返回</Link>
+    <button className={`${button} bg-background/95`} onClick={() => replay()}><Play aria-hidden="true" size={14} />重播</button>
     <details className="max-h-[75dvh] w-64 overflow-auto rounded-xl border border-border bg-background/95 p-3 text-sm"><summary tabIndex={0} className="cursor-pointer">{item.name} · 参数</summary><div className="pt-4">{controls}</div></details>
   </nav>
   let visual: ReactNode
   if (countdown) {
     visual = closed ? <button className={button} onClick={() => replay()}>重新打开</button> : <ImmersiveCountdown key={nonce} targetTime={new Date(target).toISOString()} series={series} timeZone={timeZone} entrance={id === 'countdown-entry'} title={`${series} 沉浸测试`} preview={!fullscreen} onClose={() => fullscreen ? router.push('/playground/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</ImmersiveCountdown>
   } else {
-    visual = <div key={`${nonce}-${series}`} className={`race-immersive immersion-effect-stage ${fullscreen ? 'immersion-effect-full' : ''} ${id === 'impact' && (paused ? frame < duration : effectActive) ? 'has-impact' : ''} ${id === 'impact' && paused ? 'is-frame-inspection' : ''}`} data-series={series} style={paused ? { '--launch-frame': `${Math.min(frame, duration)}ms` } as CSSProperties : undefined}>
+    visual = <div key={`${nonce}-${series}`} className={`race-immersive immersion-effect-stage ${fullscreen ? 'immersion-effect-full' : ''} ${id === 'impact' && (paused ? frame < duration : effectActive) ? 'has-impact' : ''} ${id === 'impact' && paused ? 'is-frame-inspection' : ''}`} data-series={series} style={{ '--accent': SERIES_THEME_COLORS[series], ...(paused ? { '--launch-frame': `${Math.min(frame, duration)}ms` } : {}) } as CSSProperties}>
       {lights && <div role="img" aria-label={`${series} 灯板，${lit} 组红灯，绿灯${green ? '亮' : '灭'}，延迟提示${delayed ? '开' : '关'}`}><StartLights series={id === 'lights-f1' ? 'F1' : 'FE'} lit={lit} green={green} delayed={delayed} /></div>}
       {id === 'clock-wrc' && <div className="race-stage"><StartClock seconds={remaining} started={remaining === 0} now={clock} timeZone={timeZone} /></div>}
       {id === 'entrance' && <CountdownEntrance frameMs={frameMs} />}
@@ -103,6 +106,8 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
       {id === 'impact' && <><div className="race-stage">{series === 'WRC' ? <StartClock seconds={0} started now={clock} timeZone={timeZone} /> : <StartLights series={series} lit={0} green={false} delayed={false} />}</div><CountdownImpact frameMs={frameMs} /></>}
     </div>
   }
+
+  if (!mounted) visual = <p role="status" className="py-20 text-center text-sm text-muted-foreground">组件加载中…</p>
 
   if (fullscreen) return <main>
     {visual}
@@ -123,7 +128,7 @@ export function ImmersionLab() {
     <Link className="text-xs text-muted-foreground hover:text-foreground" href="/playground">返回组件 Playground</Link>
     <h1 className="mt-5 text-2xl font-semibold">沉浸与仪式感测试</h1>
     <p className="mt-2 text-sm leading-7 text-muted-foreground">直接使用网站真实组件。每项可单独全屏、重播和调整参数；动画遵循系统的减少动态效果设置。</p>
-    <nav className="my-6 flex flex-wrap gap-2" aria-label="全屏测试目录">{immersionCases.map(item => <Link key={item.id} className={button} href={`/playground/immersion/${item.id}`}>{item.name}<Maximize2 size={12} /></Link>)}</nav>
+    <nav className="my-6 flex flex-wrap gap-2" aria-label="全屏测试目录">{immersionCases.map(item => <Link key={item.id} className={button} href={`/playground/immersion/${item.id}`}>{item.name}<Maximize2 aria-hidden="true" size={12} /></Link>)}</nav>
     {immersionCases.map(item => <ImmersionLabCase key={item.id} id={item.id} />)}
   </main>
 }
