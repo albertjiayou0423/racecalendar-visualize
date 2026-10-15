@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type CSSProperties } from "react"
 import { X } from "lucide-react"
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react'
 import { countdownDisplay } from '@/lib/countdown-display'
@@ -30,10 +30,12 @@ interface ImmersiveCountdownProps {
   isRace?: boolean
   entrance?: boolean
   timeZone?: string
+  /** 仅 Playground：-1 正常播放，0–1800 暂停在归零动画对应毫秒。 */
+  previewFrameMs?: number
 }
 
 /** 全屏倒计时：按位滚动，最后半小时显示系列起跑装置。 */
-export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false, entrance = false, timeZone }: ImmersiveCountdownProps) {
+export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false, entrance = false, timeZone, previewFrameMs = -1 }: ImmersiveCountdownProps) {
   const vibrated = useRef(false)
   useEffect(() => {
     if (!entrance || preview || vibrated.current) return
@@ -88,6 +90,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   const phaseLabel = freshLive ? ({ formation: '暖胎圈信号', delayed: '发车延迟', racing: '比赛已开始', finished: '场次已结束', unknown: '等待信号' }[freshLive.phase])
     : null
   const accentColor = SERIES_COLORS[series]
+  const inspectFrame = preview && Number.isFinite(previewFrameMs) && previewFrameMs >= 0
   const previousStarted = useRef(started)
   const [launchBurst, setLaunchBurst] = useState(false)
   useEffect(() => {
@@ -110,7 +113,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       aria-label="沉浸式倒计时"
     >
       {entrance && !preview && <div className="race-entry-wave" aria-hidden="true"><svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 45 Q360 -20 720 40 T1440 35 V80 H0Z" fill="currentColor" /></svg></div>}
-      {launchBurst && <div className="race-launch-burst" aria-hidden="true"><i /><i /><i /><i /><i /></div>}
+      {(launchBurst || inspectFrame) && <div className={`race-launch-burst ${inspectFrame ? 'is-frame' : ''}`} style={inspectFrame ? { '--launch-frame': `${Math.min(1800, previewFrameMs)}ms` } as CSSProperties : undefined} aria-hidden="true"><i /><i /><i /></div>}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
