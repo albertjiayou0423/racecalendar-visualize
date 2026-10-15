@@ -21,7 +21,7 @@ function Code({ text, x }: { text: string; x: number }) {
     cursor += char === ':' ? 10 : 24
     return <g key={index} data-digit={char === ':' ? undefined : char} transform={`translate(${offset} 0)`}>{char === ':'
       ? <><rect x="1" y="6" width="6" height="6" /><rect x="1" y="18" width="6" height="6" /></>
-      : PIXELS.map(([x, y], pixel) => <rect key={pixel} x={x} y={y} width="6" height="6" fill={NUMERALS[Number(char)][pixel] === '1' ? 'currentColor' : '#240d0e'} />)}
+      : PIXELS.map(([x, y], pixel) => <rect key={pixel} x={x} y={y} width="6" height="6" fill={NUMERALS[Number(char)][pixel] === '1' ? 'currentColor' : 'none'} />)}
     </g>
   })}</>
 }

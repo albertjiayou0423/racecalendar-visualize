@@ -22,7 +22,7 @@
 @keyframes signal-warning{50%{opacity:.3}}
 @keyframes race-launch{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.race-immersive-overlay{padding-top:64px}.start-signal{width:min(280px,74vw)}}
-.race-immersive-overlay{overflow-y:auto;justify-content:safe center}
+.race-immersive-overlay{height:100dvh;min-height:0;overflow:clip;justify-content:safe center}
 @media(prefers-reduced-motion:reduce){.race-immersive *{animation:none!important;transition:none!important}.race-entry-wave{display:none}}
 .race-immersive header{max-width:640px}.race-immersive header h2{font-weight:450;line-height:1.5}
 .race-countdown-note{position:relative;z-index:10;margin-top:32px;padding:0 24px;color:#7f8389;text-align:center;font-size:10px;letter-spacing:.04em}
@@ -46,7 +46,7 @@
 .race-immersive[data-series=WRC]{background:#090808}
 .race-immersive[data-series=WRC] .race-stage{width:min(900px,100%);margin:32px 0}
 .race-immersive[data-rally-clock=true] header,.race-immersive[data-rally-clock=true] .race-countdown-note{display:none}
-.rally-inline{--clock-color:#ff353a;--count-color:#ff927b;display:flex;justify-content:center;width:100%;color:var(--clock-color)}
+.rally-inline{--clock-color:var(--accent,#3b82f6);--count-color:color-mix(in srgb,var(--accent,#3b82f6) 65%,white);display:flex;justify-content:center;width:100%;color:var(--clock-color)}
 .rally-countdown-digits{color:var(--count-color)}
 .rally-inline svg{display:block;width:100%;height:auto;fill:currentColor;shape-rendering:geometricPrecision}
 [data-series=WRC] .race-launch-burst i:first-child{inset:0;height:auto;top:0;background:currentColor;clip-path:none;animation:rally-release-field 2500ms ease both}

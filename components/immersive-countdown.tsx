@@ -67,13 +67,16 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
     if (preview) return
 
     const prev = document.body.style.overflow
+    const prevRoot = document.documentElement.style.overflow
     document.body.style.overflow = "hidden"
+    document.documentElement.style.overflow = "hidden"
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeRef.current()
     }
     document.addEventListener("keydown", onKey)
     return () => {
       document.body.style.overflow = prev
+      document.documentElement.style.overflow = prevRoot
       document.removeEventListener("keydown", onKey)
     }
   }, [preview])

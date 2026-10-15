@@ -60,4 +60,6 @@ test('every digit is exactly thirteen squares arranged in rows of 3, 2, 3, 2, 3'
     if (digit === '8') assert.equal((body.match(/fill="currentColor"/g) ?? []).length, 13)
   }
   assert.doesNotMatch(html, /<polygon/)
+  assert.doesNotMatch(html, /fill="#[0-9a-f]+"/)
+  assert.match(html, /fill="none"/)
 })
