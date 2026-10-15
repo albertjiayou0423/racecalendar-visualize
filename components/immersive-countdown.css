@@ -57,8 +57,8 @@
 @keyframes rally-release-sweep{0%{opacity:0;transform:translateY(0)}15%{opacity:1}40%{opacity:1;transform:translateY(-90%)}100%{opacity:0;transform:translateY(-220%)}}
 @media(max-width:640px){.race-immersive[data-series=WRC]{padding-left:20px;padding-right:20px}.race-immersive-preview[data-series=WRC]{min-height:260px}}.rally-prestart-pulse{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 0 100px #ff353a66;animation:rally-prestart-beat 850ms ease-out both}
 .race-immersive[data-series=WRC].is-final:not(.is-started) .rally-local-digits{opacity:.4;transition:opacity 400ms ease}
-.race-immersive[data-series=WRC].has-impact .rally-inline{animation:rally-release-impact 1700ms cubic-bezier(.16,1,.3,1) both}
-.race-immersive.is-frame-inspection .rally-inline{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
+.race-immersive[data-series=WRC].has-impact .rally-inline{color:#fff;animation:rally-release-impact 1700ms cubic-bezier(.16,1,.3,1) both}
+.race-immersive[data-series=WRC].has-impact.is-frame-inspection .rally-inline{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
 @keyframes rally-prestart-beat{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
-@keyframes rally-release-impact{0%,65%{color:#fff;transform:scale(1.04)}100%{color:#ff353a;transform:scale(1)}}
+@keyframes rally-release-impact{0%,65%{color:#fff;transform:scale(1.04)}100%{color:#fff;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.rally-prestart-pulse{display:none}.race-immersive[data-series=WRC].is-final:not(.is-started) .rally-local-digits{opacity:1}}
