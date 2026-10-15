@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, type CSSProperties } from "react"
+import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { X } from "lucide-react"
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react'
 import { countdownDisplay } from '@/lib/countdown-display'
 import { StartClock } from './start-clock'
 import { StartLights } from './start-lights'
+import { CountdownEntrance, CountdownImpact, CountdownFinalPulse } from './countdown-effects'
 import { useF1Start } from '@/lib/use-f1-start'
 import './immersive-countdown.css'
 import { useFocusTrap } from "@/lib/use-focus-trap"
@@ -30,12 +31,14 @@ interface ImmersiveCountdownProps {
   isRace?: boolean
   entrance?: boolean
   timeZone?: string
-  /** 仅 Playground：-1 正常播放，0–1800 暂停在归零动画对应毫秒。 */
+  /** 仅 Playground：-1 正常播放，0–2600 暂停在归零动画对应毫秒。 */
   previewFrameMs?: number
+  /** Optional in-dialog controls, used by the immersion test routes. */
+  children?: ReactNode
 }
 
 /** 全屏倒计时：按位滚动，最后半小时显示系列起跑装置。 */
-export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false, entrance = false, timeZone, previewFrameMs = -1 }: ImmersiveCountdownProps) {
+export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false, entrance = false, timeZone, previewFrameMs = -1, children }: ImmersiveCountdownProps) {
   const vibrated = useRef(false)
   useEffect(() => {
     if (!entrance || preview || vibrated.current) return
@@ -89,6 +92,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   const lit = freshLive || started ? 0 : Math.min(5, Math.max(0, 6 - total))
   const phaseLabel = freshLive ? ({ formation: '暖胎圈信号', delayed: '发车延迟', racing: '比赛已开始', finished: '场次已结束', unknown: '等待信号' }[freshLive.phase])
     : null
+  const impactDuration = series === 'WRC' ? 2600 : 1800
   const accentColor = SERIES_COLORS[series]
   const inspectFrame = preview && Number.isFinite(previewFrameMs) && previewFrameMs >= 0
   const previousStarted = useRef(started)
@@ -97,26 +101,26 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
     const crossedStart = !previousStarted.current && started
     previousStarted.current = started
     if (!started) { setLaunchBurst(false); return }
-    if (!crossedStart || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!crossedStart || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setLaunchBurst(false); return }
     setLaunchBurst(true)
-    const timeout = setTimeout(() => setLaunchBurst(false), 1800)
+    const timeout = setTimeout(() => setLaunchBurst(false), impactDuration)
     return () => clearTimeout(timeout)
-  }, [started])
+  }, [started, impactDuration])
 
   return (
     <div
       ref={containerRef}
-      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance && !preview ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || inspectFrame ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
-      style={inspectFrame ? { '--launch-frame': `${Math.min(1800, previewFrameMs)}ms` } as CSSProperties : undefined}
+      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
+      style={inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } as CSSProperties : undefined}
       data-series={series}
       data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
       role="dialog"
       aria-modal={!preview}
       aria-label="沉浸式倒计时"
     >
-      {entrance && !preview && <div className="race-entry-wave" aria-hidden="true"><svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 45 Q360 -20 720 40 T1440 35 V80 H0Z" fill="currentColor" /></svg></div>}
-      {(launchBurst || inspectFrame) && <div className={`race-launch-burst ${inspectFrame ? 'is-frame' : ''}`} style={inspectFrame ? { '--launch-frame': `${Math.min(1800, previewFrameMs)}ms` } as CSSProperties : undefined} aria-hidden="true"><i /><i /><i /></div>}
-      {series === 'WRC' && Number.isFinite(targetMs) && total > 0 && total <= 5 && !started && <div key={total} className="rally-prestart-pulse" aria-hidden="true" />}
+      {entrance && <CountdownEntrance />}
+      {(launchBurst || inspectFrame) && <CountdownImpact frameMs={inspectFrame ? Math.min(impactDuration, previewFrameMs) : -1} />}
+      {series === 'WRC' && Number.isFinite(targetMs) && total > 0 && total <= 5 && !started && <CountdownFinalPulse key={total} />}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
@@ -159,6 +163,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       </div>}
 
       <footer className="race-countdown-note"><p>{freshLive ? '实时赛事状态 · 灯光为视觉呈现' : '依据赛程时间 · 非现场发车信号'}</p></footer>
+      {children}
     </div>
   )
 }

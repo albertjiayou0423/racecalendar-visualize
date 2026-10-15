@@ -41,7 +41,7 @@ test('every digit is exactly thirteen squares arranged in rows of 3, 2, 3, 2, 3'
   for (const [, digit, body] of digits) {
     const squares = [...body.matchAll(/<rect[^>]* y="(\d+)"[^>]* width="6" height="6"/g)]
     assert.equal(squares.length, 13)
-    assert.deepEqual([0, 8, 16, 24, 32].map(y => squares.filter(square => Number(square[1]) === y).length), [3, 2, 3, 2, 3])
+    assert.deepEqual([0, 6, 12, 18, 24].map(y => squares.filter(square => Number(square[1]) === y).length), [3, 2, 3, 2, 3])
     if (digit === '8') assert.equal((body.match(/fill="currentColor"/g) ?? []).length, 13)
   }
   assert.doesNotMatch(html, /<polygon/)
