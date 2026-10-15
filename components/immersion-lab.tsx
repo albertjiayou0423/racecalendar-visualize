@@ -61,6 +61,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   }, [effect, paused, effectActive, duration, nonce])
 
   function replay(seconds = delay) {
+    if (lights) { setLit(5); setGreen(false); setDelayed(false) }
     setTarget(Date.now() + seconds * 1000)
     setClock(Date.now())
     setClosed(false)
@@ -84,14 +85,14 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
       <Field label={paused ? `动画位置：${Math.min(frame, duration)} 毫秒` : effectActive ? '正在播放完整动画' : '播放结束'}><input aria-label="动画位置" type="range" min="0" max={duration} step="10" value={Math.min(frame, duration)} onChange={event => { setFrame(Number(event.target.value)); setPaused(true) }} /></Field>
       <div className="flex flex-wrap gap-2">{[0, Math.round(duration * .2), Math.round(duration * .5), duration].map(value => <button key={value} className={button} onClick={() => { setFrame(value); setPaused(true) }}>{value} ms</button>)}</div>
     </>}
-    <button className={button} onClick={() => replay()}><RotateCcw aria-hidden="true" size={14} />{effect ? '播放完整动画' : '重新开始'}</button>
+    <button className={button} onClick={() => replay()}><RotateCcw aria-hidden="true" size={14} />{effect ? '播放完整动画' : lights ? '恢复默认灯板' : '重新开始'}</button>
     {!fullscreen && <Link className={button} href={`/playground/immersion/${id}`}><Maximize2 aria-hidden="true" size={14} />独立全屏测试</Link>}
   </div>
 
   const remaining = Math.max(0, Math.ceil((target - clock) / 1000))
   const fullscreenControls = <nav className="fixed left-3 right-20 top-3 z-[10030] flex flex-wrap items-start gap-2" aria-label="全屏测试控制">
     <Link className={`${button} bg-background/95`} href="/playground/immersion"><ArrowLeft aria-hidden="true" size={14} />返回</Link>
-    <button className={`${button} bg-background/95`} onClick={() => replay()}><Play aria-hidden="true" size={14} />重播</button>
+    <button className={`${button} bg-background/95`} onClick={() => replay()}><Play aria-hidden="true" size={14} />{lights ? '复位' : '重播'}</button>
     <details className="max-h-[75dvh] w-64 overflow-auto rounded-xl border border-border bg-background/95 p-3 text-sm"><summary tabIndex={0} className="cursor-pointer">{item.name} · 参数</summary><div className="pt-4">{controls}</div></details>
   </nav>
   let visual: ReactNode

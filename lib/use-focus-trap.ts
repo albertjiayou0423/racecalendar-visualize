@@ -64,5 +64,9 @@ function getFocusables(container: HTMLElement): HTMLElement[] {
     'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
   return Array.from(
     container.querySelectorAll<HTMLElement>(selectors),
-  ).filter((el) => el.offsetParent !== null || el.getClientRects().length > 0)
+  ).filter((el) => {
+    // Closed <details> descendants can retain layout boxes but cannot take focus.
+    if (!el.checkVisibility()) return false
+    return !el.matches(':disabled, [inert], [inert] *')
+  })
 }
