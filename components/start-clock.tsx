@@ -1,24 +1,27 @@
-// Eight-segment LED: seven numeral bars plus the decimal point.
-const SEGMENTS = {
-  a: '4,0 18,0 21,3 18,6 4,6 1,3',
-  b: '20,4 23,7 23,18 20,21 17,18 17,7',
-  c: '20,23 23,26 23,37 20,40 17,37 17,26',
-  d: '4,38 18,38 21,41 18,44 4,44 1,41',
-  e: '0,26 3,23 6,26 6,37 3,40 0,37',
-  f: '0,7 3,4 6,7 6,18 3,21 0,18',
-  g: '4,19 18,19 21,22 18,25 4,25 1,22',
-}
-const NUMERALS = ['abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg', 'acdfg', 'acdefg', 'abc', 'abcdefg', 'abcdfg']
-const width = (text: string) => [...text].reduce((sum, char) => sum + (char === ':' ? 12 : 34), 0)
+// Thirteen square pixels per digit, with row widths 3 / 2 / 3 / 2 / 3.
+const PIXELS = [[0,0],[8,0],[16,0],[0,8],[16,8],[0,16],[8,16],[16,16],[0,24],[16,24],[0,32],[8,32],[16,32]]
+const NUMERALS = [
+  '111'+'11'+'101'+'11'+'111',
+  '001'+'01'+'001'+'01'+'001',
+  '111'+'01'+'111'+'10'+'111',
+  '111'+'01'+'111'+'01'+'111',
+  '101'+'11'+'111'+'01'+'001',
+  '111'+'10'+'111'+'01'+'111',
+  '111'+'10'+'111'+'11'+'111',
+  '111'+'01'+'001'+'01'+'001',
+  '111'+'11'+'111'+'11'+'111',
+  '111'+'11'+'111'+'01'+'111',
+]
+const width = (text: string) => [...text].reduce((sum, char) => sum + (char === ':' ? 12 : 28), 0)
 
 function Code({ text, x }: { text: string; x: number }) {
   let cursor = x
   return <>{[...text].map((char, index) => {
     const offset = cursor
-    cursor += char === ':' ? 12 : 34
-    return <g key={index} transform={`translate(${offset} 0)`}>{char === ':'
-      ? <><rect x="1" y="12" width="4" height="4" /><rect x="1" y="28" width="4" height="4" /></>
-      : <>{Object.entries(SEGMENTS).map(([name, points]) => <polygon key={name} points={points} fill={NUMERALS[Number(char)].includes(name) ? 'currentColor' : '#240d0e'} />)}<rect x="26" y="40" width="4" height="4" fill="#240d0e" /></>}
+    cursor += char === ':' ? 12 : 28
+    return <g key={index} data-digit={char === ':' ? undefined : char} transform={`translate(${offset} 0)`}>{char === ':'
+      ? <><rect x="1" y="8" width="6" height="6" /><rect x="1" y="24" width="6" height="6" /></>
+      : PIXELS.map(([x, y], pixel) => <rect key={pixel} x={x} y={y} width="6" height="6" fill={NUMERALS[Number(char)][pixel] === '1' ? 'currentColor' : '#240d0e'} />)}
     </g>
   })}</>
 }
@@ -31,6 +34,6 @@ export function StartClock({ seconds, started, now = Date.now(), timeZone = 'Asi
   // Reserve mm:ss even when only seconds remain, so neither clock changes size.
   const end = width('00:00:00') + 32 + width('00:00')
   return <div className="rally-inline" role="img" aria-label={label} title={timeZone}>
-    <svg viewBox={`0 0 ${end} 44`} aria-hidden="true"><Code text={time} x={0} /><Code text={text} x={end - width(text)} /></svg>
+    <svg viewBox={`0 0 ${end} 38`} aria-hidden="true"><g className="rally-local-digits"><Code text={time} x={0} /></g><Code text={text} x={end - width(text)} /></svg>
   </div>
 }

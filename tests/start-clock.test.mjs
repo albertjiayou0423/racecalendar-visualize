@@ -33,3 +33,16 @@ test('rally release clearly means scheduled time reached, without claiming live 
   assert.match(html, /role="img"/)
   assert.doesNotMatch(html, /距赛段首车出发|倒计时单位|NaN|undefined/)
 })
+
+test('every digit is exactly thirteen squares arranged in rows of 3, 2, 3, 2, 3', () => {
+  const html = render({ seconds: 8, started: false })
+  const digits = [...html.matchAll(/<g[^>]*data-digit="(\d)"[^>]*>(.*?)<\/g>/g)]
+  assert.equal(digits.length, 8)
+  for (const [, digit, body] of digits) {
+    const squares = [...body.matchAll(/<rect[^>]* y="(\d+)"[^>]* width="6" height="6"/g)]
+    assert.equal(squares.length, 13)
+    assert.deepEqual([0, 8, 16, 24, 32].map(y => squares.filter(square => Number(square[1]) === y).length), [3, 2, 3, 2, 3])
+    if (digit === '8') assert.equal((body.match(/fill="currentColor"/g) ?? []).length, 13)
+  }
+  assert.doesNotMatch(html, /<polygon/)
+})

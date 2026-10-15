@@ -106,7 +106,8 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   return (
     <div
       ref={containerRef}
-      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance && !preview ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''}`}
+      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance && !preview ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || inspectFrame ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
+      style={inspectFrame ? { '--launch-frame': `${Math.min(1800, previewFrameMs)}ms` } as CSSProperties : undefined}
       data-series={series}
       data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
       role="dialog"
@@ -115,6 +116,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
     >
       {entrance && !preview && <div className="race-entry-wave" aria-hidden="true"><svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 45 Q360 -20 720 40 T1440 35 V80 H0Z" fill="currentColor" /></svg></div>}
       {(launchBurst || inspectFrame) && <div className={`race-launch-burst ${inspectFrame ? 'is-frame' : ''}`} style={inspectFrame ? { '--launch-frame': `${Math.min(1800, previewFrameMs)}ms` } as CSSProperties : undefined} aria-hidden="true"><i /><i /><i /></div>}
+      {series === 'WRC' && Number.isFinite(targetMs) && total > 0 && total <= 5 && !started && <div key={total} className="rally-prestart-pulse" aria-hidden="true" />}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
