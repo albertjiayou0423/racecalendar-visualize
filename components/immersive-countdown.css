@@ -28,14 +28,6 @@
 .race-immersive header{max-width:640px}.race-immersive header h2{font-weight:450;line-height:1.5}
 .race-countdown-note{position:relative;z-index:10;margin-top:32px;padding:0 24px;color:#7f8389;text-align:center;font-size:10px;letter-spacing:.04em}
 .race-launch{font-size:clamp(28px,7vw,64px);font-weight:550;letter-spacing:.08em;line-height:1.25;color:#f3f4f1;white-space:nowrap;animation:race-launch .8s cubic-bezier(.16,1,.3,1) both}
-.rally-clock{display:grid;grid-template-columns:1fr 1.4fr;align-items:center;width:min(560px,100%);min-height:200px;padding:28px 20px;gap:24px;border:1px solid #30342d;border-radius:4px;background:#0b0e0b;color:#d9e782}
-.rally-clock-face{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#a6aaa1;border-right:1px solid #272c24;padding-right:24px}
-.rally-clock-face svg{width:48px;height:48px;opacity:.5;margin-bottom:16px}
-.rally-clock-face>span{font:clamp(18px,3.5vw,28px) ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:-.06em}
-.rally-clock small{font:10px system-ui;color:#858c7f;letter-spacing:.06em;margin-top:10px}
-.rally-countdown-row{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0}
-.rally-countdown-row svg{display:block;width:100%;max-height:160px;filter:drop-shadow(0 0 5px #d9e78112)}
-.rally-clock.go{color:#75e59d}.rally-clock.go .rally-countdown-row svg{opacity:1;filter:drop-shadow(0 0 8px #75e59d22)}
 .race-launch-burst{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;color:#f1f3f2}
 .race-launch-burst i{position:absolute;inset:0;opacity:0}
 .race-launch-burst i:first-child{background:currentColor;clip-path:polygon(0 47%,100% 47%,100% 53%,0 53%);animation:launch-aperture 1500ms cubic-bezier(.16,1,.3,1) both}
@@ -47,12 +39,34 @@
 [data-series=FE] .race-launch-burst{color:#46e5ff}
 [data-series=FE] .race-launch-burst i:nth-child(2),[data-series=FE] .race-launch-burst i:nth-child(3){transform:skewX(-18deg)}
 [data-series=WRC] .race-launch-burst{color:#75e59d}
-[data-series=WRC] .race-launch-burst i:first-child{background:radial-gradient(circle,currentColor 1.5px,transparent 2px) 0 0/10px 10px}
 @keyframes launch-aperture{0%{opacity:0;clip-path:polygon(0 49.5%,100% 49.5%,100% 50.5%,0 50.5%)}15%{opacity:.22}50%{opacity:.05;clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}100%{opacity:0;clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}}
 @keyframes launch-ring{0%{opacity:.7;scale:.1}100%{opacity:0;scale:4}}
-@media(max-width:640px){.rally-clock{min-height:160px;padding:20px 14px;gap:16px}.rally-clock-face{padding-right:16px}.rally-clock-face svg{width:36px;height:36px;margin-bottom:12px}.rally-countdown-row svg{max-height:120px}.race-immersive-preview{min-height:420px}.race-stage{width:100%;margin:28px 0}.race-launch{font-size:32px;letter-spacing:.04em}}
 @media(prefers-reduced-motion:reduce){.race-launch-burst{display:none}}
 
-[data-series=WRC] .race-launch-burst i:first-child{clip-path:none;animation-name:rally-pixel-sweep}
 [data-series=WRC] .race-launch-burst i:nth-child(n+2){display:none}
-@keyframes rally-pixel-sweep{0%{opacity:0;transform:translateY(100%)}20%{opacity:.55}65%{opacity:.3}100%{opacity:0;transform:translateY(-100%)}}
+@media(max-width:640px){.race-immersive-preview{min-height:420px}.race-stage{width:100%;margin:28px 0}.race-launch{font-size:32px;letter-spacing:.04em}}
+/* WRC: a standalone timing display, without a device card or analogue dial. */
+.race-immersive[data-series=WRC]{--accent:#f3cc72;background:#080a08}
+.race-immersive[data-series=WRC] header{width:min(620px,100%);text-align:left;padding:0 4px}
+.race-immersive[data-series=WRC] header>p{color:#f3cc72;font-weight:600;letter-spacing:.25em}
+.race-immersive[data-series=WRC] header h2{margin-top:12px;font-size:clamp(18px,3vw,28px);line-height:1.4;letter-spacing:-.025em}
+.race-immersive[data-series=WRC] .race-stage{width:min(620px,100%);margin:44px 0 0}
+.rally-display{width:100%;color:#f3cc72}
+.rally-caption{display:flex;align-items:center;gap:8px;color:#959c90;font-size:11px;letter-spacing:.08em}
+.rally-status-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.rally-digits{display:block;width:100%;height:clamp(150px,24vw,290px);margin:26px 0 30px;overflow:visible}
+.rally-release-line{height:2px;background:#252a21;overflow:hidden}
+.rally-release-line span{display:block;height:100%;background:currentColor;transform-origin:left;transition:transform 1s linear}
+.rally-readout{display:flex;justify-content:space-between;gap:16px;margin-top:20px;text-align:left}
+.rally-readout>span{display:flex;flex-direction:column;gap:8px}.rally-readout>span:last-child{text-align:right}
+.rally-readout small{color:#7e8778;font-size:10px;letter-spacing:.05em}
+.rally-readout time{color:#c2c8bd;font:16px ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:.06em}
+.rally-readout b{color:#c2c8bd;font-size:11px;font-weight:400}
+.rally-display.released{color:#b2ec87}.rally-display.released .rally-digits{animation:rally-release-type 700ms cubic-bezier(.16,1,.3,1) both}
+[data-series=WRC] .race-launch-burst{color:#b2ec87}
+[data-series=WRC] .race-launch-burst i:first-child{inset:auto 0;top:100%;height:20%;background:currentColor;clip-path:polygon(0 30%,100% 0,100% 70%,0 100%);animation-name:rally-release-sweep}
+[data-series=WRC] .race-launch-burst i:nth-child(n+2){display:none}
+@keyframes rally-release-sweep{0%{opacity:0;transform:translateY(0)}20%{opacity:.35}100%{opacity:0;transform:translateY(-650%)}}
+@keyframes rally-release-type{from{opacity:.3;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:640px){.race-immersive[data-series=WRC]{padding-left:24px;padding-right:24px}.race-immersive[data-series=WRC] .race-stage{margin-top:36px}.rally-digits{height:180px;margin:26px 0}.race-immersive-preview[data-series=WRC]{min-height:500px}.rally-readout time{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.rally-release-line span{transition:none}}

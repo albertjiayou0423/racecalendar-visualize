@@ -10,13 +10,25 @@ const DIGITS = [
   ['01110','10001','10001','01110','10001','10001','01110'],
   ['01110','10001','10001','01111','00001','00001','01110'],
 ]
-/** Rally-style LED countdown clock; event-specific hardware may differ. */
+const LETTERS: Record<string, string[]> = {
+  G: ['01110','10001','10000','10111','10001','10001','01110'],
+  O: ['01110','10001','10001','10001','10001','10001','01110'],
+}
+
+/** Minimal rally start display. Schedule timing, not an individual car's start signal. */
 export function StartClock({ seconds, started, now = Date.now(), timeZone = 'Asia/Shanghai' }: { seconds: number; started: boolean; now?: number; timeZone?: string }) {
-  const text = seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : String(seconds)
+  const text = started ? 'GO' : seconds >= 60 ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : String(seconds).padStart(2, '0')
   const time = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(now)
-  const handAngle = (Math.floor(now / 1000) % 60) * 6
-  return <div className={`rally-clock ${started ? 'go' : ''}`}><div className="rally-clock-face"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="#547c87" strokeWidth="1.5" />{Array.from({ length: 12 }, (_, i) => <line key={i} x1="50" y1="10" x2="50" y2="15" stroke="#729ba5" transform={`rotate(${i * 30} 50 50)`} />)}<line x1="50" y1="50" x2="50" y2="16" stroke="#d9e8e7" strokeWidth="2" transform={`rotate(${handAngle} 50 50)`} /><circle cx="50" cy="50" r="2" fill="#d9e8e7" /></svg><span>{time}</span><small>{timeZone === 'Asia/Shanghai' ? '北京时间' : '当地时间'}</small></div><div className="rally-countdown-row"><svg viewBox={`0 0 ${text.length * 60 + 8} 82`} role="img" aria-label={`起跑计时 ${text}`}>
-    {text.split('').flatMap((digit, d) => digit === ':' ? [<circle key={`${d}-a`} cx={32 + d * 60} cy={31} r={3.2} fill="currentColor" />, <circle key={`${d}-b`} cx={32 + d * 60} cy={51} r={3.2} fill="currentColor" />] : DIGITS[Number(digit)].flatMap((row, y) => row.split('').map((on, x) =>
-      <circle key={`${d}-${y}-${x}`} cx={12 + d * 60 + x * 10} cy={11 + y * 10} r={2.8} fill={on === '1' ? 'currentColor' : '#171c14'} />)))}
-  </svg><small>{seconds >= 60 ? '分 : 秒' : '秒'}</small></div></div>
+  // The separator occupies half a digit so long countdowns stay legible on phones.
+  let cursor = 0
+  const glyphs = text.split('').map(char => { const x = cursor; cursor += char === ':' ? 26 : 60; return { char, x } })
+  return <div className={`rally-display ${started ? 'released' : ''}`}>
+    <div className="rally-caption"><span className="rally-status-dot" />{started ? '赛程时间已到' : '距赛段首车出发'}</div>
+    <svg className="rally-digits" viewBox={`0 0 ${cursor - 10} 70`} role="img" aria-label={started ? '赛程时间已到' : `倒计时 ${seconds} 秒`}>
+      {glyphs.flatMap(({ char, x }) => char === ':' ? [22, 42].map(y => <rect key={`${x}-${y}`} x={x + 5} y={y} width="6" height="6" rx="1" fill="currentColor" />) : (LETTERS[char] ?? DIGITS[Number(char)]).flatMap((row, y) => row.split('').map((on, col) =>
+        <rect key={`${x}-${y}-${col}`} x={x + col * 10 + 1} y={y * 10 + 1} width="7" height="7" rx="1" fill={on === '1' ? 'currentColor' : '#171915'} />)))}
+    </svg>
+    <div className="rally-release-line" aria-hidden="true"><span style={{ transform: `scaleX(${started ? 1 : Math.min(1, seconds / 30)})` }} /></div>
+    <div className="rally-readout"><span><small>{timeZone === 'Asia/Shanghai' ? '北京时间' : '当地时间'}</small><time>{time}</time></span><span><small>{started ? '赛段状态' : '倒计时单位'}</small><b>{started ? '已到达计划发车时间' : seconds >= 60 ? '分钟 / 秒' : '秒'}</b></span></div>
+  </div>
 }

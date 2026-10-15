@@ -123,12 +123,12 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       </button>
       {preview && <button type="button" className="absolute left-4 top-4 z-20 rounded-full bg-white/10 px-3 py-2 text-xs text-white" onClick={() => setPreviewTarget(Date.now() + 10000)}>重播最后 10 秒</button>}
       <header className="relative z-10 px-6 text-center"><p className="text-xs tracking-[0.15em] text-white/40">{series}</p><h2 className="mt-3 max-w-2xl text-sm text-white/85 sm:text-xl">{title || '等待下一场出发'}</h2></header>
-      {Number.isFinite(targetMs) && showSignals && <div className="race-stage" aria-hidden="true">
+      {Number.isFinite(targetMs) && showSignals && <div className="race-stage" aria-hidden={series !== 'WRC'}>
         {(series === 'F1' || series === 'FE') && <StartLights series={series} lit={lit} green={green} delayed={freshLive?.phase === 'delayed'} />}
         {series === 'WRC' && <StartClock seconds={total} started={started} now={clock} timeZone={timeZone} />}
       </div>}
 
-      <div
+      {!(series === 'WRC' && showSignals && Number.isFinite(targetMs)) && <div
         className={`relative z-10 flex w-full flex-col items-center px-4 text-center ${!showSignals ? 'my-12 sm:my-20' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -153,7 +153,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
             </div>
           </>
         )}
-      </div>
+      </div>}
 
       <footer className="race-countdown-note"><p>{freshLive ? '实时赛事状态 · 灯光为视觉呈现' : '依据赛程时间 · 非现场发车信号'}</p></footer>
     </div>
