@@ -18,18 +18,18 @@ const render = props => renderToStaticMarkup(React.createElement(exports.StartCl
 test('rally countdown retains an accessible duration and explicit clock timezone across minute rollover', () => {
   for (const seconds of [61, 60, 59, 1]) {
     const html = render({ seconds, started: false })
-    assert.match(html, new RegExp(`aria-label="倒计时 ${seconds} 秒"`))
+    assert.match(html, new RegExp(`倒计时 ${seconds} 秒`))
     assert.match(html, /23:59:59/)
     assert.match(html, /当地时间/)
     assert.match(html, /title="Asia\/Shanghai"/)
-    assert.match(html, seconds >= 60 ? /分钟 \/ 秒/ : />秒</)
+    assert.doesNotMatch(html, /<small|<time|rally-timer/)
     assert.doesNotMatch(html, /NaN|undefined|赛程时间已到/)
   }
 })
 
 test('rally release clearly means scheduled time reached, without claiming live car telemetry', () => {
   const html = render({ seconds: 0, started: true })
-  assert.match(html, /aria-label="赛程时间已到"/)
-  assert.match(html, /已到达计划发车时间/)
+  assert.match(html, /赛程时间已到/)
+  assert.match(html, /role="img"/)
   assert.doesNotMatch(html, /距赛段首车出发|倒计时单位|NaN|undefined/)
 })

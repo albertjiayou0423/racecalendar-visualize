@@ -108,6 +108,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       ref={containerRef}
       className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance && !preview ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''}`}
       data-series={series}
+      data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
       role="dialog"
       aria-modal={!preview}
       aria-label="沉浸式倒计时"
