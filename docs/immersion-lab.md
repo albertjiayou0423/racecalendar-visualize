@@ -24,3 +24,5 @@ CountdownEntrance、CountdownFinalPulse、CountdownImpact 同时用于实际倒�
 总览在客户端挂载后渲染动态时钟，避免构建时间残留和水合错位。60/61 秒预设用于核验 WRC 右侧倒计时的显示边界；120 秒预设用于核验隐藏状态，已归零预设用于核验不补播动画。
 
 连续赛段测试：/playground/immersion/wrc-sequence，复用实际 WrcCountdownSequence，三段测试时间相隔 15 秒，按钮重播可重新开始整条队列，无网络请求。归零暂停页采用各系列当前真实时长（F1/FE 900ms、WRC 1000ms）。
+
+独立全屏纯动画页默认播放一次，内嵌组件仍默认为逐帧预览。点击帧按钮或操作滑块后显示逐帧暂停标记；归零预览初始帧设为 100ms，避免快动画的默认帧已越过峰值。

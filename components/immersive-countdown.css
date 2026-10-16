@@ -55,7 +55,7 @@
 .rally-inline{--clock-color:var(--accent,#3b82f6);--count-color:color-mix(in srgb,var(--accent,#3b82f6) 65%,white);display:flex;justify-content:center;width:100%;color:var(--clock-color)}
 .rally-countdown-digits{color:var(--count-color)}
 .rally-inline svg{display:block;width:100%;height:auto;fill:currentColor;shape-rendering:geometricPrecision}
-[data-series=WRC] .race-launch-burst i:first-child{inset:0;height:auto;top:0;background:currentColor;clip-path:none;animation:rally-release-field var(--impact-duration,1000ms) ease both}
+[data-series=WRC] .race-launch-burst i:first-child{inset:0;height:auto;top:0;background:radial-gradient(ellipse at center,currentColor 0%,color-mix(in srgb,currentColor 40%,transparent) 48%,transparent 85%);clip-path:none;animation:rally-release-field var(--impact-duration,1000ms) ease both}
 
 
 @media(max-width:640px){.race-immersive[data-series=WRC]{padding-left:20px;padding-right:20px}.race-immersive-preview[data-series=WRC]{min-height:260px}}
@@ -73,7 +73,7 @@
 [data-series=WRC] .race-launch-burst i:nth-child(2){left:0;right:auto}
 [data-series=WRC] .race-launch-burst i:nth-child(3){left:auto;right:0;animation-name:rally-door-right;animation-delay:0ms}
 [data-series=WRC] .race-launch-burst.is-frame i{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
-@keyframes rally-release-field{0%{opacity:0}6%{opacity:1}18%{opacity:.95}45%{opacity:.08}100%{opacity:0}}
+@keyframes rally-release-field{0%{opacity:0}5%{opacity:.95}16%{opacity:.45}35%{opacity:.05}100%{opacity:0}}
 @keyframes rally-door-left{0%{opacity:1;transform:translateX(0)}72%{opacity:1;transform:translateX(-106%)}100%{opacity:1;transform:translateX(-101%)}}
 @keyframes rally-door-right{0%{opacity:1;transform:translateX(0)}72%{opacity:1;transform:translateX(106%)}100%{opacity:1;transform:translateX(101%)}}
 .immersion-effect-stage{position:relative;isolation:isolate;overflow:hidden;min-height:320px;width:100%;padding:48px 24px;background:#090808}
@@ -82,3 +82,11 @@
 
 .race-stage-change{position:absolute;bottom:28px;left:20px;right:20px;z-index:15;text-align:center;font-size:12px;color:#a8b5c8;pointer-events:none;animation:race-stage-change 2400ms ease both}
 @keyframes race-stage-change{0%{opacity:0;transform:translateY(6px)}15%,70%{opacity:1;transform:none}100%{opacity:0;transform:none}}
+
+/* A single physical kick; fixed SVG slots and the final scale remain unchanged. */
+.race-immersive[data-series=WRC].has-impact .race-stage{animation:rally-stage-kick var(--impact-duration,1000ms) ease-out both;animation-delay:calc(0ms - var(--release-lag,0ms))}
+.race-immersive[data-series=WRC].has-impact.is-frame-inspection .race-stage{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
+[data-series=WRC] .race-launch-burst i:nth-child(2)::after,[data-series=WRC] .race-launch-burst i:nth-child(3)::after{content:'';position:absolute;top:0;bottom:0;width:2px;background:currentColor;box-shadow:0 0 28px 8px color-mix(in srgb,currentColor 60%,transparent)}
+[data-series=WRC] .race-launch-burst i:nth-child(2)::after{right:0}
+[data-series=WRC] .race-launch-burst i:nth-child(3)::after{left:0}
+@keyframes rally-stage-kick{0%{transform:scale(.985)}7%{transform:scale(1.035)}28%,100%{transform:scale(1)}}

@@ -35,9 +35,9 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const [green, setGreen] = useState(false)
   const [delayed, setDelayed] = useState(false)
   const [timeZone, setTimeZone] = useState('Europe/Paris')
-  const [frame, setFrame] = useState(450)
-  const [paused, setPaused] = useState(true)
-  const [effectActive, setEffectActive] = useState(false)
+  const [frame, setFrame] = useState(id === 'impact' ? 100 : 450)
+  const [paused, setPaused] = useState(!fullscreen)
+  const [effectActive, setEffectActive] = useState(fullscreen)
   const [closed, setClosed] = useState(false)
   const [mounted, setMounted] = useState(false)
   const countdown = id === 'countdown' || id === 'countdown-entry'
@@ -97,6 +97,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const fullscreenControls = <nav className="fixed left-3 right-20 top-3 z-[10030] flex flex-wrap items-start gap-2" aria-label="全屏测试控制">
     <Link className={`${button} bg-background/95`} href="/playground/immersion"><ArrowLeft aria-hidden="true" size={14} />返回</Link>
     <button className={`${button} bg-background/95`} onClick={() => replay()}><Play aria-hidden="true" size={14} />{lights ? '复位' : '重播'}</button>
+    {effect && paused && <span className="rounded-full bg-background/95 px-3 py-2 text-xs text-muted-foreground">逐帧暂停</span>}
     <details className="max-h-[75dvh] w-64 overflow-auto rounded-xl border border-border bg-background/95 p-3 text-sm"><summary tabIndex={0} className="cursor-pointer">{item.name} · 参数</summary><div className="pt-4">{controls}</div></details>
   </nav>
   let visual: ReactNode
