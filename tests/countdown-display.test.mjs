@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { countdownDisplay } from '../lib/countdown-display.ts'
+import { countdownDisplay, countdownTickDelay } from '../lib/countdown-display.ts'
 test('split long countdown into days, hours, minutes and seconds', () => {
   const result = countdownDisplay((9 * 86400 + 5 * 3600 + 45 * 60 + 16) * 1000)
   assert.deepEqual([result.days, result.hours, result.minutes, result.seconds], [9, 5, 45, 16])
@@ -18,4 +18,11 @@ test('time unit rollover boundaries', () => {
     const r = countdownDisplay(total * 1000)
     assert.deepEqual([r.days, r.hours, r.minutes, r.seconds], expected)
   }
+})
+test('wake at the next visible second boundary and keep a zero-state heartbeat', () => {
+  assert.equal(countdownTickDelay(10_000, 0), 1000)
+  assert.equal(countdownTickDelay(10_000, 623), 377)
+  assert.equal(countdownTickDelay(999, 0), 999)
+  assert.equal(countdownTickDelay(1000, 1000), 1000)
+  assert.equal(countdownTickDelay(Number.NaN, 0), 1000)
 })

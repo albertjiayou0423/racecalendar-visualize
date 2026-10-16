@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { X } from "lucide-react"
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react'
-import { countdownDisplay } from '@/lib/countdown-display'
+import { countdownDisplay, countdownTickDelay } from '@/lib/countdown-display'
 import { StartClock } from './start-clock'
 import { ClockParallax } from './clock-parallax'
 import { StartLights } from './start-lights'
@@ -58,11 +58,21 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   // 焦点陷阱：限制 Tab 在沉浸式容器内循环
   useFocusTrap(containerRef, !preview)
 
-  // One clock drives both the digits and transition state.
+  // One clock drives both the digits and transition state. Wake only when the
+  // visible second changes, then keep a light heartbeat for live-state freshness.
   useEffect(() => {
-    setClock(Date.now())
-    const id = setInterval(() => setClock(Date.now()), 100)
-    return () => clearInterval(id)
+    let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
+    const tick = () => {
+      if (cancelled) return
+      const now = Date.now()
+      setClock(now)
+      timer = setTimeout(tick, countdownTickDelay(targetMs, now))
+    }
+    const now = Date.now()
+    setClock(now)
+    timer = setTimeout(tick, countdownTickDelay(targetMs, now))
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [targetMs])
 
   // 锁定 body 滚动 + ESC 退出
