@@ -7,6 +7,7 @@ import { Maximize2, Play, RotateCcw, ArrowLeft } from 'lucide-react'
 import { ImmersiveCountdown } from './immersive-countdown'
 import { StartLights } from './start-lights'
 import { StartClock } from './start-clock'
+import { ClockParallax } from './clock-parallax'
 import { CountdownEntrance, CountdownImpact, CountdownFinalPulse } from './countdown-effects'
 import { immersionCases, type ImmersionCaseId } from '@/lib/immersion-catalog'
 import type { Series } from '@/lib/types'
@@ -40,6 +41,8 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const [effectActive, setEffectActive] = useState(fullscreen)
   const [closed, setClosed] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [tiltX, setTiltX] = useState(0)
+  const [tiltY, setTiltY] = useState(0)
   const countdown = id === 'countdown' || id === 'countdown-entry'
   const sequence = id === 'wrc-sequence'
   const effect = id === 'entrance' || id === 'final-pulse' || id === 'impact'
@@ -85,6 +88,11 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={green} onChange={event => setGreen(event.target.checked)} />辅助绿灯</label>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={delayed} onChange={event => setDelayed(event.target.checked)} />延迟提示</label>
     </>}
+    {id === 'clock-wrc' && <>
+      <Field label={`上下透视：${tiltX}°`}><input aria-label="上下透视" type="range" min="-5" max="5" step="0.5" value={tiltX} onChange={event => setTiltX(Number(event.target.value))} /></Field>
+      <Field label={`左右透视：${tiltY}°`}><input aria-label="左右透视" type="range" min="-6" max="6" step="0.5" value={tiltY} onChange={event => setTiltY(Number(event.target.value))} /></Field>
+      <button className={button} onClick={() => { setTiltX(0); setTiltY(0) }}>恢复正视</button>
+    </>}
     {effect && <>
       <Field label={paused ? `动画位置：${Math.min(frame, duration)} 毫秒` : effectActive ? '正在播放完整动画' : '播放结束'}><input aria-label="动画位置" type="range" min="0" max={duration} step="10" value={Math.min(frame, duration)} onChange={event => { setFrame(Number(event.target.value)); setPaused(true) }} /></Field>
       <div className="flex flex-wrap gap-2">{[0, Math.round(duration * .2), Math.round(duration * .5), duration].map(value => <button key={value} className={button} onClick={() => { setFrame(value); setPaused(true) }}>{value} ms</button>)}</div>
@@ -110,10 +118,10 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   } else {
     visual = <div key={`${nonce}-${series}`} className={`race-immersive immersion-effect-stage ${fullscreen ? 'immersion-effect-full' : ''} ${id === 'impact' && (paused ? frame < duration : effectActive) ? 'has-impact' : ''} ${id === 'impact' && paused ? 'is-frame-inspection' : ''}`} data-series={series} style={{ '--accent': SERIES_THEME_COLORS[series], ...(paused ? { '--launch-frame': `${Math.min(frame, duration)}ms` } : {}) } as CSSProperties}>
       {lights && <div role="img" aria-label={`${series} 灯板，${lit} 组红灯，绿灯${green ? '亮' : '灭'}，延迟提示${delayed ? '开' : '关'}`}><StartLights series={id === 'lights-f1' ? 'F1' : 'FE'} lit={lit} green={green} delayed={delayed} /></div>}
-      {id === 'clock-wrc' && <div className="race-stage"><StartClock seconds={remaining} started={remaining === 0} now={clock} timeZone={timeZone} /></div>}
+      {id === 'clock-wrc' && <div className="race-stage"><ClockParallax previewTilt={tiltX || tiltY ? { x: tiltX, y: tiltY } : undefined}><StartClock seconds={remaining} started={remaining === 0} now={clock} timeZone={timeZone} /></ClockParallax></div>}
       {id === 'entrance' && <CountdownEntrance frameMs={frameMs} />}
       {id === 'final-pulse' && <CountdownFinalPulse frameMs={frameMs} />}
-      {id === 'impact' && <><div className="race-stage">{series === 'WRC' ? <StartClock seconds={0} started now={clock} timeZone={timeZone} /> : <StartLights series={series} lit={0} green={false} delayed={false} />}</div><CountdownImpact frameMs={frameMs} /></>}
+      {id === 'impact' && <><div className="race-stage">{series === 'WRC' ? <ClockParallax><StartClock seconds={0} started now={clock} timeZone={timeZone} /></ClockParallax> : <StartLights series={series} lit={0} green={false} delayed={false} />}</div><CountdownImpact frameMs={frameMs} /></>}
     </div>
   }
 

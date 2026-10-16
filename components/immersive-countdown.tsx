@@ -5,6 +5,7 @@ import { X } from "lucide-react"
 import NumberFlow, { NumberFlowGroup } from '@number-flow/react'
 import { countdownDisplay } from '@/lib/countdown-display'
 import { StartClock } from './start-clock'
+import { ClockParallax } from './clock-parallax'
 import { StartLights } from './start-lights'
 import { CountdownEntrance, CountdownImpact, CountdownFinalPulse } from './countdown-effects'
 import { useF1Start } from '@/lib/use-f1-start'
@@ -134,7 +135,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       <header className="relative z-10 px-6 text-center"><p className="text-xs tracking-[0.15em] text-white/40">{series}</p><h2 className="mt-3 max-w-2xl text-sm text-white/85 sm:text-xl">{title || '等待下一场出发'}</h2></header>
       {Number.isFinite(targetMs) && showSignals && <div className="race-stage" aria-hidden={series !== 'WRC'}>
         {(series === 'F1' || series === 'FE') && <StartLights series={series} lit={lit} green={green} delayed={freshLive?.phase === 'delayed'} />}
-        {series === 'WRC' && <StartClock seconds={total} started={started} now={clock} timeZone={timeZone} />}
+        {series === 'WRC' && <ClockParallax><StartClock seconds={total} started={started} now={clock} timeZone={timeZone} /></ClockParallax>}
       </div>}
 
       {!(series === 'WRC' && showSignals && Number.isFinite(targetMs)) && <div
