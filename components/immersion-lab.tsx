@@ -88,7 +88,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={green} onChange={event => setGreen(event.target.checked)} />辅助绿灯</label>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={delayed} onChange={event => setDelayed(event.target.checked)} />延迟提示</label>
     </>}
-    {id === 'clock-wrc' && <>
+    {(id === 'clock-wrc' || lights) && <>
       <Field label={`上下透视：${tiltX}°`}><input aria-label="上下透视" type="range" min="-5" max="5" step="0.5" value={tiltX} onChange={event => setTiltX(Number(event.target.value))} /></Field>
       <Field label={`左右透视：${tiltY}°`}><input aria-label="左右透视" type="range" min="-6" max="6" step="0.5" value={tiltY} onChange={event => setTiltY(Number(event.target.value))} /></Field>
       <button className={button} onClick={() => { setTiltX(0); setTiltY(0) }}>恢复正视</button>
@@ -117,7 +117,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
     visual = closed ? <button className={button} onClick={() => replay()}>重新打开</button> : <ImmersiveCountdown key={nonce} targetTime={new Date(target).toISOString()} series={series} timeZone={timeZone} entrance={id === 'countdown-entry'} title={`${series} 沉浸测试`} preview={!fullscreen} onClose={() => fullscreen ? router.push('/playground/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</ImmersiveCountdown>
   } else {
     visual = <div key={`${nonce}-${series}`} className={`race-immersive immersion-effect-stage ${fullscreen ? 'immersion-effect-full' : ''} ${id === 'impact' && (paused ? frame < duration : effectActive) ? 'has-impact' : ''} ${id === 'impact' && paused ? 'is-frame-inspection' : ''}`} data-series={series} style={{ '--accent': SERIES_THEME_COLORS[series], ...(paused ? { '--launch-frame': `${Math.min(frame, duration)}ms` } : {}) } as CSSProperties}>
-      {lights && <div role="img" aria-label={`${series} 灯板，${lit} 组红灯，绿灯${green ? '亮' : '灭'}，延迟提示${delayed ? '开' : '关'}`}><StartLights series={id === 'lights-f1' ? 'F1' : 'FE'} lit={lit} green={green} delayed={delayed} /></div>}
+      {lights && <div role="img" aria-label={`${series} 灯板，${lit} 组红灯，绿灯${green ? '亮' : '灭'}，延迟提示${delayed ? '开' : '关'}`}><StartLights series={id === 'lights-f1' ? 'F1' : 'FE'} lit={lit} green={green} delayed={delayed} previewTilt={tiltX || tiltY ? { x: tiltX, y: tiltY } : undefined} /></div>}
       {id === 'clock-wrc' && <div className="race-stage"><ClockParallax previewTilt={tiltX || tiltY ? { x: tiltX, y: tiltY } : undefined}><StartClock seconds={remaining} started={remaining === 0} now={clock} timeZone={timeZone} /></ClockParallax></div>}
       {id === 'entrance' && <CountdownEntrance frameMs={frameMs} />}
       {id === 'final-pulse' && <CountdownFinalPulse frameMs={frameMs} />}

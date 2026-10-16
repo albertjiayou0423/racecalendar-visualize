@@ -100,13 +100,10 @@
 .rally-clock-housing::before{left:5px}.rally-clock-housing::after{right:5px}
 
 .rally-parallax{position:relative;width:100%;perspective:1000px;perspective-origin:50% 50%}
-.rally-parallax-object{width:100%;transform-style:preserve-3d;transform:rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg));transition:transform 180ms ease-out}
+.rally-parallax-object{width:100%;transform-style:preserve-3d;transform:translate3d(0,0,0) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg));transition:transform 180ms ease-out}
 .rally-inline{transform-style:preserve-3d}
 .rally-clock-face{transform:translateZ(3px);transform-style:preserve-3d}
 .rally-clock-face svg{transform:translateZ(2px)}
-.rally-depth-control{position:absolute;left:50%;top:calc(100% + 14px);transform:translateX(-50%);min-height:40px;padding:6px 14px;border:1px solid #343e48;border-radius:999px;background:#10151b;color:#aab8c8;font-size:12px;white-space:nowrap}
-.rally-depth-control:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.rally-depth-message{position:absolute;top:calc(100% + 58px);left:0;right:0;text-align:center;font-size:11px;color:#99a7b7}
 @media(prefers-reduced-motion:reduce){.rally-parallax-object{transform:none!important;transition:none}.rally-depth-control{display:none}}
 
 /* Actual separate planes: front bezel, recessed LEDs, cover top/lip/cheeks. */
@@ -117,9 +114,16 @@
 .rally-hood-side.is-right{right:0;transform-origin:right top;transform:rotateY(90deg)}
 .rally-clock-bezel{position:absolute;inset:0;pointer-events:none;border:clamp(9px,2vw,19px) solid #1c2329;border-top-color:#28313a;border-bottom-color:#151c22;border-radius:3px;transform:translateZ(12px)}
 .rally-clock-housing::before,.rally-clock-housing::after{z-index:3;transform:translateZ(14px)}
-.rally-clock-face::after{content:'';position:absolute;inset:0;pointer-events:none;transform:translateZ(6px);background:radial-gradient(ellipse at var(--glare-x,50%) var(--glare-y,35%),#e4edff09,transparent 58%),linear-gradient(118deg,#ffffff07 0%,#ffffff02 27%,transparent 43%,transparent 78%,#79aaff03),repeating-linear-gradient(0deg,transparent 0px,transparent 3px,#00000012 3px,#00000012 4px);border:1px solid #b8cfff0a;border-radius:2px}
+.rally-clock-face::after{content:'';position:absolute;inset:0;pointer-events:none;transform:translateZ(6px);background:radial-gradient(ellipse at var(--glare-x,50%) var(--glare-y,35%),#e4edff09,transparent 58%),linear-gradient(118deg,#ffffff07 0%,#ffffff02 27%,transparent 43%,transparent 78%,#79aaff03);border:1px solid #b8cfff0a;border-radius:2px}
 .rally-local-digits,.rally-countdown-digits{filter:drop-shadow(0 0 .65px currentColor) drop-shadow(0 0 5px color-mix(in srgb,currentColor 22%,transparent))}
 
 /* Weather seal and slotted fasteners remain local surface details. */
 .rally-clock-face{outline:2px solid #0a0e12;outline-offset:2px}
 .rally-clock-housing::before,.rally-clock-housing::after{width:5px;height:5px;bottom:4px;background:linear-gradient(45deg,#48545f 42%,#0b1016 43%,#0b1016 58%,#64717b 59%);border:1px solid #1a232b;box-shadow:0 1px 1px #0008}
+
+.rally-parallax-object{display:flex;align-items:center;justify-content:center;backface-visibility:hidden}
+.rally-parallax-object[data-tilt-live=true]{transition:none;will-change:transform}
+.rally-clock-bezel,.rally-clock-face,.rally-hood-top,.rally-hood-lip,.rally-hood-side{backface-visibility:hidden;outline:1px solid transparent}
+.start-signal{transform-style:preserve-3d}
+.signal-body{transform:translateZ(0);backface-visibility:hidden;shape-rendering:geometricPrecision}
+.start-signal .signal-lenses{position:absolute;inset:0;transform:translateZ(7px);backface-visibility:hidden;pointer-events:none;shape-rendering:geometricPrecision}

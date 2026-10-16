@@ -11,3 +11,10 @@ export function clockTilt(beta: number, gamma: number, baseBeta: number, baseGam
     y: clamp((horizontal * Math.cos(angle) + vertical * Math.sin(angle)) * .22, 6),
   }
 }
+
+/** Frame-rate independent damping, with a small dead zone for sensor noise. */
+export function smoothClockTilt(current: { x: number; y: number }, target: { x: number; y: number }, elapsedMs: number) {
+  const weight = 1 - Math.exp(-Math.max(0, Math.min(50, elapsedMs)) / 100)
+  const axis = (value: number, goal: number) => Math.abs(goal - value) < .025 ? goal : value + (goal - value) * weight
+  return { x: axis(current.x, clamp(target.x, 5)), y: axis(current.y, clamp(target.y, 6)) }
+}

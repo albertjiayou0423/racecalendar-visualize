@@ -1,84 +1,42 @@
 "use client"
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { clockTilt } from '@/lib/clock-parallax'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { subscribeDeviceTilt } from '@/lib/device-tilt'
 
-type OrientationAPI = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<'granted' | 'denied'> }
+function paint(node: HTMLElement, tilt: { x: number; y: number }) {
+  node.style.setProperty('--tilt-x', `${tilt.x.toFixed(4)}deg`)
+  node.style.setProperty('--tilt-y', `${tilt.y.toFixed(4)}deg`)
+  node.style.setProperty('--glare-x', `${50 + tilt.y * 2}%`)
+  node.style.setProperty('--glare-y', `${35 - tilt.x * 2}%`)
+}
 
 export function ClockParallax({ children, previewTilt }: { children: ReactNode; previewTilt?: { x: number; y: number } }) {
   const object = useRef<HTMLDivElement>(null)
-  const [available, setAvailable] = useState(false)
-  const [enabled, setEnabled] = useState(false)
+  const [active, setActive] = useState(false)
   const [reduced, setReduced] = useState(true)
-  const [visible, setVisible] = useState(true)
-  const [message, setMessage] = useState('')
+  const previewing = !!previewTilt
   useEffect(() => {
     const coarse = matchMedia('(pointer: coarse)')
     const motion = matchMedia('(prefers-reduced-motion: reduce)')
     const update = () => {
-      setAvailable(coarse.matches && window.isSecureContext && 'DeviceOrientationEvent' in window)
       setReduced(motion.matches)
-      if (motion.matches) setEnabled(false)
+      setActive(coarse.matches && !motion.matches && window.isSecureContext && 'DeviceOrientationEvent' in window)
     }
-    const visibility = () => setVisible(!document.hidden)
     update()
-    visibility()
     coarse.addEventListener('change', update)
     motion.addEventListener('change', update)
-    document.addEventListener('visibilitychange', visibility)
-    return () => {
-      coarse.removeEventListener('change', update)
-      motion.removeEventListener('change', update)
-      document.removeEventListener('visibilitychange', visibility)
-    }
+    return () => { coarse.removeEventListener('change', update); motion.removeEventListener('change', update) }
   }, [])
   useEffect(() => {
-    if (!enabled || reduced || !visible || previewTilt) return
-    let baseline: { beta: number; gamma: number } | undefined
-    let frame = 0
-    let tilt = { x: 0, y: 0 }
-    const reset = () => { baseline = undefined }
-    const receive = (event: DeviceOrientationEvent) => {
-      if (event.beta === null || event.gamma === null || !Number.isFinite(event.beta) || !Number.isFinite(event.gamma)) return
-      baseline ??= { beta: event.beta, gamma: event.gamma }
-      tilt = clockTilt(event.beta, event.gamma, baseline.beta, baseline.gamma, window.screen.orientation?.angle ?? window.orientation ?? 0)
-      if (frame) return
-      frame = requestAnimationFrame(() => {
-        object.current?.style.setProperty('--tilt-x', `${tilt.x}deg`)
-        object.current?.style.setProperty('--tilt-y', `${tilt.y}deg`)
-        object.current?.style.setProperty('--glare-x', `${50 + tilt.y * 2}%`)
-        object.current?.style.setProperty('--glare-y', `${35 - tilt.x * 2}%`)
-        frame = 0
-      })
-    }
-    window.addEventListener('deviceorientation', receive)
-    window.addEventListener('orientationchange', reset)
-    return () => {
-      window.removeEventListener('deviceorientation', receive)
-      window.removeEventListener('orientationchange', reset)
-      cancelAnimationFrame(frame)
-      object.current?.style.removeProperty('--tilt-x')
-      object.current?.style.removeProperty('--tilt-y')
-      object.current?.style.removeProperty('--glare-x')
-      object.current?.style.removeProperty('--glare-y')
-    }
-  }, [enabled, reduced, visible, previewTilt])
-  async function toggle() {
-    if (enabled) { setEnabled(false); return }
-    setMessage('')
-    try {
-      const api = window.DeviceOrientationEvent as OrientationAPI
-      if (api.requestPermission && await api.requestPermission() !== 'granted') {
-        setMessage('未获得动作权限，仍可正常计时')
-        return
-      }
-      setEnabled(true)
-    } catch { setMessage('此浏览器暂时无法启用立体效果') }
-  }
-  const style = previewTilt && !reduced ? { '--tilt-x': `${previewTilt.x}deg`, '--tilt-y': `${previewTilt.y}deg`, '--glare-x': `${50 + previewTilt.y * 2}%`, '--glare-y': `${35 - previewTilt.x * 2}%` } as CSSProperties : undefined
-  return <div className="rally-parallax">
-    <div ref={object} className="rally-parallax-object" style={style}>{children}</div>
-    {available && !reduced && !previewTilt && <button type="button" className="rally-depth-control" aria-pressed={enabled} onClick={toggle}>{enabled ? '关闭立体效果' : '开启立体效果'}</button>}
-    {message && <p role="status" className="rally-depth-message">{message}</p>}
-  </div>
+    const node = object.current
+    if (!node || !active || previewing) return
+    const unsubscribe = subscribeDeviceTilt(tilt => paint(node, tilt))
+    return () => { unsubscribe(); paint(node, { x: 0, y: 0 }) }
+  }, [active, previewing])
+  useEffect(() => {
+    if (!object.current) return
+    if (previewTilt && !reduced) paint(object.current, previewTilt)
+    else if (!active) paint(object.current, { x: 0, y: 0 })
+  }, [previewTilt?.x, previewTilt?.y, reduced, active])
+  return <div className="rally-parallax"><div ref={object} className="rally-parallax-object" data-tilt-live={active && !previewing || undefined}>{children}</div></div>
 }

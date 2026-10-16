@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { clockTilt } from '../lib/clock-parallax.ts'
+import { clockTilt, smoothClockTilt } from '../lib/clock-parallax.ts'
 
 test('initial holding angle is neutral and tilt stays bounded under large movement', () => {
   const neutral = clockTilt(60, -15, 60, -15)
@@ -23,4 +23,17 @@ test('landscape rotates the axes and beta wrapping does not jump across 180 degr
 test('invalid sensor samples never create invalid CSS angles', () => {
   assert.deepEqual(clockTilt(NaN, 0, 0, 0), { x: 0, y: 0 })
   assert.deepEqual(clockTilt(0, Infinity, 0, 0), { x: 0, y: 0 })
+})
+
+test('damping has the same response at 60Hz and 120Hz without overshoot', () => {
+  function run(hz) {
+    let pose = { x: 0, y: 0 }
+    for (let i = 0; i < hz / 5; i++) pose = smoothClockTilt(pose, { x: 5, y: -6 }, 1000 / hz)
+    return pose
+  }
+  const a = run(60), b = run(120)
+  assert.ok(Math.abs(a.x - b.x) < 1e-6)
+  assert.ok(Math.abs(a.y - b.y) < 1e-6)
+  assert.ok(a.x > 0 && a.x < 5 && a.y < 0 && a.y > -6)
+  assert.ok(smoothClockTilt({ x: 0, y: 0 }, { x: 5, y: 6 }, 5000).x < 2)
 })
