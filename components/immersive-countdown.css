@@ -3,7 +3,7 @@
 .race-immersive-preview{min-height:480px;width:100%;border-radius:16px;padding:64px 16px 32px}
 .race-entry-wave{position:absolute;inset:0;z-index:30;pointer-events:none;background:var(--accent);color:var(--accent);animation:race-wave-rise var(--entry-duration,1000ms) cubic-bezier(.65,0,.25,1) both}
 .race-entry-wave svg{position:absolute;top:-79px;left:0;width:100%;height:80px}
-.race-wave-entry>header,.race-wave-entry>.race-stage,.race-wave-entry>.relative{animation:race-content-reveal var(--reveal-duration,500ms) var(--reveal-at,420ms) ease-out both}
+.race-wave-entry>.race-stage,.race-wave-entry>.relative{animation:race-content-reveal var(--reveal-duration,500ms) var(--reveal-at,420ms) ease-out both}
 .race-wave-entry>button[aria-label="关闭"]{z-index:40}
 @keyframes race-wave-rise{0%{transform:translateY(calc(100% + 90px))}36%{transform:translateY(0)}100%{transform:translateY(calc(-100% - 90px))}}
 @keyframes race-content-reveal{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -55,27 +55,32 @@
 .rally-inline{--clock-color:var(--accent,#3b82f6);--count-color:color-mix(in srgb,var(--accent,#3b82f6) 65%,white);display:flex;justify-content:center;width:100%;color:var(--clock-color)}
 .rally-countdown-digits{color:var(--count-color)}
 .rally-inline svg{display:block;width:100%;height:auto;fill:currentColor;shape-rendering:geometricPrecision}
-[data-series=WRC] .race-launch-burst i:first-child{inset:0;height:auto;top:0;background:currentColor;clip-path:none;animation:rally-release-field var(--impact-duration,2600ms) ease both}
+[data-series=WRC] .race-launch-burst i:first-child{inset:auto;top:50%;left:0;width:42%;height:clamp(48px,14vh,140px);background:linear-gradient(90deg,transparent,color-mix(in srgb,currentColor 45%,transparent),currentColor,transparent);clip-path:none;filter:blur(12px);animation:rally-release-sweep var(--impact-duration,2600ms) cubic-bezier(.22,1,.36,1) both}
 
 
 @media(max-width:640px){.race-immersive[data-series=WRC]{padding-left:20px;padding-right:20px}.race-immersive-preview[data-series=WRC]{min-height:260px}}
 .rally-prestart-pulse{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 0 180px color-mix(in srgb,var(--accent) 66%,transparent);animation:rally-prestart-beat var(--pulse-duration,850ms) ease-out both}
 .rally-local-digits{opacity:1;transition:opacity 400ms ease}
 .race-immersive[data-series=WRC].is-final:not(.is-started) .rally-local-digits{opacity:.4}
-.race-immersive[data-series=WRC].has-impact .rally-inline{animation:rally-release-impact var(--impact-duration,2600ms) ease both;animation-delay:calc(0ms - var(--release-lag,0ms))}
+.race-immersive[data-series=WRC].has-impact .rally-inline{animation:none}
 .race-immersive[data-series=WRC].has-impact .rally-countdown-digits{animation:rally-release-count var(--impact-duration,2600ms) ease both;animation-delay:calc(0ms - var(--release-lag,0ms))}
 .race-immersive[data-series=WRC].has-impact.is-frame-inspection .rally-inline,.race-immersive[data-series=WRC].has-impact.is-frame-inspection .rally-countdown-digits{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
 @keyframes rally-prestart-beat{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
-@keyframes rally-release-impact{0%,100%{color:var(--clock-color)}15%,60%{color:#fff}}
-@keyframes rally-release-count{0%,100%{color:var(--count-color)}15%,60%{color:#fff}}
+@keyframes rally-release-count{0%,100%{color:var(--count-color)}12%,35%{color:#fff}}
 @media(prefers-reduced-motion:reduce){.rally-prestart-pulse{display:none}.race-immersive[data-series=WRC].is-final:not(.is-started) .rally-local-digits{opacity:1}}
-[data-series=WRC] .race-launch-burst i:nth-child(2),[data-series=WRC] .race-launch-burst i:nth-child(3){display:block;top:0;bottom:0;inset-inline:auto;width:50.1%;background:#090808;border:0;animation:rally-door-left 1400ms cubic-bezier(.76,0,.24,1) both}
-[data-series=WRC] .race-launch-burst i:nth-child(2){left:0;right:auto}
-[data-series=WRC] .race-launch-burst i:nth-child(3){left:auto;right:0;animation-name:rally-door-right;animation-delay:0ms}
+[data-series=WRC] .race-launch-burst i:nth-child(2){inset:auto;top:50%;left:10%;width:80%;height:2px;border:0;background:currentColor;transform-origin:left center;animation:rally-release-line var(--impact-duration,2600ms) ease both}
+[data-series=WRC] .race-launch-burst i:nth-child(3){display:none}
 [data-series=WRC] .race-launch-burst.is-frame i{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
-@keyframes rally-release-field{0%{opacity:0}15%,60%{opacity:1}100%{opacity:0}}
-@keyframes rally-door-left{0%,10%{opacity:1;transform:translateX(0)}100%{opacity:1;transform:translateX(-101%)}}
-@keyframes rally-door-right{0%,10%{opacity:1;transform:translateX(0)}100%{opacity:1;transform:translateX(101%)}}
 .immersion-effect-stage{position:relative;isolation:isolate;overflow:hidden;min-height:320px;width:100%;padding:48px 24px;background:#090808}
 .immersion-effect-full{position:fixed;inset:0;z-index:10000;height:100dvh;padding:90px 24px 40px}
 .immersion-effect-stage .race-stage{width:min(900px,100%);margin:0}
+
+/* Quiet preparation leaves timing and exit controls fully readable. */
+.race-immersive header,.race-countdown-note{transition:opacity 900ms ease}
+.race-immersive.is-quiet header,.race-immersive.is-quiet .race-countdown-note{opacity:.18}
+.race-immersive.is-quiet.is-final header,.race-immersive.is-quiet.is-final .race-countdown-note{opacity:0}
+.race-immersive[data-series=WRC].is-quiet .rally-local-digits{opacity:.55}
+.race-immersive[data-series=WRC].is-quiet.is-final .rally-local-digits{opacity:.3}
+@keyframes rally-release-sweep{0%,8%{opacity:0;transform:translate(-140%,-50%)}18%{opacity:.85;transform:translate(-70%,-50%)}48%{opacity:.65;transform:translate(190%,-50%)}70%,100%{opacity:0;transform:translate(350%,-50%)}}
+@keyframes rally-release-line{0%,8%{opacity:0;transform:scaleX(0)}20%{opacity:.7;transform:scaleX(.35)}45%{opacity:.4;transform:scaleX(1)}75%,100%{opacity:0;transform:scaleX(1)}}
+@media(prefers-reduced-motion:reduce){.race-immersive.is-quiet header,.race-immersive.is-quiet .race-countdown-note,.race-immersive.is-quiet.is-final header,.race-immersive.is-quiet.is-final .race-countdown-note,.race-immersive[data-series=WRC].is-quiet .rally-local-digits,.race-immersive[data-series=WRC].is-quiet.is-final .rally-local-digits{opacity:1}}

@@ -111,7 +111,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   return (
     <div
       ref={containerRef}
-      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
+      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance ? 'race-wave-entry' : ''} ${total > 0 && total <= 10 && !started ? 'is-quiet' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
       style={{ '--accent': accentColor, '--impact-duration': `${impactDuration}ms`, '--entry-duration': `${IMMERSION_MOTION.entry}ms`, '--reveal-at': `${IMMERSION_MOTION.revealAt}ms`, '--reveal-duration': `${IMMERSION_MOTION.reveal}ms`, '--release-lag': `${releaseMatches ? release?.lag ?? 0 : 0}ms`, ...(inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } : {}) } as CSSProperties}
       data-series={series}
       data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
