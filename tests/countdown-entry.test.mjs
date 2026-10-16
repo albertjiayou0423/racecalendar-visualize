@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { countdownCandidate, countdownKey } from '../lib/countdown-entry.ts'
 const now = Date.parse('2026-10-14T12:00:00Z')
 const event = (seconds, extra = {}) => ({ id: 'f1-test', series: 'F1', sessions: [{ name: '正赛', utc: new Date(now + seconds * 1000).toISOString(), ...extra }] })
-test('automatic countdown only opens in the future 30-second window', () => {
-  for (const seconds of [-1, 0, 31]) assert.equal(countdownCandidate([event(seconds)], now), undefined)
-  for (const seconds of [1, 30]) assert.ok(countdownCandidate([event(seconds)], now))
+test('automatic countdown only opens in the future two-minute window', () => {
+  for (const seconds of [-1, 0, 120.001, 121]) assert.equal(countdownCandidate([event(seconds)], now), undefined)
+  for (const seconds of [1, 30, 31, 119, 120]) assert.ok(countdownCandidate([event(seconds)], now))
 })
 test('reject estimates, invalid times and unverified client times', () => {
   for (const extra of [{ tentative: true }, { utc: 'invalid' }, { clientUploadedAt: '2026-10-14' }]) assert.equal(countdownCandidate([event(20, extra)], now), undefined)

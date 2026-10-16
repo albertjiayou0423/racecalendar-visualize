@@ -110,12 +110,16 @@
 @media(prefers-reduced-motion:reduce){.rally-parallax-object{transform:none!important;transition:none}.rally-depth-control{display:none}}
 
 /* Actual separate planes: front bezel, recessed LEDs, cover top/lip/cheeks. */
-.rally-hood-top{position:absolute;left:0;right:0;top:calc(-1 * var(--hood-top));height:var(--hood-top);background:#333d46;border:1px solid #58646e;transform-origin:center bottom;transform:translateZ(var(--hood-reach)) rotateX(66deg);backface-visibility:hidden}
+.rally-hood-top{position:absolute;left:0;right:0;top:calc(-1 * var(--hood-top));height:var(--hood-top);background:linear-gradient(#3a454f,#2b343d);border:1px solid #58646e;transform-origin:center bottom;transform:translateZ(var(--hood-reach)) rotateX(66deg);backface-visibility:hidden}
 .rally-hood-lip{position:absolute;left:0;right:0;top:0;height:8px;background:#253039;border-top:1px solid #65727b;border-bottom:2px solid #10171d;transform:translateZ(var(--hood-reach))}
 .rally-hood-side{position:absolute;top:0;width:var(--hood-reach);height:8px;background:#19232c}
 .rally-hood-side.is-left{left:0;transform-origin:left top;transform:rotateY(-90deg)}
 .rally-hood-side.is-right{right:0;transform-origin:right top;transform:rotateY(90deg)}
 .rally-clock-bezel{position:absolute;inset:0;pointer-events:none;border:clamp(9px,2vw,19px) solid #1c2329;border-top-color:#28313a;border-bottom-color:#151c22;border-radius:3px;transform:translateZ(12px)}
 .rally-clock-housing::before,.rally-clock-housing::after{z-index:3;transform:translateZ(14px)}
-.rally-clock-face::after{content:'';position:absolute;inset:0;pointer-events:none;transform:translateZ(6px);background:linear-gradient(118deg,#ffffff07 0%,#ffffff02 27%,transparent 43%,transparent 78%,#79aaff03),repeating-linear-gradient(0deg,transparent 0px,transparent 3px,#00000012 3px,#00000012 4px);border:1px solid #b8cfff0a;border-radius:2px}
+.rally-clock-face::after{content:'';position:absolute;inset:0;pointer-events:none;transform:translateZ(6px);background:radial-gradient(ellipse at var(--glare-x,50%) var(--glare-y,35%),#e4edff09,transparent 58%),linear-gradient(118deg,#ffffff07 0%,#ffffff02 27%,transparent 43%,transparent 78%,#79aaff03),repeating-linear-gradient(0deg,transparent 0px,transparent 3px,#00000012 3px,#00000012 4px);border:1px solid #b8cfff0a;border-radius:2px}
 .rally-local-digits,.rally-countdown-digits{filter:drop-shadow(0 0 .65px currentColor) drop-shadow(0 0 5px color-mix(in srgb,currentColor 22%,transparent))}
+
+/* Weather seal and slotted fasteners remain local surface details. */
+.rally-clock-face{outline:2px solid #0a0e12;outline-offset:2px}
+.rally-clock-housing::before,.rally-clock-housing::after{width:5px;height:5px;bottom:4px;background:linear-gradient(45deg,#48545f 42%,#0b1016 43%,#0b1016 58%,#64717b 59%);border:1px solid #1a232b;box-shadow:0 1px 1px #0008}

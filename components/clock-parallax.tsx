@@ -46,6 +46,8 @@ export function ClockParallax({ children, previewTilt }: { children: ReactNode; 
       frame = requestAnimationFrame(() => {
         object.current?.style.setProperty('--tilt-x', `${tilt.x}deg`)
         object.current?.style.setProperty('--tilt-y', `${tilt.y}deg`)
+        object.current?.style.setProperty('--glare-x', `${50 + tilt.y * 2}%`)
+        object.current?.style.setProperty('--glare-y', `${35 - tilt.x * 2}%`)
         frame = 0
       })
     }
@@ -57,6 +59,8 @@ export function ClockParallax({ children, previewTilt }: { children: ReactNode; 
       cancelAnimationFrame(frame)
       object.current?.style.removeProperty('--tilt-x')
       object.current?.style.removeProperty('--tilt-y')
+      object.current?.style.removeProperty('--glare-x')
+      object.current?.style.removeProperty('--glare-y')
     }
   }, [enabled, reduced, visible, previewTilt])
   async function toggle() {
@@ -71,7 +75,7 @@ export function ClockParallax({ children, previewTilt }: { children: ReactNode; 
       setEnabled(true)
     } catch { setMessage('此浏览器暂时无法启用立体效果') }
   }
-  const style = previewTilt && !reduced ? { '--tilt-x': `${previewTilt.x}deg`, '--tilt-y': `${previewTilt.y}deg` } as CSSProperties : undefined
+  const style = previewTilt && !reduced ? { '--tilt-x': `${previewTilt.x}deg`, '--tilt-y': `${previewTilt.y}deg`, '--glare-x': `${50 + previewTilt.y * 2}%`, '--glare-y': `${35 - previewTilt.x * 2}%` } as CSSProperties : undefined
   return <div className="rally-parallax">
     <div ref={object} className="rally-parallax-object" style={style}>{children}</div>
     {available && !reduced && !previewTilt && <button type="button" className="rally-depth-control" aria-pressed={enabled} onClick={toggle}>{enabled ? '关闭立体效果' : '开启立体效果'}</button>}
