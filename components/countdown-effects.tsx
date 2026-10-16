@@ -34,7 +34,7 @@ export function CountdownEntrance({ frameMs = -1, at }: { frameMs?: number; at?:
 
 export function CountdownImpact({ frameMs = -1, at }: { frameMs?: number; at?: number }) {
   const ref = useMotionCue(at, frameMs)
-  return <div ref={ref} className={`race-launch-burst ${frameMs >= 0 ? 'is-frame' : ''}`} style={frameMs >= 0 ? { '--launch-frame': `${frameMs}ms` } as CSSProperties : undefined} aria-hidden="true"><i /><i /><i /></div>
+  return <div ref={ref} className={`race-launch-burst ${frameMs >= 0 ? 'is-frame' : ''}`} style={frameMs >= 0 ? { '--launch-frame': `${frameMs}ms` } as CSSProperties : undefined} aria-hidden="true" />
 }
 
 export function CountdownFinalPulse({ frameMs = -1, at }: { frameMs?: number; at?: number }) {
