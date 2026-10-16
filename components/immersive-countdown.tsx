@@ -13,6 +13,7 @@ import { useFocusTrap } from "@/lib/use-focus-trap"
 import type { Series } from "@/lib/types"
 import { SERIES_THEME_COLORS } from '@/lib/series-theme'
 import { didCountdownStart } from '@/lib/countdown-transition'
+import { IMMERSION_MOTION, pulseOrigin, releaseVisible } from '@/lib/immersion-motion'
 
 interface ImmersiveCountdownProps {
   /** 目标 UTC 时间 */
@@ -36,6 +37,7 @@ interface ImmersiveCountdownProps {
 /** 全屏倒计时：按位滚动，最后半小时显示系列起跑装置。 */
 export function ImmersiveCountdown({ targetTime, series, onClose, preview = false, title, isRace = false, entrance = false, timeZone, previewFrameMs = -1, children }: ImmersiveCountdownProps) {
   const vibrated = useRef(false)
+  const enteredAt = useRef(Date.now())
   useEffect(() => {
     if (!entrance || preview || vibrated.current) return
     vibrated.current = true
@@ -83,41 +85,43 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
 
   const { total, days, hours, minutes, seconds, showSignals } = countdownDisplay(remaining)
   const freshLive = liveState && (clock - Date.parse(liveState.observedAt) < 30000 || ['racing', 'finished', 'delayed'].includes(liveState.phase)) && liveState.phase !== 'unknown' ? liveState : null
+  const hasLiveState = !!freshLive
   const green = !!(freshLive?.phase === 'formation' && freshLive.signalAt && clock - Date.parse(freshLive.signalAt) < 30000)
   const started = freshLive ? ['racing', 'finished'].includes(freshLive.phase) : Number.isFinite(targetMs) && remaining === 0
   const lit = freshLive || started ? 0 : Math.min(5, Math.max(0, 6 - total))
   const phaseLabel = freshLive ? ({ formation: '暖胎圈信号', delayed: '发车延迟', racing: '比赛已开始', finished: '场次已结束', unknown: '等待信号' }[freshLive.phase])
     : null
-  const impactDuration = series === 'WRC' ? 2600 : 1800
+  const impactDuration = IMMERSION_MOTION.impact[series]
   const accentColor = SERIES_THEME_COLORS[series]
   const inspectFrame = preview && Number.isFinite(previewFrameMs) && previewFrameMs >= 0
   const previousStarted = useRef({ targetMs, series, started })
-  const [launchBurst, setLaunchBurst] = useState(false)
+  const [release, setRelease] = useState<{ at: number; lag: number; targetMs: number; series: Series } | null>(null)
+  const releaseMatches = release?.targetMs === targetMs && release.series === series
+  const launchBurst = !!(release && releaseMatches && started && releaseVisible(release.at, clock, series))
   useEffect(() => {
     const current = { targetMs, series, started }
     const crossedStart = didCountdownStart(previousStarted.current, current)
     previousStarted.current = current
-    if (!started) { setLaunchBurst(false); return }
-    if (!crossedStart || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setLaunchBurst(false); return }
-    setLaunchBurst(true)
-    const timeout = setTimeout(() => setLaunchBurst(false), impactDuration)
-    return () => clearTimeout(timeout)
-  }, [started, impactDuration, targetMs, series])
+    if (!crossedStart || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const at = hasLiveState ? Date.now() : targetMs
+    const now = Date.now()
+    if (releaseVisible(at, now, series)) setRelease({ at, lag: Math.max(0, now - at), targetMs, series })
+  }, [started, impactDuration, targetMs, series, hasLiveState])
 
   return (
     <div
       ref={containerRef}
       className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
-      style={{ '--accent': accentColor, ...(inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } : {}) } as CSSProperties}
+      style={{ '--accent': accentColor, '--impact-duration': `${impactDuration}ms`, '--entry-duration': `${IMMERSION_MOTION.entry}ms`, '--reveal-at': `${IMMERSION_MOTION.revealAt}ms`, '--reveal-duration': `${IMMERSION_MOTION.reveal}ms`, '--release-lag': `${releaseMatches ? release?.lag ?? 0 : 0}ms`, ...(inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } : {}) } as CSSProperties}
       data-series={series}
       data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
       role="dialog"
       aria-modal={!preview}
       aria-label="沉浸式倒计时"
     >
-      {entrance && <CountdownEntrance />}
-      {(launchBurst || inspectFrame) && <CountdownImpact frameMs={inspectFrame ? Math.min(impactDuration, previewFrameMs) : -1} />}
-      {series === 'WRC' && Number.isFinite(targetMs) && total > 0 && total <= 5 && !started && <CountdownFinalPulse key={total} />}
+      {entrance && <CountdownEntrance at={enteredAt.current} />}
+      {(launchBurst || inspectFrame) && <CountdownImpact at={releaseMatches ? release?.at : undefined} frameMs={inspectFrame ? Math.min(impactDuration, previewFrameMs) : -1} />}
+      {series === 'WRC' && Number.isFinite(targetMs) && total > 0 && total <= 5 && !started && <CountdownFinalPulse key={total} at={pulseOrigin(targetMs, total)} />}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-3 text-white/80 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"

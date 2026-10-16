@@ -11,6 +11,7 @@ import { CountdownEntrance, CountdownImpact, CountdownFinalPulse } from './count
 import { immersionCases, type ImmersionCaseId } from '@/lib/immersion-catalog'
 import type { Series } from '@/lib/types'
 import { SERIES_THEME_COLORS } from '@/lib/series-theme'
+import { IMMERSION_MOTION } from '@/lib/immersion-motion'
 import './immersive-countdown.css'
 
 const button = 'inline-flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring'
@@ -40,7 +41,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const countdown = id === 'countdown' || id === 'countdown-entry'
   const effect = id === 'entrance' || id === 'final-pulse' || id === 'impact'
   const lights = id === 'lights-f1' || id === 'lights-fe'
-  const duration = id === 'entrance' ? 1250 : id === 'final-pulse' ? 850 : series === 'WRC' ? 2600 : 1800
+  const duration = id === 'entrance' ? IMMERSION_MOTION.entry : id === 'final-pulse' ? IMMERSION_MOTION.pulse : IMMERSION_MOTION.impact[series]
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
