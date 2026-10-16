@@ -15,7 +15,7 @@ function useMotionCue(at?: number, frameMs = -1) {
       const animations = [...(ref.current?.getAnimations({ subtree: true }) ?? []), ...(shell?.getAnimations().filter(animation => animation instanceof CSSAnimation && animation.animationName === 'impact-screen') ?? []), ...Array.from(clocks).flatMap(el => el.getAnimations()).filter(animation => animation instanceof CSSAnimation && animation.animationName.startsWith('rally-'))]
       for (const animation of animations) {
         animation.pause()
-        animation.currentTime = 0
+        animation.currentTime = animation instanceof CSSAnimation && animation.animationName === 'impact-screen' ? frameMs : 0
       }
       return
     }
