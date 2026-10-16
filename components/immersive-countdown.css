@@ -129,7 +129,7 @@
 .start-signal .signal-lenses{position:absolute;inset:0;transform:translateZ(7px);backface-visibility:hidden;pointer-events:none;shape-rendering:geometricPrecision}
 
 /* Closed lamp cases: each F1 column / the full FE panel has four walls and a back. */
-.start-signal{--case-depth:clamp(22px,6vw,32px);transform:rotateX(-4deg) rotateY(-6deg)}
+.start-signal{--case-depth:clamp(22px,6vw,32px)}
 .signal-depth{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
 .signal-case{position:absolute;transform-style:preserve-3d}
 .signal-case span{position:absolute;display:block}
