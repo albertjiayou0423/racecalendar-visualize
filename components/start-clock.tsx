@@ -37,7 +37,8 @@ export function StartClock({ seconds, started, now = Date.now(), timeZone = 'Asi
   const end = countStart + width('00')
   return <div className="rally-inline" role="img" aria-label={label} title={timeZone}>
     <div className="rally-clock-housing">
-      <div className="rally-clock-hood" aria-hidden="true" />
+      <div className="rally-clock-hood" aria-hidden="true"><span className="rally-hood-top" /><span className="rally-hood-lip" /><span className="rally-hood-side is-left" /><span className="rally-hood-side is-right" /></div>
+      <div className="rally-clock-bezel" aria-hidden="true" />
       <div className="rally-clock-face">
         <svg viewBox={`0 0 ${end} 30`} aria-hidden="true"><g className="rally-local-digits"><Code text={time} x={0} /></g><g className="rally-countdown-digits">{showCountdown && <Code text={text} x={countStart} />}</g></svg>
       </div>
