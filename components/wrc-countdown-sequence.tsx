@@ -23,8 +23,8 @@ export function WrcCountdownSequence({ event, session, onClose, entrance = false
       const delay = Math.max(0, dueAt - Date.now())
       timer = setTimeout(() => {
         if (cancelled) return
-        if (delay > 2_147_483_647) { scheduleCheck(); return }
         const now = Date.now()
+        if (now < dueAt) { scheduleCheck(); return }
         setActive(current => nextWrcCountdown(eventRef.current, current, now) ?? current)
       }, Math.min(delay, 2_147_483_647))
     }
