@@ -21,7 +21,7 @@ function harness(requestPermission) {
   })
   const dispatch = (events, name, event = {}) => { for (const listener of [...events.get(name) ?? []]) listener(event) }
   return { subscribe: exports.subscribeDeviceTilt, frames, count: name => winEvents.get(name)?.size ?? 0,
-    sample(beta, gamma) { dispatch(winEvents, 'deviceorientation', { beta, gamma }) },
+    sample(beta, gamma, type = 'deviceorientation') { dispatch(winEvents, type, { beta, gamma, type }) },
     tap() { dispatch(docEvents, 'pointerup') },
     visible(value) { document.hidden = !value; dispatch(docEvents, 'visibilitychange') },
     step(now) { const pending = [...frames.values()]; frames.clear(); for (const fn of pending) fn(now) },
@@ -43,6 +43,20 @@ test('all fixtures share one sensor stream, stop in background, and clean up on 
   offA(); assert.equal(h.count('deviceorientation'), 1)
   offB(); assert.equal(h.count('deviceorientation'), 0)
   assert.equal(h.count('orientationchange'), 0)
+})
+
+test('absolute-only Android data works and relative stream takes priority without mixing frames', () => {
+  const h = harness(), poses = [], statuses = []
+  const off = h.subscribe(pose => poses.push(pose), status => statuses.push(status))
+  h.sample(60, 0, 'deviceorientationabsolute'); h.sample(80, 20, 'deviceorientationabsolute'); h.step(16)
+  assert.ok(poses.at(-1).y > 0)
+  assert.equal(statuses.at(-1), 'active')
+  h.sample(60, 0); h.sample(80, 20); h.step(32)
+  const before = poses.at(-1).y
+  h.sample(0, -80, 'deviceorientationabsolute'); h.step(48)
+  assert.ok(poses.at(-1).y >= before)
+  off()
+  assert.equal(h.count('deviceorientationabsolute'), 0)
 })
 
 test('permission-gated sensors request once on first gesture and respect denial', async () => {

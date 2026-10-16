@@ -16,16 +16,14 @@ export function ClockParallax({ children, previewTilt }: { children: ReactNode; 
   const [reduced, setReduced] = useState(true)
   const previewing = !!previewTilt
   useEffect(() => {
-    const coarse = matchMedia('(pointer: coarse)')
     const motion = matchMedia('(prefers-reduced-motion: reduce)')
     const update = () => {
       setReduced(motion.matches)
-      setActive(coarse.matches && !motion.matches && window.isSecureContext && 'DeviceOrientationEvent' in window)
+      setActive(!motion.matches && window.isSecureContext && 'DeviceOrientationEvent' in window)
     }
     update()
-    coarse.addEventListener('change', update)
     motion.addEventListener('change', update)
-    return () => { coarse.removeEventListener('change', update); motion.removeEventListener('change', update) }
+    return () => { motion.removeEventListener('change', update) }
   }, [])
   useEffect(() => {
     const node = object.current

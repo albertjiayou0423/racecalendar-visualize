@@ -14,6 +14,7 @@ import type { Series } from '@/lib/types'
 import { SERIES_THEME_COLORS } from '@/lib/series-theme'
 import { IMMERSION_MOTION } from '@/lib/immersion-motion'
 import { WrcCountdownSequence } from './wrc-countdown-sequence'
+import { TiltDiagnostics } from './tilt-diagnostics'
 import type { RaceEvent } from '@/lib/types'
 import './immersive-countdown.css'
 
@@ -145,6 +146,7 @@ export function ImmersionLab() {
   return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <Link className="text-xs text-muted-foreground hover:text-foreground" href="/playground">返回组件 Playground</Link>
     <h1 className="mt-5 text-2xl font-semibold">沉浸与仪式感测试</h1>
+    <TiltDiagnostics />
     <p className="mt-2 text-sm leading-7 text-muted-foreground">直接使用网站真实组件。每项可单独全屏、重播和调整参数；动画遵循系统的减少动态效果设置。</p>
     <nav className="my-6 flex flex-wrap gap-2" aria-label="全屏测试目录">{immersionCases.map(item => <Link key={item.id} className={button} href={`/playground/immersion/${item.id}`}>{item.name}<Maximize2 aria-hidden="true" size={12} /></Link>)}</nav>
     {immersionCases.map(item => <ImmersionLabCase key={item.id} id={item.id} />)}
