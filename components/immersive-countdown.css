@@ -35,12 +35,12 @@
 .race-launch{font-size:clamp(28px,7vw,64px);font-weight:550;letter-spacing:.08em;line-height:1.25;color:#f3f4f1;white-space:nowrap;animation:race-launch .8s cubic-bezier(.16,1,.3,1) both}
 .race-launch-burst{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;color:var(--accent)}
 .race-launch-burst i{position:absolute;inset:0;opacity:0}
-.race-launch-burst i:first-child{background:currentColor;clip-path:polygon(0 47%,100% 47%,100% 53%,0 53%);animation:launch-aperture 1500ms cubic-bezier(.16,1,.3,1) both}
-.race-launch-burst i:nth-child(2){border:1px solid currentColor;inset:25%;animation:launch-ring 1600ms cubic-bezier(.16,1,.3,1) both}
-.race-launch-burst i:nth-child(3){border:1px solid currentColor;inset:35%;animation:launch-ring 1600ms 100ms cubic-bezier(.16,1,.3,1) both}
+.race-launch-burst i:first-child{background:currentColor;clip-path:polygon(0 47%,100% 47%,100% 53%,0 53%);animation:launch-aperture var(--impact-duration,900ms) cubic-bezier(.16,1,.3,1) both}
+.race-launch-burst i:nth-child(2){border:1px solid currentColor;inset:25%;animation:launch-ring calc(var(--impact-duration,900ms) * .8) cubic-bezier(.16,1,.3,1) both}
+.race-launch-burst i:nth-child(3){border:1px solid currentColor;inset:35%;animation:launch-ring calc(var(--impact-duration,900ms) * .8) 60ms cubic-bezier(.16,1,.3,1) both}
 .race-launch-burst i:nth-child(n+4){display:none}
 .race-launch-burst.is-frame i{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
-.race-launch-burst.is-frame i:nth-child(3){animation-delay:calc(100ms - var(--launch-frame))}
+.race-launch-burst.is-frame i:nth-child(3){animation-delay:calc(60ms - var(--launch-frame))}
 [data-series=FE] .race-launch-burst i:nth-child(2),[data-series=FE] .race-launch-burst i:nth-child(3){transform:skewX(-18deg)}
 @keyframes launch-aperture{0%{opacity:0;clip-path:polygon(0 49.5%,100% 49.5%,100% 50.5%,0 50.5%)}15%{opacity:.22}50%{opacity:.05;clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}100%{opacity:0;clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}}
 @keyframes launch-ring{0%{opacity:.7;scale:.1}100%{opacity:0;scale:4}}
@@ -55,27 +55,30 @@
 .rally-inline{--clock-color:var(--accent,#3b82f6);--count-color:color-mix(in srgb,var(--accent,#3b82f6) 65%,white);display:flex;justify-content:center;width:100%;color:var(--clock-color)}
 .rally-countdown-digits{color:var(--count-color)}
 .rally-inline svg{display:block;width:100%;height:auto;fill:currentColor;shape-rendering:geometricPrecision}
-[data-series=WRC] .race-launch-burst i:first-child{inset:0;height:auto;top:0;background:currentColor;clip-path:none;animation:rally-release-field var(--impact-duration,2600ms) ease both}
+[data-series=WRC] .race-launch-burst i:first-child{inset:0;height:auto;top:0;background:currentColor;clip-path:none;animation:rally-release-field var(--impact-duration,1000ms) ease both}
 
 
 @media(max-width:640px){.race-immersive[data-series=WRC]{padding-left:20px;padding-right:20px}.race-immersive-preview[data-series=WRC]{min-height:260px}}
 .rally-prestart-pulse{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 0 180px color-mix(in srgb,var(--accent) 66%,transparent);animation:rally-prestart-beat var(--pulse-duration,850ms) ease-out both}
 .rally-local-digits{opacity:1;transition:opacity 400ms ease}
 .race-immersive[data-series=WRC].is-final:not(.is-started) .rally-local-digits{opacity:.4}
-.race-immersive[data-series=WRC].has-impact .rally-inline{animation:rally-release-impact var(--impact-duration,2600ms) ease both;animation-delay:calc(0ms - var(--release-lag,0ms))}
-.race-immersive[data-series=WRC].has-impact .rally-countdown-digits{animation:rally-release-count var(--impact-duration,2600ms) ease both;animation-delay:calc(0ms - var(--release-lag,0ms))}
+.race-immersive[data-series=WRC].has-impact .rally-inline{animation:rally-release-impact var(--impact-duration,1000ms) ease both;animation-delay:calc(0ms - var(--release-lag,0ms))}
+.race-immersive[data-series=WRC].has-impact .rally-countdown-digits{animation:rally-release-count var(--impact-duration,1000ms) ease both;animation-delay:calc(0ms - var(--release-lag,0ms))}
 .race-immersive[data-series=WRC].has-impact.is-frame-inspection .rally-inline,.race-immersive[data-series=WRC].has-impact.is-frame-inspection .rally-countdown-digits{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
 @keyframes rally-prestart-beat{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
-@keyframes rally-release-impact{0%,100%{color:var(--clock-color)}15%,60%{color:#fff}}
-@keyframes rally-release-count{0%,100%{color:var(--count-color)}15%,60%{color:#fff}}
+@keyframes rally-release-impact{0%,100%{color:var(--clock-color)}10%,38%{color:#fff}}
+@keyframes rally-release-count{0%,100%{color:var(--count-color)}10%,38%{color:#fff}}
 @media(prefers-reduced-motion:reduce){.rally-prestart-pulse{display:none}.race-immersive[data-series=WRC].is-final:not(.is-started) .rally-local-digits{opacity:1}}
-[data-series=WRC] .race-launch-burst i:nth-child(2),[data-series=WRC] .race-launch-burst i:nth-child(3){display:block;top:0;bottom:0;inset-inline:auto;width:50.1%;background:#090808;border:0;animation:rally-door-left 1400ms cubic-bezier(.76,0,.24,1) both}
+[data-series=WRC] .race-launch-burst i:nth-child(2),[data-series=WRC] .race-launch-burst i:nth-child(3){display:block;top:0;bottom:0;inset-inline:auto;width:50.1%;background:#090808;border:0;animation:rally-door-left 440ms cubic-bezier(.76,0,.24,1) both}
 [data-series=WRC] .race-launch-burst i:nth-child(2){left:0;right:auto}
 [data-series=WRC] .race-launch-burst i:nth-child(3){left:auto;right:0;animation-name:rally-door-right;animation-delay:0ms}
 [data-series=WRC] .race-launch-burst.is-frame i{animation-play-state:paused;animation-delay:calc(0ms - var(--launch-frame))}
-@keyframes rally-release-field{0%{opacity:0}15%,60%{opacity:1}100%{opacity:0}}
+@keyframes rally-release-field{0%{opacity:0}10%{opacity:1}38%{opacity:.9}100%{opacity:0}}
 @keyframes rally-door-left{0%,10%{opacity:1;transform:translateX(0)}100%{opacity:1;transform:translateX(-101%)}}
 @keyframes rally-door-right{0%,10%{opacity:1;transform:translateX(0)}100%{opacity:1;transform:translateX(101%)}}
 .immersion-effect-stage{position:relative;isolation:isolate;overflow:hidden;min-height:320px;width:100%;padding:48px 24px;background:#090808}
 .immersion-effect-full{position:fixed;inset:0;z-index:10000;height:100dvh;padding:90px 24px 40px}
 .immersion-effect-stage .race-stage{width:min(900px,100%);margin:0}
+
+.race-stage-change{position:absolute;bottom:28px;left:20px;right:20px;z-index:15;text-align:center;font-size:12px;color:#a8b5c8;pointer-events:none;animation:race-stage-change 2400ms ease both}
+@keyframes race-stage-change{0%{opacity:0;transform:translateY(6px)}15%,70%{opacity:1;transform:none}100%{opacity:0;transform:none}}

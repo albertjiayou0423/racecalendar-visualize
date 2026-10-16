@@ -28,7 +28,7 @@ interface ImmersiveCountdownProps {
   isRace?: boolean
   entrance?: boolean
   timeZone?: string
-  /** 仅 Playground：-1 正常播放，0–2600 暂停在归零动画对应毫秒。 */
+  /** 仅 Playground：-1 正常播放，0–1000 暂停在归零动画对应毫秒。 */
   previewFrameMs?: number
   /** Optional in-dialog controls, used by the immersion test routes. */
   children?: ReactNode
@@ -118,6 +118,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       role="dialog"
       aria-modal={!preview}
       aria-label="沉浸式倒计时"
+      aria-description={title}
     >
       {entrance && <CountdownEntrance at={enteredAt.current} />}
       {(launchBurst || inspectFrame) && <CountdownImpact at={releaseMatches ? release?.at : undefined} frameMs={inspectFrame ? Math.min(impactDuration, previewFrameMs) : -1} />}

@@ -16,6 +16,7 @@ import {
 import { BEIJING_TZ } from "@/lib/format"
 import { PredictionVote } from "@/components/prediction-vote"
 import { ImmersiveCountdown } from "@/components/immersive-countdown"
+import { WrcCountdownSequence } from "@/components/wrc-countdown-sequence"
 import { useConfettiBurst, useRaceSound } from "@/lib/countdown-hooks"
 import { usePlayground } from "./playground-context"
 import { SERIES_THEME_COLORS as SERIES_ACCENT } from '@/lib/series-theme'
@@ -372,7 +373,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
         </div>
       )}
 
-      {immersiveOpen && (
+      {immersiveOpen && (event.series === 'WRC' ? <WrcCountdownSequence event={event} session={target} onClose={() => setImmersiveOpen(false)} /> : (
         <ImmersiveCountdown
           targetTime={target.utc}
           series={event.series}
@@ -381,7 +382,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           timeZone={event.tz}
           onClose={() => setImmersiveOpen(false)}
         />
-      )}
+      ))}
     </section>
   )
 }

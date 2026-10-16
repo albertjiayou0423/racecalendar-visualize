@@ -12,6 +12,8 @@ import { immersionCases, type ImmersionCaseId } from '@/lib/immersion-catalog'
 import type { Series } from '@/lib/types'
 import { SERIES_THEME_COLORS } from '@/lib/series-theme'
 import { IMMERSION_MOTION } from '@/lib/immersion-motion'
+import { WrcCountdownSequence } from './wrc-countdown-sequence'
+import type { RaceEvent } from '@/lib/types'
 import './immersive-countdown.css'
 
 const button = 'inline-flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring'
@@ -39,6 +41,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   const [closed, setClosed] = useState(false)
   const [mounted, setMounted] = useState(false)
   const countdown = id === 'countdown' || id === 'countdown-entry'
+  const sequence = id === 'wrc-sequence'
   const effect = id === 'entrance' || id === 'final-pulse' || id === 'impact'
   const lights = id === 'lights-f1' || id === 'lights-fe'
   const duration = id === 'entrance' ? IMMERSION_MOTION.entry : id === 'final-pulse' ? IMMERSION_MOTION.pulse : IMMERSION_MOTION.impact[series]
@@ -50,11 +53,11 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
     return () => clearInterval(timer)
   }, [id])
   useEffect(() => {
-    if (!fullscreen || countdown) return
+    if (!fullscreen || countdown || sequence) return
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') router.push('/playground/immersion') }
     document.addEventListener('keydown', escape)
     return () => document.removeEventListener('keydown', escape)
-  }, [fullscreen, countdown, router])
+  }, [fullscreen, countdown, sequence, router])
   useEffect(() => {
     if (!effect || paused || !effectActive) return
     const timer = setTimeout(() => setEffectActive(false), duration)
@@ -71,8 +74,8 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   }
   const frameMs = paused ? Math.min(frame, duration) : -1
   const controls = <div className="grid gap-4">
-    {!lights && id !== 'clock-wrc' && id !== 'final-pulse' && <Field label="赛事系列"><select aria-label="赛事系列" className={input} value={series} onChange={event => setSeries(event.target.value as Series)}>{(['WRC', 'F1', 'FE'] as const).map(value => <option key={value}>{value}</option>)}</select></Field>}
-    {(countdown || id === 'clock-wrc') && <>
+    {!lights && !sequence && id !== 'clock-wrc' && id !== 'final-pulse' && <Field label="赛事系列"><select aria-label="赛事系列" className={input} value={series} onChange={event => setSeries(event.target.value as Series)}>{(['WRC', 'F1', 'FE'] as const).map(value => <option key={value}>{value}</option>)}</select></Field>}
+    {(countdown || sequence || id === 'clock-wrc') && <>
       <div className="flex flex-wrap gap-2">{[5, 10, 30, 60, 61, 120, 3600, 0].map(value => <button key={value} className={button} onClick={() => { setDelay(value); replay(value) }}>{value === 0 ? '已归零' : value === 3600 ? '长倒计时' : `${value} 秒`}</button>)}</div>
       <Field label="倒计时秒数"><input aria-label="倒计时秒数" className={input} type="number" min="0" max="864000" value={delay} onChange={event => setDelay(Math.max(0, Math.min(864000, Number(event.target.value))))} /></Field>
       <Field label="当地时区"><select aria-label="当地时区" className={input} value={timeZone} onChange={event => setTimeZone(event.target.value)}>{['Europe/Paris', 'Asia/Shanghai', 'Asia/Riyadh', 'America/New_York'].map(value => <option key={value}>{value}</option>)}</select></Field>
@@ -97,7 +100,11 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
     <details className="max-h-[75dvh] w-64 overflow-auto rounded-xl border border-border bg-background/95 p-3 text-sm"><summary tabIndex={0} className="cursor-pointer">{item.name} · 参数</summary><div className="pt-4">{controls}</div></details>
   </nav>
   let visual: ReactNode
-  if (countdown) {
+  if (sequence) {
+    const event: RaceEvent = { id: 'lab-wrc', series: 'WRC', round: 1, name: 'WRC 连续赛段测试', circuit: '', locality: '', country: '', tz: timeZone, sessions: [0, 1, 2].map(index => ({ name: `SS${index + 1}`, utc: new Date(target + index * 15000).toISOString(), tentative: false })) }
+    visual = <WrcCountdownSequence key={nonce} event={event} session={event.sessions[0]} entrance preview={!fullscreen} onClose={() => fullscreen ? router.push('/playground/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</WrcCountdownSequence>
+    if (closed) visual = <button className={button} onClick={() => replay()}>重新打开</button>
+  } else if (countdown) {
     visual = closed ? <button className={button} onClick={() => replay()}>重新打开</button> : <ImmersiveCountdown key={nonce} targetTime={new Date(target).toISOString()} series={series} timeZone={timeZone} entrance={id === 'countdown-entry'} title={`${series} 沉浸测试`} preview={!fullscreen} onClose={() => fullscreen ? router.push('/playground/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</ImmersiveCountdown>
   } else {
     visual = <div key={`${nonce}-${series}`} className={`race-immersive immersion-effect-stage ${fullscreen ? 'immersion-effect-full' : ''} ${id === 'impact' && (paused ? frame < duration : effectActive) ? 'has-impact' : ''} ${id === 'impact' && paused ? 'is-frame-inspection' : ''}`} data-series={series} style={{ '--accent': SERIES_THEME_COLORS[series], ...(paused ? { '--launch-frame': `${Math.min(frame, duration)}ms` } : {}) } as CSSProperties}>
@@ -113,7 +120,7 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
 
   if (fullscreen) return <main>
     {visual}
-    {!countdown && fullscreenControls}
+    {!countdown && !sequence && fullscreenControls}
   </main>
 
   return <article className="border-t border-border py-7" aria-label={item.name}>
