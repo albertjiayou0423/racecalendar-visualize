@@ -8,6 +8,9 @@ export function StartLights({ series, lit, green, delayed, previewTilt }: { seri
   const width = 420
   const rows = series === 'F1' ? 4 : 2
   return <ClockParallax previewTilt={previewTilt}><div className={`start-signal ${series === 'FE' ? 'fe-signal' : ''}`}>
+    <div className="signal-depth" aria-hidden="true">{Array.from({ length: series === 'F1' ? 5 : 1 }, (_, column) => <div key={column} className="signal-case" style={series === 'F1' ? { left: `${(column * 82 + 10) / 420 * 100}%`, top: `${13 / 238 * 100}%`, width: `${70 / 420 * 100}%`, height: `${220 / 238 * 100}%` } : { left: `${6 / 420 * 100}%`, top: '10%', width: `${408 / 420 * 100}%`, height: `${110 / 130 * 100}%` }}>
+      <span className="signal-case-back" /><span className="signal-case-left" /><span className="signal-case-right" /><span className="signal-case-top" /><span className="signal-case-bottom" />
+    </div>)}</div>
     <svg className="signal-body" viewBox={`0 0 ${width} ${rows * 54 + 22}`} aria-hidden="true">
       <path d="M0 8H420" stroke="#34373b" strokeWidth="4" />
       {series === 'FE' && <rect x="6" y="13" width="408" height="110" rx="3" fill="#101215" stroke="#36393d" />}

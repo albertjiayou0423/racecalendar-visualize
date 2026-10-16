@@ -127,3 +127,16 @@
 .start-signal{transform-style:preserve-3d}
 .signal-body{transform:translateZ(0);backface-visibility:hidden;shape-rendering:geometricPrecision}
 .start-signal .signal-lenses{position:absolute;inset:0;transform:translateZ(7px);backface-visibility:hidden;pointer-events:none;shape-rendering:geometricPrecision}
+
+/* Closed lamp cases: each F1 column / the full FE panel has four walls and a back. */
+.start-signal{--case-depth:clamp(22px,6vw,32px);transform:rotateX(-4deg) rotateY(-6deg)}
+.signal-depth{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
+.signal-case{position:absolute;transform-style:preserve-3d}
+.signal-case span{position:absolute;display:block}
+.signal-case-back{inset:0;background:#080c10;border:1px solid #303b45;border-radius:2px;transform:translateZ(calc(-1 * var(--case-depth)));box-shadow:5px 8px 15px #0007}
+.signal-case-left,.signal-case-right{top:0;bottom:0;width:var(--case-depth);background:linear-gradient(90deg,#283540,#111920);border-top:1px solid #495760;border-bottom:1px solid #080c10}
+.signal-case-left{left:0;transform-origin:left center;transform:rotateY(90deg)}
+.signal-case-right{right:0;transform-origin:right center;transform:rotateY(-90deg)}
+.signal-case-top,.signal-case-bottom{left:0;right:0;height:var(--case-depth);background:#2d3a44;border:1px solid #42515d}
+.signal-case-top{top:0;transform-origin:center top;transform:rotateX(-90deg)}
+.signal-case-bottom{bottom:0;transform-origin:center bottom;transform:rotateX(90deg);background:#0c1319}
