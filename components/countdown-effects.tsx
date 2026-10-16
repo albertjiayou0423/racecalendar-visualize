@@ -7,7 +7,18 @@ import { IMMERSION_MOTION } from '@/lib/immersion-motion'
 function useMotionCue(at?: number, frameMs = -1) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    if (frameMs >= 0 || at === undefined) return
+    if (frameMs >= 0) {
+      // Pausing a completed animation keeps its old elapsed time. Reset that
+      // time so the CSS negative delay is the sole frame position.
+      const clocks = ref.current?.closest('.race-immersive')?.querySelectorAll<HTMLElement>('.race-stage, .rally-inline, .rally-countdown-digits') ?? []
+      const animations = [...(ref.current?.getAnimations({ subtree: true }) ?? []), ...Array.from(clocks).flatMap(el => el.getAnimations()).filter(animation => animation instanceof CSSAnimation && animation.animationName.startsWith('rally-'))]
+      for (const animation of animations) {
+        animation.pause()
+        animation.currentTime = 0
+      }
+      return
+    }
+    if (at === undefined) return
     for (const animation of ref.current?.getAnimations({ subtree: true }) ?? []) {
       animation.currentTime = Math.max(0, Date.now() - at)
     }

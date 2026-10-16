@@ -26,3 +26,5 @@ CountdownEntrance、CountdownFinalPulse、CountdownImpact 同时用于实际倒�
 连续赛段测试：/playground/immersion/wrc-sequence，复用实际 WrcCountdownSequence，三段测试时间相隔 15 秒，按钮重播可重新开始整条队列，无网络请求。归零暂停页采用各系列当前真实时长（F1/FE 900ms、WRC 1000ms）。
 
 独立全屏纯动画页默认播放一次，内嵌组件仍默认为逐帧预览。点击帧按钮或操作滑块后显示逐帧暂停标记；归零预览初始帧设为 100ms，避免快动画的默认帧已越过峰值。
+
+逐帧同步修正：播放结束后切回滑块会将动效本地时钟重置到 0，由负 animation-delay 单独决定帧位置；同时同步数字回弹与颜色动画，避免背景停留在已完成状态。
