@@ -10,8 +10,9 @@ function useMotionCue(at?: number, frameMs = -1) {
     if (frameMs >= 0) {
       // Pausing a completed animation keeps its old elapsed time. Reset that
       // time so the CSS negative delay is the sole frame position.
-      const clocks = ref.current?.closest('.race-immersive')?.querySelectorAll<HTMLElement>('.race-stage, .rally-inline, .rally-countdown-digits') ?? []
-      const animations = [...(ref.current?.getAnimations({ subtree: true }) ?? []), ...Array.from(clocks).flatMap(el => el.getAnimations()).filter(animation => animation instanceof CSSAnimation && animation.animationName.startsWith('rally-'))]
+      const shell = ref.current?.closest('.race-immersive')
+      const clocks = shell?.querySelectorAll<HTMLElement>('.race-stage, .rally-inline, .rally-countdown-digits') ?? []
+      const animations = [...(ref.current?.getAnimations({ subtree: true }) ?? []), ...(shell?.getAnimations().filter(animation => animation instanceof CSSAnimation && animation.animationName === 'impact-screen') ?? []), ...Array.from(clocks).flatMap(el => el.getAnimations()).filter(animation => animation instanceof CSSAnimation && animation.animationName.startsWith('rally-'))]
       for (const animation of animations) {
         animation.pause()
         animation.currentTime = 0
@@ -19,7 +20,9 @@ function useMotionCue(at?: number, frameMs = -1) {
       return
     }
     if (at === undefined) return
-    for (const animation of ref.current?.getAnimations({ subtree: true }) ?? []) {
+    const shell = ref.current?.closest('.race-immersive')
+    const animations = [...(ref.current?.getAnimations({ subtree: true }) ?? []), ...(shell?.getAnimations().filter(animation => animation instanceof CSSAnimation && animation.animationName === 'impact-screen') ?? [])]
+    for (const animation of animations) {
       animation.currentTime = Math.max(0, Date.now() - at)
     }
   }, [at, frameMs])
