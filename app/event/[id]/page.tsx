@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, usePathname, useRouter } from "next/navigation"
 import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { SERIES_META } from "@/lib/format"
@@ -34,6 +34,8 @@ function readCachedEvent(id: string): RaceEvent | null {
 
 export default function EventDetailPage() {
   const params = useParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const id = params?.id as string | undefined
   const [event, setEvent] = useState<RaceEvent | null>(null)
   const [loading, setLoading] = useState(true)
@@ -128,7 +130,7 @@ export default function EventDetailPage() {
       <div className="min-h-screen bg-background p-4">
         <div className="mx-auto max-w-2xl">
           <button
-            onClick={() => window.history.back()}
+            onClick={() => pathname.startsWith("/new/") ? router.push("/new") : window.history.back()}
             className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="size-4" />

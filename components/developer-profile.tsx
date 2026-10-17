@@ -4,7 +4,7 @@ import { ArrowLeft, Cat, Globe, Heart, Shield, Sparkles } from "lucide-react"
 import Link from "@/components/edition-link"
 import Image from "next/image"
 
-export function DeveloperProfile({signatureSrc}:{signatureSrc?:string} = {}) {
+export function DeveloperProfile() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-between px-4 py-8 sm:py-12">
       <div className="flex flex-col gap-8">
@@ -46,10 +46,10 @@ export function DeveloperProfile({signatureSrc}:{signatureSrc?:string} = {}) {
             {/* Loop and Fade Animated Signature */}
             <div className="relative h-14 w-full sm:w-48 self-center sm:self-auto opacity-90 hover:opacity-100 transition-opacity bg-zinc-900/50 dark:bg-zinc-950/40 rounded-lg p-1 flex items-center justify-center border border-border/40">
               <Image
-                src={signatureSrc || "/animated.svg"}
-                alt="Huo_sai Signature"
+                src="/signature-write.svg"
+                alt="Huo_sai 手写签名"
                 fill
-                className={`object-contain px-2 py-1 ${signatureSrc ? "invert" : ""}`}
+                className="object-contain px-2 py-1"
                 unoptimized
               />
             </div>
