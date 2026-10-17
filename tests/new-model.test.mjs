@@ -1,0 +1,8 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { dayKey, calendarDays, filterEvents, nextStart, isConfirmed, shiftedAnchor } from '../app/new/model.ts'
+const now=Date.parse('2026-10-17T12:00:00Z')
+const event=(id,seconds,extra={})=>({id,name:id,series:'WRC',country:'日本',sessions:[{name:'SS1',utc:new Date(now+seconds*1000).toISOString()}],...extra})
+test('new calendar uses Beijing midnight and Monday-aligned weeks across years',()=>{assert.equal(dayKey(Date.parse('2026-12-31T16:00:00Z')),'2027-01-01');const week=calendarDays('2027-01-01','week');assert.equal(week[0],'2026-12-28');assert.equal(week[6],'2027-01-03');assert.equal(calendarDays('2027-02-01','month').length,42);assert.equal(shiftedAnchor('2026-12-01','month',1),'2027-01-01')})
+test('new start selection excludes estimates and client pending data and picks earliest confirmed stage',()=>{const a=event('late',300),b=event('early',100);assert.equal(nextStart([a,event('estimate',1,{tentative:true}),b],now).event.id,'early');assert.equal(isConfirmed(a,{name:'x',utc:'invalid'}),false);assert.equal(isConfirmed(a,{...a.sessions[0],clientUploadedAt:'x'}),false)})
+test('new filters combine search, favorites, series and event completion',()=>{const items=[event('future',300),event('finished',-9000)];const base={series:'ALL',query:'',time:'upcoming',region:'all',circuit:'all',favorites:false};assert.deepEqual(filterEvents(items,base,[],now).map(e=>e.id),['future']);assert.equal(filterEvents(items,{...base,favorites:true},[],now).length,0);assert.equal(filterEvents(items,{...base,query:'日本'},[],now).length,1);assert.equal(filterEvents(items,{...base,time:'past'},[],now)[0].id,'finished')})

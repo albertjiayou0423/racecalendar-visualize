@@ -1,0 +1,20 @@
+"use client"
+import Link from "next/link"
+import { useState } from "react"
+import type { RaceEvent, Series } from "@/lib/types"
+import { SimplePageHeader, SimpleSection, SimpleTable, SimpleBarChart, DataState } from "./data-ui"
+import { SimpleEventCard } from "./event-card"
+import { SimpleNextSession } from "./next-session"
+import { SimpleCalendar } from "./calendar"
+import { SimpleFilters } from "./filters"
+import { SimpleFeedback } from "./feedback"
+import { SeriesBadge, CompactCountdown, EmptyState, LoadingState } from "./primitives"
+import { DEFAULT_FILTERS, dayKey, type ViewMode, type StartSelection } from "../model"
+import { SimpleImmersionHost } from "./immersion-host"
+import { SimpleFooter } from "./footer"
+export function SimpleShowcase(){
+ const [series,setSeries]=useState<Series>("F1");const [name,setName]=useState("日本大奖赛");const [minutes,setMinutes]=useState(90);const [now]=useState(Date.now);const [favorite,setFavorite]=useState(false);const [filters,setFilters]=useState(DEFAULT_FILTERS);const [view,setView]=useState<ViewMode>("list");const [anchor,setAnchor]=useState(dayKey(now));const [day,setDay]=useState<string|null>(null);const [feedback,setFeedback]=useState(false);const [active,setActive]=useState<StartSelection|null>(null);const [status,setStatus]=useState("normal")
+ const event:RaceEvent={id:"preview-only",series,round:6,name,circuit:"Suzuka",locality:"铃鹿",country:"日本",tz:"Asia/Tokyo",sessions:[{name:"正赛",utc:new Date(now+minutes*60000).toISOString(),isMain:true}]}
+ const controls=<><div className="s-preview-presets">{(["F1","WRC","FE"] as const).map(s=><button key={s} onClick={()=>setSeries(s)}>{s}</button>)}</div><label>名称<input value={name} onChange={e=>setName(e.target.value)}/></label><label>距开始 {minutes} 分钟<input type="range" min="1" max="10000" value={minutes} onChange={e=>setMinutes(Number(e.target.value))}/></label></>
+ return <main><SimplePageHeader title="组件手册" subtitle="真实新版组件 · 测试数据 · 不发送业务请求"/><Link className="s-button" href="/new/playground/immersion">沉浸组件与全屏测试</Link><section className="s-preview-row"><h2>赛事卡片</h2><div className="s-preview-grid"><SimpleEventCard event={event} now={now} favorite={favorite} onFavorite={()=>setFavorite(!favorite)} onStart={setActive}/><div className="s-preview-controls">{controls}</div></div></section><section className="s-preview-row"><h2>下一场</h2><div className="s-preview-grid"><SimpleNextSession start={{event,session:event.sessions[0]}} now={now} onStart={setActive}/><div className="s-preview-controls">{controls}</div></div></section><section className="s-preview-row"><h2>筛选与日历</h2><SimpleFilters value={filters} onChange={setFilters} view={view} onView={setView}/><SimpleCalendar events={[event]} view={view==="list"?"month":view} anchor={anchor} selected={day} now={now} onAnchor={setAnchor} onSelect={setDay}/></section><SimpleSection title="标记与倒计时"><div className="s-inline"><SeriesBadge series={series}/><CompactCountdown utc={event.sessions[0].utc} now={now}/></div></SimpleSection><SimpleSection title="表格与图表"><SimpleTable caption="测试积分" columns={[{key:"name",title:"车手",render:r=>r.name},{key:"points",title:"积分",render:r=>r.value}]} rows={[{name:"车手 A",value:100},{name:"车手 B",value:70}]} rowKey={r=>r.name}/><SimpleBarChart label="测试积分" rows={[{name:"车手 A",value:100},{name:"车手 B",value:70}]}/></SimpleSection><SimpleSection title="加载、空与错误状态"><select aria-label="数据状态" value={status} onChange={e=>setStatus(e.target.value)}><option value="normal">正常</option><option value="loading">加载</option><option value="empty">空数据</option><option value="error">错误</option></select><DataState loading={status==="loading"} empty={status==="empty"} error={status==="error"?"测试：网络暂时不可用":undefined} retry={()=>setStatus("normal")}><p className="s-note">数据已就绪</p></DataState></SimpleSection><button className="s-button" onClick={()=>setFeedback(true)}>预览反馈弹窗</button>{feedback&&<SimpleFeedback preview onClose={()=>setFeedback(false)}/>}<SimpleFooter/><SimpleImmersionHost selection={active} onClose={()=>setActive(null)}/></main>
+}
