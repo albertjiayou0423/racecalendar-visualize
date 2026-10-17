@@ -29,7 +29,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin === self.location.origin && (url.pathname.startsWith("/_next/") || url.pathname === "/sw.js")) return
 
   // Admin sessions and private data must never enter Cache Storage or offline fallback.
-  if (url.origin === self.location.origin && (url.pathname === "/admin" || url.pathname.startsWith("/api/admin/") || url.pathname === "/api/feedback")) return
+  if (url.origin === self.location.origin && (url.pathname === "/new/admin" || url.pathname.startsWith("/new/admin/") || url.pathname.startsWith("/new/playground") || url.pathname === "/admin" || url.pathname.startsWith("/api/admin/") || url.pathname === "/api/feedback")) return
 
   // API 请求：网络优先，失败回退缓存
   if (request.url.includes("/api/")) {
