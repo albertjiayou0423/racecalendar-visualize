@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
+import { EditionEntry } from "@/app/new/components/edition-entry"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
 import type { ScheduleResponse, Series } from "@/lib/types"
 import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
@@ -670,6 +671,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             v2.3.0 · 沉浸倒计时
           </Link>
           {!playground && <UsageGuideButton />}
+          {!playground && <EditionEntry />}
         <Link prefetch={!playground}
           href="/developer"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
