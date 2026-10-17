@@ -19,6 +19,7 @@ import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
+import { CountdownAutoEntry } from "@/components/countdown-auto-entry"
 import { MonthView } from "@/components/month-view"
 import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
@@ -327,6 +328,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:py-10">
+      {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -665,7 +667,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.2.3 · 交互测试台
+            v2.3.0 · 沉浸倒计时
           </Link>
           {!playground && <UsageGuideButton />}
         <Link prefetch={!playground}

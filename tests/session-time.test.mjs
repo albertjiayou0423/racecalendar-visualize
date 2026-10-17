@@ -27,7 +27,8 @@ function timeline(event) {
     exports, require: name => name === '@/lib/session-time' ? { isEstimatedWrcSession }
       : name === '@/lib/format' ? { BEIJING_TZ: 'Asia/Shanghai', formatDateTime: () => 'CONFIRMED_TIME' }
       : name === '@/lib/utils' ? { cn: (...args) => args.filter(Boolean).join(' ') }
-      : name === '@/components/weather-strip' ? { WeatherStrip: () => null } : require(name),
+      : name === '@/components/weather-strip' ? { WeatherStrip: () => null }
+      : name === '@/components/wrc-stage-countdown' ? { WrcStageCountdown: () => null } : require(name),
   })
   return renderToStaticMarkup(React.createElement(exports.SessionTimeline, { event, now: 0 }))
 }

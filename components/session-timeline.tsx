@@ -8,6 +8,7 @@ import type { RaceEvent, RaceSession } from "@/lib/types"
 import { BEIJING_TZ, countdown, formatDateTime, formatDate, formatTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { WeatherStrip } from "@/components/weather-strip"
+import { WrcStageCountdown } from "@/components/wrc-stage-countdown"
 
 interface SessionTimelineProps {
   event: RaceEvent
@@ -144,6 +145,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
               <span className="text-xs text-muted-foreground">
                 {isEstimatedWrcSession(event, session) ? "时间待确认" : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地）`}
               </span>
+              <WrcStageCountdown event={event} session={session} />
             </li>
           ))}
         </ul>
@@ -408,6 +410,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
                     {sessionCountdown.minutes}分 {sessionCountdown.seconds}秒后开始
                   </div>
                 )}
+                <WrcStageCountdown event={event} session={s} />
               </div>
             </div>
           )
