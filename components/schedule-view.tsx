@@ -25,6 +25,7 @@ import { WeekView } from "@/components/week-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { NewHomeEntry } from "@/app/new/classic-entry"
 
 const CACHE_KEY = "schedule-cache-v2"
 const LEGACY_CACHE_KEY = "schedule-cache"
@@ -341,6 +342,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           <BeijingClock now={now} />
         </div>
         {data ? <SourceBar data={data} /> : null}
+        {!playground && <NewHomeEntry />}
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
