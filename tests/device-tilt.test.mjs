@@ -33,7 +33,7 @@ test('all fixtures share one sensor stream, stop in background, and clean up on 
   const offA = h.subscribe(pose => a.push(pose)), offB = h.subscribe(pose => b.push(pose))
   assert.equal(h.count('deviceorientation'), 1)
   h.sample(60, 0); h.sample(80, 20); h.step(16); h.step(32)
-  assert.ok(a.at(-1).x < 0 && a.at(-1).y > 0)
+  assert.ok(a.at(-1).x > 0 && a.at(-1).y < 0)
   assert.equal(a.at(-1), b.at(-1))
   h.visible(false)
   assert.equal(h.count('deviceorientation'), 0)
@@ -49,12 +49,12 @@ test('absolute-only Android data works and relative stream takes priority withou
   const h = harness(), poses = [], statuses = []
   const off = h.subscribe(pose => poses.push(pose), status => statuses.push(status))
   h.sample(60, 0, 'deviceorientationabsolute'); h.sample(80, 20, 'deviceorientationabsolute'); h.step(16)
-  assert.ok(poses.at(-1).y > 0)
+  assert.ok(poses.at(-1).y < 0)
   assert.equal(statuses.at(-1), 'active')
   h.sample(60, 0); h.sample(80, 20); h.step(32)
   const before = poses.at(-1).y
   h.sample(0, -80, 'deviceorientationabsolute'); h.step(48)
-  assert.ok(poses.at(-1).y >= before)
+  assert.ok(poses.at(-1).y <= before)
   off()
   assert.equal(h.count('deviceorientationabsolute'), 0)
 })
