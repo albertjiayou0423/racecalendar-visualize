@@ -11,6 +11,17 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.3.0",
+    date: "2026-10-17",
+    items: [
+      { type: "feat", text: "新增沉浸式倒计时：首页在确认场次开始前两分钟自动进入，支持手动关闭；天、时、分、秒随剩余时间自动适配" },
+      { type: "feat", text: "F1、FE 使用独立发车灯板，WRC 使用当地时钟与最后一分钟像素倒计时；WRC 归零后自动接续下一已确认赛段" },
+      { type: "ui", text: "新增主题色波浪入场与宽幅斜向扫屏，灯板和时钟增加立体外壳、轻微光晕及支持设备上的倾斜透视；支持系统减少动态效果设置" },
+      { type: "feat", text: "新增沉浸与仪式感测试页，真实组件可独立全屏、重播、调整参数及逐帧检查归零动画" },
+      { type: "fix", text: "修复 FE 倒计时数字与灯板中心线错位，优化最后几秒、归零动画和 WRC 赛段切换的衔接" },
+    ],
+  },
+  {
     version: "v2.2.3",
     date: "2026-10-11",
     items: [
@@ -250,8 +261,8 @@ export default function AboutPage() {
 
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span data-guide="version" className="text-3xl font-bold">v2.2.2</span>
-          <span className="text-sm text-muted-foreground">赛果完整性修复 · FE 数据恢复 · 下载与手机排版优化</span>
+          <span data-guide="version" className="text-3xl font-bold">{changelog[0].version}</span>
+          <span className="text-sm text-muted-foreground">沉浸式倒计时 · 系列发车灯 · WRC 赛段接续</span>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           一个简洁直观的赛车赛程时间表，支持 WRC、F1、Formula E
@@ -283,7 +294,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{entry.version}</span>
-                {entry.version === "v2.2.2" && (
+                {entry.version === changelog[0].version && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                     最新
                   </span>
