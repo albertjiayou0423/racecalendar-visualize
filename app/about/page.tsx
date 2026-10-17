@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowLeft, Sparkles, Bug, Zap, Info, Shield } from "lucide-react"
-import Link from "next/link"
+import Link from "@/components/edition-link"
 
 type ChangelogEntry = {
   version: string

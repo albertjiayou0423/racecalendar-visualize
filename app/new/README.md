@@ -1,19 +1,18 @@
-# 简洁新版
+# 新版
 
-所有新版组件和页面在本目录中；旧页面仅增加版本入口。开发分支 dev/data-pipeline，不自动创建或合并 PR。
+## 设计边界
+新版首页采用独立简洁组件，可以创新布局与交互。其他界面直接复用现有页面和成熟组件，不为了统一外观而重做。所有对应路由保留在 /new 下。
 
-## 路由
-/new 为赛历；/new/event/[id] 为详情；另有 standings、results、wallpaper、circuits、about、developer、admin、playground。
-/new/playground/immersion 及其 [component] 子路由直接测试真实沉浸组件。
+## 页面与复用
+/new 是新版赛历，/new/event/[id] 复用原赛事详情（EventHeader、SessionTimeline、WatchInfo、Highlights、DeepInfo、AIPrediction、ShareCard 等）。
+standings、results、wallpaper、circuits、about、admin、playground 复用现有页面和真实组件。沉浸实验室复用同一个 ImmersionLab，通过 basePath 保持返回路径正确。
+开发者页面复用 DeveloperProfile，新版注入用户提供的 SVG 签名；旧版仍使用原 animated.svg。
+EditionLink 只在 /new 内映射已知页面链接，旧页面行为不变，API、静态资源、外部链接与锚点不改写。新版壳仅包裹首页，避免简洁版样式影响原组件。
 
-## 组件与数据
-先建立 primitives、data-ui、过滤器、赛事卡片、日历、表格、图表、反馈和导出组件，再由各 view 组合页面。所有界面内部导航保持 /new，旧版出口显式使用 /?home=classic。
-赛程继续调用 /api/schedule，复用原有浏览器缓存合并机制；不会另建数据库或更改持久化规则。估计、客户端待核验时间不用于精确倒计时。WRC 自动入场复用原有两分钟窗口与去重规则，连续赛段使用真实 WrcCountdownSequence。
-天气、投票、计时只在对应面板打开后读取；AI 预测只在明确点击后请求。后台复用原有签名会话和 requireAdmin 接口，私有数据不写 localStorage。
-进入新版首页写 racecalendar-home-version=new；旧版出口清除选择。localStorage 不可用时不阻塞页面。
-开发者签名为用户提供的原始 SVG，保留路径与比例，深色下反相提高对比。
+## 数据与偏好
+首页 /api/schedule 继续使用原数据契约及浏览器缓存合并；估计和客户端待核验时间不参与精确倒计时。自动沉浸沿用两分钟窗口、去重及连续 WRC 赛段组件。
+进入新版首页保存 racecalendar-home-version=new，下次访问 / 自动进入 /new。/?home=classic 清除选择，旧版页面不受改版影响。
+新版后台和测试页不触发客户端采集，旧版引导不在新版自动弹出。Playground 阻止业务及外部请求。Service Worker 不拦截新版后台和测试页。
 
-## 隔离与验证
-全局采集和旧引导对新版后台、测试页做路由隔离；Playground 拦截所有业务与外部请求。真实组件的网络错误状态会明确显示，不伪装成成功。
-本地 UI 验证使用 artifacts 下的不提交隔离代理，所有 /api 请求由测试响应拦截，不连接生产库或发起线上采集。
-运行 pnpm exec tsc --noEmit、pnpm build、pnpm test。构建通过不等于页面验收。新版组件手册仍需继续补齐独立参数覆盖，后台写入操作需测试环境专项验收。
+## 验证
+分别运行 pnpm exec tsc --noEmit、pnpm build、pnpm test。使用不提交的本地隔离代理做 UI 检查，不连接生产库或手动触发线上采集。实际线上视觉验收与部署状态分别报告。

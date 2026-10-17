@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { componentCatalog, PLAYGROUND_NOW, type CatalogEntry, type CatalogProps } from "@/lib/playground-catalog"
 import { PlaygroundComponentPreview } from "@/components/playground-preview"
-import Link from 'next/link'
+import Link from '@/components/edition-link'
 
 const inputClass = "min-w-0 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
 const enums: Record<string, string[]> = {

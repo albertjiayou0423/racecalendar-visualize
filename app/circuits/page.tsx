@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { Search, MapPin, Calendar, TrendingUp, Hash, Clock, ArrowLeft } from "lucide-react"
-import Link from "next/link"
+import Link from "@/components/edition-link"
 import { getAllCircuits, type CircuitDetail } from "@/lib/circuits"
 import { cn } from "@/lib/utils"
 

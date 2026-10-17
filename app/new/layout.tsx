@@ -1,6 +1,4 @@
 import "./simple.css"
+import { EditionShell } from "./components/edition-shell"
 import type { ReactNode } from "react"
-
-export default function NewLayout({ children }: { children: ReactNode }) {
-  return <div className="simple-home"><div className="s-shell">{children}</div></div>
-}
+export default function NewLayout({children}:{children:ReactNode}){return <EditionShell>{children}</EditionShell>}

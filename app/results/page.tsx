@@ -2,7 +2,7 @@
 
 import useSWR from "swr"
 import { useState, useEffect, useRef } from "react"
-import Link from "next/link"
+import Link from "@/components/edition-link"
 import { ArrowLeft, Trophy, Calendar, Flag, Car, LoaderCircle, TriangleAlert, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 

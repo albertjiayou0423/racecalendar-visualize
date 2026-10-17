@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import Link from "next/link"
+import Link from "@/components/edition-link"
 import { ArrowLeft, ImageIcon, Calendar, LoaderCircle } from "lucide-react"
 import { WallpaperGenerator } from "@/components/wallpaper-generator"
 import type { RaceEvent, ScheduleResponse } from "@/lib/types"

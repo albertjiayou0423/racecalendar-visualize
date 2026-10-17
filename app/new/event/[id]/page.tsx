@@ -1,2 +1,1 @@
-import { SimpleEventView } from "../../components/event-view"
-export default async function Page({params}:{params:Promise<{id:string}>}){const {id}=await params;return <SimpleEventView id={id} serverTime={Date.now()}/> }
+export { default } from "../../../event/[id]/page"
