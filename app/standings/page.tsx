@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag } from "lucide-react"
-import Link from "next/link"
+import Link from "@/components/edition-link"
 import { FeDriverStandings } from "@/components/fe-driver-standings"
 import { StandingsChart } from "@/components/standings-chart"
 import { WrcStandings } from "@/components/wrc-standings"

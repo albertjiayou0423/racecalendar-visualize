@@ -1,6 +1,6 @@
 "use client"
 
-import Link from 'next/link'
+import Link from '@/components/edition-link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, type ReactNode, type CSSProperties } from 'react'
 import { Maximize2, Play, RotateCcw, ArrowLeft } from 'lucide-react'
@@ -25,7 +25,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="grid gap-2 text-xs text-muted-foreground"><span>{label}</span>{children}</label>
 }
 
-export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCaseId; fullscreen?: boolean }) {
+export function ImmersionLabCase({ id, fullscreen = false, basePath = "/playground" }: { id: ImmersionCaseId; fullscreen?: boolean; basePath?: string }) {
   const item = immersionCases.find(entry => entry.id === id)!
   const router = useRouter()
   const [series, setSeries] = useState<Series>(id === 'lights-fe' ? 'FE' : id === 'lights-f1' ? 'F1' : 'WRC')
@@ -58,10 +58,10 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   }, [id])
   useEffect(() => {
     if (!fullscreen || countdown || sequence) return
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') router.push('/playground/immersion') }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') router.push(basePath + '/immersion') }
     document.addEventListener('keydown', escape)
     return () => document.removeEventListener('keydown', escape)
-  }, [fullscreen, countdown, sequence, router])
+  }, [fullscreen, countdown, sequence, router, basePath])
   useEffect(() => {
     if (!effect || paused || !effectActive) return
     const timer = setTimeout(() => setEffectActive(false), duration)
@@ -99,12 +99,12 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
       <div className="flex flex-wrap gap-2">{[0, Math.round(duration * .2), Math.round(duration * .5), duration].map(value => <button key={value} className={button} onClick={() => { setFrame(value); setPaused(true) }}>{value} ms</button>)}</div>
     </>}
     <button className={button} onClick={() => replay()}><RotateCcw aria-hidden="true" size={14} />{effect ? '播放完整动画' : lights ? '恢复默认灯板' : '重新开始'}</button>
-    {!fullscreen && <Link className={button} href={`/playground/immersion/${id}`}><Maximize2 aria-hidden="true" size={14} />独立全屏测试</Link>}
+    {!fullscreen && <Link className={button} href={`${basePath}/immersion/${id}`}><Maximize2 aria-hidden="true" size={14} />独立全屏测试</Link>}
   </div>
 
   const remaining = Math.max(0, Math.ceil((target - clock) / 1000))
   const fullscreenControls = <nav className="fixed left-3 right-20 top-3 z-[10030] flex flex-wrap items-start gap-2" aria-label="全屏测试控制">
-    <Link className={`${button} bg-background/95`} href="/playground/immersion"><ArrowLeft aria-hidden="true" size={14} />返回</Link>
+    <Link className={`${button} bg-background/95`} href={`${basePath}/immersion`}><ArrowLeft aria-hidden="true" size={14} />返回</Link>
     <button className={`${button} bg-background/95`} onClick={() => replay()}><Play aria-hidden="true" size={14} />{lights ? '复位' : '重播'}</button>
     {effect && paused && <span className="rounded-full bg-background/95 px-3 py-2 text-xs text-muted-foreground">逐帧暂停</span>}
     <details className="max-h-[75dvh] w-64 overflow-auto rounded-xl border border-border bg-background/95 p-3 text-sm"><summary tabIndex={0} className="cursor-pointer">{item.name} · 参数</summary><div className="pt-4">{controls}</div></details>
@@ -112,10 +112,10 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   let visual: ReactNode
   if (sequence) {
     const event: RaceEvent = { id: 'lab-wrc', series: 'WRC', round: 1, name: 'WRC 连续赛段测试', circuit: '', locality: '', country: '', tz: timeZone, sessions: [0, 1, 2].map(index => ({ name: `SS${index + 1}`, utc: new Date(target + index * 15000).toISOString(), tentative: false })) }
-    visual = <WrcCountdownSequence key={nonce} event={event} session={event.sessions[0]} entrance preview={!fullscreen} onClose={() => fullscreen ? router.push('/playground/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</WrcCountdownSequence>
+    visual = <WrcCountdownSequence key={nonce} event={event} session={event.sessions[0]} entrance preview={!fullscreen} onClose={() => fullscreen ? router.push(basePath + '/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</WrcCountdownSequence>
     if (closed) visual = <button className={button} onClick={() => replay()}>重新打开</button>
   } else if (countdown) {
-    visual = closed ? <button className={button} onClick={() => replay()}>重新打开</button> : <ImmersiveCountdown key={nonce} targetTime={new Date(target).toISOString()} series={series} timeZone={timeZone} entrance={id === 'countdown-entry'} title={`${series} 沉浸测试`} preview={!fullscreen} onClose={() => fullscreen ? router.push('/playground/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</ImmersiveCountdown>
+    visual = closed ? <button className={button} onClick={() => replay()}>重新打开</button> : <ImmersiveCountdown key={nonce} targetTime={new Date(target).toISOString()} series={series} timeZone={timeZone} entrance={id === 'countdown-entry'} title={`${series} 沉浸测试`} preview={!fullscreen} onClose={() => fullscreen ? router.push(basePath + '/immersion') : setClosed(true)}>{fullscreen ? fullscreenControls : null}</ImmersiveCountdown>
   } else {
     visual = <div key={`${nonce}-${series}`} className={`race-immersive immersion-effect-stage ${fullscreen ? 'immersion-effect-full' : ''} ${id === 'impact' && (paused ? frame < duration : effectActive) ? 'has-impact' : ''} ${id === 'impact' && paused ? 'is-frame-inspection' : ''}`} data-series={series} style={{ '--accent': SERIES_THEME_COLORS[series], '--impact-duration': `${IMMERSION_MOTION.impact[series]}ms`, ...(paused ? { '--launch-frame': `${Math.min(frame, duration)}ms` } : {}) } as CSSProperties}>
       {lights && <div role="img" aria-label={`${series} 灯板，${lit} 组红灯，绿灯${green ? '亮' : '灭'}，延迟提示${delayed ? '开' : '关'}`}><StartLights series={id === 'lights-f1' ? 'F1' : 'FE'} lit={lit} green={green} delayed={delayed} previewTilt={tiltX || tiltY ? { x: tiltX, y: tiltY } : undefined} /></div>}
@@ -142,13 +142,13 @@ export function ImmersionLabCase({ id, fullscreen = false }: { id: ImmersionCase
   </article>
 }
 
-export function ImmersionLab() {
+export function ImmersionLab({basePath = "/playground"}:{basePath?:string} = {}) {
   return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-    <Link className="text-xs text-muted-foreground hover:text-foreground" href="/playground">返回组件 Playground</Link>
+    <Link className="text-xs text-muted-foreground hover:text-foreground" href={basePath}>返回组件 Playground</Link>
     <h1 className="mt-5 text-2xl font-semibold">沉浸与仪式感测试</h1>
     <TiltDiagnostics />
     <p className="mt-2 text-sm leading-7 text-muted-foreground">直接使用网站真实组件。每项可单独全屏、重播和调整参数；动画遵循系统的减少动态效果设置。</p>
-    <nav className="my-6 flex flex-wrap gap-2" aria-label="全屏测试目录">{immersionCases.map(item => <Link key={item.id} className={button} href={`/playground/immersion/${item.id}`}>{item.name}<Maximize2 aria-hidden="true" size={12} /></Link>)}</nav>
-    {immersionCases.map(item => <ImmersionLabCase key={item.id} id={item.id} />)}
+    <nav className="my-6 flex flex-wrap gap-2" aria-label="全屏测试目录">{immersionCases.map(item => <Link key={item.id} className={button} href={`${basePath}/immersion/${item.id}`}>{item.name}<Maximize2 aria-hidden="true" size={12} /></Link>)}</nav>
+    {immersionCases.map(item => <ImmersionLabCase key={item.id} id={item.id} basePath={basePath} />)}
   </main>
 }

@@ -11,7 +11,7 @@ export function ClientCrawl() {
   const pathname = usePathname()
   const { mutate } = useSWRConfig()
   useEffect(() => {
-    if (pathname.startsWith("/admin") || pathname.startsWith("/api") || pathname.startsWith("/playground")) return
+    if (pathname.startsWith("/new/admin") || pathname.startsWith("/new/playground") || pathname.startsWith("/admin") || pathname.startsWith("/api") || pathname.startsWith("/playground")) return
     let disposed = false, timer = 0
     let active: AbortController | null = null
     const allowed = () => {

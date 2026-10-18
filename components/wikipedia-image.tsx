@@ -42,7 +42,7 @@ export function WikipediaImage({ url, maxHeight = 200 }: WikipediaImageProps) {
 
     let active = true
     const timeout = window.setTimeout(() => controller.abort(), 8000)
-    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+    const summaryUrl = `/api/wiki-summary?title=${encodeURIComponent(title)}`
 
     fetch(summaryUrl, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
