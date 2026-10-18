@@ -43,7 +43,8 @@ export function LastRaceResults() {
 
   const fetchLastRace = async () => {
     try {
-      const res = await fetch("https://api.jolpi.ca/ergast/f1/current/last/results.json")
+      const res = await fetch("/api/f1-last-result", { signal: AbortSignal.timeout(12000) })
+      if (!res.ok) throw new Error("Results unavailable")
       const json = await res.json()
       const race = json?.MRData?.RaceTable?.Races?.[0]
       if (!race) throw new Error("No data")
