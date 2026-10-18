@@ -1,5 +1,7 @@
 "use client"
 
+import { browserTimeoutSignal } from "@/lib/browser-abort"
+
 import useSWR from "swr"
 import { useState } from "react"
 import type { RaceEvent } from "@/lib/types"
@@ -10,7 +12,7 @@ import type { LiveTimingData } from "@/lib/live-timing"
 import { SimpleTable, DataState } from "./data-ui"
 
 async function getJson(url: string) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
+  const response = await fetch(url, { signal: browserTimeoutSignal(15000) })
   const data = await response.json()
   if (!response.ok) throw new Error(data.note || data.error || "暂时无法加载，请重试")
   return data
@@ -48,7 +50,7 @@ export function SimplePrediction({ event }: { event: RaceEvent }) {
     if (!selection || saving) return
     setSaving(true); setMessage("")
     try {
-      const response = await fetch("/api/predictions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, driverCode: selection }), signal: AbortSignal.timeout(15000) })
+      const response = await fetch("/api/predictions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, driverCode: selection }), signal: browserTimeoutSignal(15000) })
       if (!response.ok) { const data = await response.json(); throw new Error(data.error || "预测未保存，请重试") }
       await votes.mutate(); setMessage("预测已保存")
     } catch (error) { setMessage(error instanceof Error ? error.message : "预测未保存，请重试") }

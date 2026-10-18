@@ -1,5 +1,7 @@
 "use client"
 
+import { browserTimeoutSignal } from "@/lib/browser-abort"
+
 import { useEffect, useState } from "react"
 import { Trophy, Medal, ChevronRight, Eye, AlertTriangle } from "lucide-react"
 
@@ -43,7 +45,7 @@ export function LastRaceResults() {
 
   const fetchLastRace = async () => {
     try {
-      const res = await fetch("/api/f1-last-result", { signal: AbortSignal.timeout(12000) })
+      const res = await fetch("/api/f1-last-result", { signal: browserTimeoutSignal(12000) })
       if (!res.ok) throw new Error("Results unavailable")
       const json = await res.json()
       const race = json?.MRData?.RaceTable?.Races?.[0]

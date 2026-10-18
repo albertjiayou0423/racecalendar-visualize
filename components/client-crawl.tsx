@@ -1,5 +1,7 @@
 "use client"
 
+import { browserTimeoutSignal } from "@/lib/browser-abort"
+
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { useSWRConfig } from "swr"
@@ -36,7 +38,7 @@ export function ClientCrawl() {
         for (const job of jobs.slice(0, 2)) {
           if (controller.signal.aborted || !allowed()) break
           let raw: string | undefined
-          try { raw = await fetchClientCrawl(job, AbortSignal.any([controller.signal, AbortSignal.timeout(12000)])) } catch { /* CORS, timeout or offline: report a bounded failure, never upload partial data. */ }
+          try { raw = await fetchClientCrawl(job, browserTimeoutSignal(12000, controller.signal)) } catch { /* CORS, timeout or offline: report a bounded failure, never upload partial data. */ }
           if (controller.signal.aborted) break
           const upload = await fetch("/api/client-crawl", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "submit", id: job.id, token: job.token, raw, failed: raw === undefined }), cache: "no-store", signal: controller.signal })
           if (upload.ok && (await upload.json()).saved) await mutate("/api/schedule")

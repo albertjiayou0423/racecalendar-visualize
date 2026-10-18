@@ -189,3 +189,4 @@ HTML 正文读取中断进入有限重试，403 等非 5xx 失败不重试。统
 - 维基参考图片摘要通过 /api/wiki-summary?title=... 请求；仅允许固定 Wikipedia summary 路径和长度受限的编码标题，上游不跟随重定向。仅返回 Wikimedia 白名单图片元数据；图片仍经已有 /api/image-proxy 获取。8 秒超时，成功缓存一天，失败显示原有占位内容，不阻塞页面。
 - 正式域名为 https://race.huosai.ccwu.cc/；racebeta.huosai.ccwu.cc 和 racecalendar-visualize.vercel.app 绑定开发分支。字体由 next/font 在构建时打包，浏览器使用本站静态字体；核心赛程、积分榜、天气和投票使用本站接口。客户端辅助采集仍是可失败的后台增强，不是打开网站的前置条件。
 - 同站适配减少访客跨境依赖，但无法保证所有运营商到 Vercel 的线路质量。绕过显式终端代理收到 HTTP 200 只证明该请求路径可用，不能代替境内手机、Wi-Fi 和蜂窝网络实测；多地区 HTTP 节点结果也不能证明所有交互均可用。
+- 浏览器请求超时使用 `lib/browser-abort.ts` 的 AbortController 定时取消，不依赖旧版 Safari / 微信 WebView 可能缺少的 AbortSignal.timeout/any。辅助采集继续继承页面取消信号；超时不改变补缺和持久化策略。弹窗焦点陷阱在缺少 checkVisibility 时检查布局及关闭的 details，避免打开弹窗直接抛出异常。此兼容修复不能解决 DNS/TLS 连接失败，仍需实际设备验收。
