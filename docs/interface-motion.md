@@ -44,3 +44,5 @@ Driver 的全局 pointer-events / overflow 样式不引入：只使用其原生�
 共用真实组件为 SeriesRelay、RoundArrival、WinnerReveal、RaceFarewell，均列入 Playground。JS 库按需加载，卸载时清理实例；库加载失败保留最终静态文字，减弱动态效果设置下直接展示。CSS 仅打包使用的原生关键帧，MIT 来源：[Animate.css](https://github.com/animate-css/animate.css)、[Magic.css](https://github.com/miniMAC/magic)、[CountUp](https://github.com/inorganik/countUp.js)。依赖随构建发布，不从 CDN 请求。未修改真实倒计时与归零程序。
 
 同时收敛上一轮动效：快速请求不闪现加载器（120ms 显示门槛，不延迟数据）；收藏只保留最后一次交互的气泡，失焦/Escape 取消尚未完成的异步展示；缩短输入校验抖动。
+
+独立测试入口：`/playground/immersionnew`。逐项直接嵌入上述四个真实组件，提供重播、系列、轮次、揭晓/收起、示例姓名及片尾文字控制，不访问业务接口。

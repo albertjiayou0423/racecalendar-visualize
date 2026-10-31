@@ -90,6 +90,7 @@ export default function PlaygroundPage() {
   const [entries] = useState<CatalogEntry[]>(() => componentCatalog(PLAYGROUND_NOW))
   return <main className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:px-5">
     <Link className="inline-flex rounded-full border border-border px-4 py-2 text-sm hover:bg-accent" href="/playground/immersion">沉浸与仪式感测试</Link>
+    <Link className="ml-3 inline-flex rounded-full border border-border px-4 py-2 text-sm hover:bg-accent" href="/playground/immersionnew">新版仪式感动效</Link>
     {entries.map(entry => <ComponentRow key={entry.name} entry={entry} />)}
   </main>
 }
