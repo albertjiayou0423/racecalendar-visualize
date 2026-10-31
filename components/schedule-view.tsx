@@ -1,6 +1,6 @@
 "use client"
 
-import { MotionLoader, MotionText, useSearchHint, useShake } from "@/components/interface-motion"
+import { MotionLoader, MotionText, MotionInput } from "@/components/interface-motion"
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
@@ -161,8 +161,6 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
 }
 
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
-  const searchRef = useSearchHint()
-  const shake = useShake()
   const playground = usePlayground()
   const liveNow = useNow(serverTime)
   const now = playground?.now ?? liveNow
@@ -366,9 +364,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         {/* 搜索框 - 移动端吸顶时隐藏 */}
         <div className={cn("relative transition-all", filterStuck && isMobile && "hidden")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            ref={searchRef}
-            onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing && search.trim() && !filtered.length) shake(event.currentTarget, "horizontal") }}
+          <MotionInput
+            noResults={!!data && !filtered.length}
             id="search-input"
             type="text"
             value={search}
@@ -674,7 +671,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.3.0 · 沉浸倒计时
+            v2.3.2 · 动效与更新
           </Link>
           {!playground && <UsageGuideButton />}
           {!playground && <EditionEntry />}

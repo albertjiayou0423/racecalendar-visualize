@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type InputHTMLAttributes } from "react"
 import type { Instance } from "tippy.js"
 
 export type LoaderKind = "schedule" | "sync" | "live" | "page" | "weather" | "standings"
@@ -9,7 +9,7 @@ export type LoaderKind = "schedule" | "sync" | "live" | "page" | "weather" | "st
 export function MotionLoader({ kind, size = 18 }: { kind: LoaderKind; size?: number }) {
   const count = { schedule: 3, sync: 9, live: 5, page: 0, weather: 6, standings: 12 }[kind]
   const name = { schedule: "ball-pulse", sync: "ball-grid-pulse", live: "line-scale", page: "sk-plane", weather: "sk-chase", standings: "sk-circle" }[kind]
-  return <span aria-hidden="true" className="rc-motion-loader" style={{ "--rc-loader-size": `${size}px` } as CSSProperties}><span className={`${kind === "schedule" || kind === "sync" || kind === "live" ? "loader-inner " : ""}${name}`}>{Array.from({ length: count }, (_, index) => kind === "weather" || kind === "standings" ? <span key={index} className={`${name}-dot`} /> : <div key={index} />)}</span></span>
+  return <span aria-hidden="true" className="rc-motion-loader" style={{ "--rc-loader-size": `${Math.max(8, Math.min(64, Number.isFinite(size) ? size : 18))}px` } as CSSProperties}><span className={`${kind === "schedule" || kind === "sync" || kind === "live" ? "loader-inner " : ""}${name}`}>{Array.from({ length: count }, (_, index) => kind === "weather" || kind === "standings" ? <span key={index} className={`${name}-dot`} /> : <div key={index} />)}</span></span>
 }
 
 export function useShake() {
@@ -29,11 +29,11 @@ export function useShake() {
 }
 
 /** Stops as soon as the user focuses/types; never writes to the input value. */
-export function useSearchHint() {
+export function useSearchHint(enabled = true) {
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const input = ref.current
-    if (!input || input.value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    if (!enabled || !input || input.value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const original = input.placeholder
     let disposed = false
     let cleanup: (() => void) | undefined
@@ -48,8 +48,18 @@ export function useSearchHint() {
       cleanup = () => { motion.removeEventListener("change", reduce); input.removeEventListener("focus", stop); typed.destroy(); input.placeholder = original }
     }).catch(() => { if (!disposed) input.placeholder = original })
     return () => { disposed = true; cleanup?.() }
-  }, [])
+  }, [enabled])
   return ref
+}
+
+/** The same input used on both home pages and in real feedback forms. */
+export function MotionInput({ variant = "search", noResults = false, onKeyDown, onInvalid, ...props }: InputHTMLAttributes<HTMLInputElement> & { variant?: "search" | "field"; noResults?: boolean }) {
+  const ref = useSearchHint(variant === "search")
+  const shake = useShake()
+  return <input {...props} ref={ref} onKeyDown={event => {
+    onKeyDown?.(event)
+    if (!event.defaultPrevented && variant === "search" && event.key === "Enter" && !event.nativeEvent.isComposing && event.currentTarget.value.trim() && noResults) shake(event.currentTarget, "horizontal")
+  }} onInvalid={event => { onInvalid?.(event); if (variant === "field") shake(event.currentTarget) }} />
 }
 
 /** Keeps the accessible title stable and reserves its full width while typing. */

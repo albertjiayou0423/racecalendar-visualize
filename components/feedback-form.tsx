@@ -1,6 +1,6 @@
 "use client"
 
-import { useShake } from "@/components/interface-motion"
+import { useShake, MotionInput } from "@/components/interface-motion"
 
 import { useEffect, useRef, useState } from "react"
 import { useFocusTrap } from "@/lib/use-focus-trap"
@@ -172,7 +172,7 @@ export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
 
           <div>
             <label className="mb-2 block text-sm font-medium">联系方式（可选）</label>
-            <input
+            <MotionInput variant="field"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

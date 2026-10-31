@@ -70,5 +70,15 @@ export function componentCatalog(now: number): CatalogEntry[] {
     ["PlaygroundPreview", "playground-preview", "测试台宿主，没有公开 props；不递归嵌套自身。"],
   ]) add(name, file, description, {}, {}, {})
   add("DatabaseInspector", "database-inspector", "只有 onUnauthorized 回调；预览不读取数据库，保留实际错误界面。", {}, {}, {}, ["onUnauthorized"])
+  add("MotionLoader", "interface-motion", "真实加载组件：三种 Loaders.css 与三种 SpinKit 预设；继承当前文字颜色。", { kind: "schedule", size: 18 }, { kind: "weather", size: 24 }, { kind: "standings", size: 32 })
+  const loaderEntry = entries[entries.length - 1]
+  loaderEntry.presets = ["schedule", "sync", "live", "page", "weather", "standings"].map(kind => ({ label: ({ schedule: "赛历", sync: "同步", live: "实时", page: "初始", weather: "天气", standings: "积分" } as Record<string, string>)[kind], props: { kind, size: 20 } }))
+  add("MotionInput", "interface-motion", "新旧首页与反馈表单使用的真实输入组件。搜索无结果时按 Enter；邮箱可点击检查输入触发原生校验。", { variant: "search", noResults: false, value: "", placeholder: "搜索赛事、城市或赛道", "aria-label": "动效输入框", className: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" }, { variant: "search", noResults: true, value: "不存在的赛事", placeholder: "搜索赛事", "aria-label": "动效输入框", className: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" }, { variant: "field", type: "email", value: "invalid-email", required: true, placeholder: "你的邮箱", "aria-label": "动效输入框", className: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" })
+  add("MotionText", "interface-motion", "真实标题与状态组件：保留完整文字宽度及无障碍名称；切换状态预设查看淡出。", { text: "赛道时刻", fade: false }, { text: "正在连接赛历", fade: true }, { text: "赛历已更新", fade: true })
+  add("FavoriteMotion", "interface-motion", "真实收藏按钮和 Tippy 缩放气泡。预览只使用组件内状态，不保存收藏。", { active: false, label: "收藏赛事", children: "收藏赛事", className: "rounded-full border border-border px-4 py-2 text-sm" }, { active: true, label: "取消收藏赛事", children: "已收藏", className: "rounded-full border border-border px-4 py-2 text-sm" }, { active: false, label: "收藏超长赛事名称", children: "收藏拉力赛特别站", className: "rounded-full border border-border px-4 py-2 text-sm" }, ["onToggle"])
+  add("SpringToggle", "interface-motion", "高级筛选按钮中的真实 Hamburgers 图标；open 控制展开状态。", { open: false }, { open: true }, { open: false })
+  for (const [name, labels] of [["MotionInput", ["搜索提示", "搜索无结果", "邮箱校验"]], ["MotionText", ["标题打字", "连接状态", "更新状态"]], ["FavoriteMotion", ["未收藏", "已收藏", "长文案"]], ["SpringToggle", ["收起", "展开", "默认"]]] as const) {
+    entries.find(entry => entry.name === name)?.presets.forEach((preset, index) => { preset.label = labels[index] })
+  }
   return entries
 }

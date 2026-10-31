@@ -8,6 +8,8 @@ import Link from '@/components/edition-link'
 const inputClass = "min-w-0 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
 const enums: Record<string, string[]> = {
   series: ["F1", "WRC", "FE"], variant: ["default", "outline", "secondary", "ghost", "destructive", "link"],
+  kind: ["schedule", "sync", "live", "page", "weather", "standings"],
+  type: ["text", "email", "search"],
   size: ["default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"],
   circuitType: ["street", "permanent", "hybrid", "rally"], region: ["europe", "asia", "americas", "middle-east", "africa", "oceania"],
 }
@@ -28,7 +30,7 @@ function PropsEditor({ value, onChange, prefix = "" }: { value: CatalogProps; on
     const update = (next: unknown) => onChange({ ...value, [key]: next })
     if (item && typeof item === "object" && !Array.isArray(item)) return <details key={key} className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-xs font-medium">{label}</summary><div className="mt-3"><PropsEditor value={item as CatalogProps} onChange={update} prefix={`${label}.`} /></div></details>
     if (Array.isArray(item) || item === null) return <details key={key} className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-xs">{label} · {Array.isArray(item) ? `${item.length} 项` : "空值"}</summary><div className="mt-3"><JsonEditor value={item} onChange={update} label={label} /></div></details>
-    const enumValues = Object.hasOwn(enums, key) ? enums[key] : undefined
+    const enumValues = key === "variant" && ["search", "field"].includes(String(item)) ? ["search", "field"] : key === "size" && typeof item === "number" ? undefined : Object.hasOwn(enums, key) ? enums[key] : undefined
     const dateValue = typeof item === "string" && /^\d{4}-\d\d-\d\dT/.test(item)
     const dateTimeValue = typeof item === "number" && /time|now/i.test(key)
     const toLocalInput = (value: string | number) => {

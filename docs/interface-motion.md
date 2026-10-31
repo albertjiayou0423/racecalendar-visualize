@@ -21,6 +21,8 @@
 
 共用实现：`components/interface-motion.tsx` 与 `interface-motion.css`。没有计时器人为延长加载；失败和空数据仍由原组件决定。JavaScript 动效库按需导入，组件卸载时销毁实例和计时器。
 
+v2.3.2 的 Playground 新增 `MotionLoader`、`MotionInput`、`MotionText`、`FavoriteMotion` 和 `SpringToggle` 行。加载器提供六个独立预设，尺寸限制为 8–64 px；输入框有搜索提示、无结果和邮箱校验预设；收藏仅在预览内切换状态，不保存偏好。`UsageGuide` 继续在原有组件行中测试。新旧版首页及反馈邮箱直接使用同一 `MotionInput`，预览不是第二份动画实现。
+
 `prefers-reduced-motion: reduce` 下保留静态加载标记和完整文字，关闭抖动、打字、灯点旋转、菜单过渡与气泡缩放。库不注入字体；Tippy 使用现有设计变量。
 
 Driver 的全局 pointer-events / overflow 样式不引入：只使用其原生聚焦 SVG 和淡入预设，将遮罩放进现有原生 dialog，以免遮罩落到顶层对话框后方或使关闭按钮失效。原有边框与面板布局保留；库未加载时继续使用现有聚焦实现。
