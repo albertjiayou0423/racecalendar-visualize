@@ -1169,7 +1169,7 @@ export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ ev
 async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
   const allowApiFallback = options?.allowApiFallback ?? true
   const currentYear = new Date().getFullYear()
-  const targetYears = [currentYear, currentYear + 1]
+  const targetYears = [currentYear, currentYear + 1, currentYear + 2]
   const calendars = await Promise.all(targetYears.map(year => fetchWrcCalendar(year)))
   const officialCalendarCount = calendars.reduce((count, calendar, index) => count + (calendar?.filter(
     target => target.startDate.slice(0, 4) === String(targetYears[index]),
@@ -1202,7 +1202,8 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
     const eventId = `wrc-${rally.year}-${rally.round}`
     const existing = localEvents.find(event => event.id === eventId)
       || (localEvents.some(event => /^wrc-\d{4}-\d+$/.test(event.id)) ? undefined : localEvents.find(event => event.round === rally.round))
-    if (existing && existing.eventSlug === rally.eventSlug && existing.sessions[0]?.utc.startsWith(rally.startDate)) return existing
+    if (existing && existing.eventSlug === rally.eventSlug && !existing.tentative
+      && existing.sessions[0]?.utc.startsWith(rally.startDate)) return existing
     const [year, month, day] = rally.startDate.split("-").map(Number)
     const start = new Date(Date.UTC(year, month - 1, day))
     const finish = new Date(start.getTime() + 3 * 86400000)
@@ -1237,13 +1238,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   let successCount = 0
   let ocblacktopCount = 0
   const errors: string[] = []
-  const now = Date.now()
-  const soonEnoughForItinerary = rallies.filter(rally => {
-    if (rally.year <= currentYear) return true
-    const start = Date.parse(`${rally.startDate}T00:00:00Z`)
-    return Number.isFinite(start) && start - now <= 45 * 86400000
-  })
-  const prioritizedRallies = prioritizeWrcRallies(soonEnoughForItinerary)
+  const prioritizedRallies = prioritizeWrcRallies(rallies)
 
   console.log(`WRC: scraping ${prioritizedRallies.length} rallies from seasons ${targetYears.join(", ")}, allowApiFallback=${allowApiFallback}`)
 
