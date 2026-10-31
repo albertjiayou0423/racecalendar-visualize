@@ -2,7 +2,7 @@
 
 import { MotionLoader, MotionInput } from "@/components/interface-motion"
 
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
@@ -691,7 +691,17 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               ) : null}
             </div>
           ) : (
-            filtered.map((e) => <EventCard key={e.id} event={e} now={now} />)
+            filtered.map((e, index) => {
+              const year = getEventYear(e)
+              const previousYear = index > 0 ? getEventYear(filtered[index - 1]) : null
+              const yearBoundary = season === "current-next" && year === currentYear + 1 && previousYear === currentYear
+              return (
+                <Fragment key={e.id}>
+                  {yearBoundary ? <div role="separator" aria-label={`${currentYear + 1} 年赛事`} className="my-1 h-px w-full bg-border/50" /> : null}
+                  <EventCard event={e} now={now} />
+                </Fragment>
+              )
+            })
           )}
         </section>
       ) : null}
