@@ -46,7 +46,7 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
       </span>
     )
   }
-  if (event.series !== "WRC" && nextResult && isTimeUnconfirmed(event, nextResult.session)) {
+  if (nextResult && isTimeUnconfirmed(event, nextResult.session)) {
     return <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="比赛日期已公布，具体时间待确认">时间待确认</span>
   }
   const live = isLive(event, now)
