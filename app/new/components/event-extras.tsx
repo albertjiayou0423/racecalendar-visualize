@@ -1,5 +1,6 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
 import { browserTimeoutSignal } from "@/lib/browser-abort"
 
 import useSWR from "swr"
@@ -27,7 +28,7 @@ export function SimpleWeather({ event, now }: { event: RaceEvent; now: number })
   const { data, error, isLoading, mutate } = useSWR<{ daily: DailyForecast[] }>(enabled ? `/api/weather?${params}` : null, getJson, { revalidateOnFocus: false, shouldRetryOnError: false })
   const day = data?.daily?.find(day => day.date === date)
   if (!enabled) return <p className="s-note">{!date ? "场次时间待确认，暂不提供天气。" : "天气预报支持赛前 14 天内查询。"}</p>
-  if (isLoading) return <p className="s-note" role="status">正在查询赛道天气…</p>
+  if (isLoading) return <p className="s-note" role="status"><MotionLoader kind="weather" size={14} /> 正在查询赛道天气…</p>
   if (error) return <p className="s-note" role="alert">天气暂不可用。<button type="button" className="s-link" onClick={() => mutate()}>重试</button></p>
   if (!day) return <p className="s-note">该比赛日期暂无天气预报。</p>
   return <div className="s-weather"><div><strong>{day.tempMin}–{day.tempMax}°</strong><span>{event.locality} · {date} 当地日期</span></div><div><strong>{day.precipitationProbability}%</strong><span>降水概率 · {day.precipitationSum} mm</span></div></div>
@@ -72,5 +73,5 @@ export function SimpleLastResult() {
 export function SimpleTiming({ event }: { event: RaceEvent }) {
   const url = event.liveTimingUrl || (event.series === "WRC" ? "https://www.wrc.com/en/wrc-plus/live-timing/" : event.series === "FE" ? "https://fiaformulae.com/en/race-centre" : "https://www.formula1.com/en/latest/article/live-timing")
   const { data, error, isLoading, mutate } = useSWR<LiveTimingData>(event.series === "WRC" ? null : `/api/live-timing?series=${event.series}`, getJson, { revalidateOnFocus: false, shouldRetryOnError: false, refreshInterval: data => data?.status === "live" ? 10000 : 0, refreshWhenHidden: false })
-  return <div><div className="s-between"><p className="s-note">{data?.sessionName || "官方实时计时"}{data?.currentLap ? ` · 第 ${data.currentLap}${data.totalLaps ? `/${data.totalLaps}` : ""}圈` : ""}{data?.redFlag ? " · 红旗" : data?.safetyCar ? " · 安全车" : data?.virtualSafetyCar ? " · VSC" : ""}</p>{event.series !== "WRC" && <button className="s-link" type="button" onClick={() => mutate()}>刷新</button>}</div><DataState loading={isLoading} error={error} retry={() => mutate()}>{data?.drivers?.length ? <SimpleTable caption="实时计时" rows={data.drivers} rowKey={row => row.driverNumber} columns={[{ key: "position", title: "位次", render: row => row.position }, { key: "name", title: "车手", render: row => <div>{row.driverName || row.driverCode}<small>{row.team}</small></div> }, { key: "gap", title: "差距", render: row => row.gap || "—" }, { key: "lap", title: "最近圈速", render: row => row.lastLap || "—" }]} /> : <p className="s-note">暂无可验证的实时数据，请前往官方计时页面。</p>}</DataState><a href={url} className="s-link" target="_blank" rel="noopener noreferrer">打开官方 Live Timing</a>{data?.source && <p className="s-note">来源：{data.source} · {data.lastUpdated}</p>}</div>
+  return <div><div className="s-between"><p className="s-note">{data?.sessionName || "官方实时计时"}{data?.currentLap ? ` · 第 ${data.currentLap}${data.totalLaps ? `/${data.totalLaps}` : ""}圈` : ""}{data?.redFlag ? " · 红旗" : data?.safetyCar ? " · 安全车" : data?.virtualSafetyCar ? " · VSC" : ""}</p>{event.series !== "WRC" && <button className="s-link" type="button" onClick={() => mutate()}>刷新</button>}</div><DataState loading={isLoading} loadingKind="live" error={error} retry={() => mutate()}>{data?.drivers?.length ? <SimpleTable caption="实时计时" rows={data.drivers} rowKey={row => row.driverNumber} columns={[{ key: "position", title: "位次", render: row => row.position }, { key: "name", title: "车手", render: row => <div>{row.driverName || row.driverCode}<small>{row.team}</small></div> }, { key: "gap", title: "差距", render: row => row.gap || "—" }, { key: "lap", title: "最近圈速", render: row => row.lastLap || "—" }]} /> : <p className="s-note">暂无可验证的实时数据，请前往官方计时页面。</p>}</DataState><a href={url} className="s-link" target="_blank" rel="noopener noreferrer">打开官方 Live Timing</a>{data?.source && <p className="s-note">来源：{data.source} · {data.lastUpdated}</p>}</div>
 }

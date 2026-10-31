@@ -1,6 +1,6 @@
 "use client"
 
-import { MotionLoader } from "@/components/interface-motion"
+import { MotionLoader, type LoaderKind } from "@/components/interface-motion"
 
 import type { ButtonHTMLAttributes, ReactNode } from "react"
 import { RefreshCw } from "lucide-react"
@@ -23,6 +23,6 @@ export function CompactCountdown({ utc, now }: { utc: string; now: number }) {
 export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return <div className="s-empty"><p>{title}</p>{description && <span>{description}</span>}{action}</div>
 }
-export function LoadingState() {
-  return <div className="s-loading" role="status" aria-label="赛历加载中"><MotionLoader kind="schedule" size={15} />正在加载赛程…</div>
+export function LoadingState({ kind = "schedule" }: { kind?: LoaderKind }) {
+  return <div className="s-loading" role="status" aria-label="赛历加载中"><MotionLoader kind={kind} size={15} />正在加载赛程…</div>
 }
