@@ -78,7 +78,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon, compact 
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <MotionLoader kind="weather" />
+        <MotionLoader kind="weather" size={12} />
         <Thermometer className="size-3" />
       </div>
     )

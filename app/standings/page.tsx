@@ -158,7 +158,7 @@ export default function StandingsPage() {
         <FeDriverStandings />
       ) : loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-          <MotionLoader kind="standings" />
+          <MotionLoader kind="standings" size={20} />
           加载积分榜数据…
         </div>
       ) : error ? (

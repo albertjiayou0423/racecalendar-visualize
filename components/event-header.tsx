@@ -1,6 +1,5 @@
 "use client"
 
-import { MotionText } from "@/components/interface-motion"
 
 import { downloadFile } from "@/lib/download"
 import { isEstimatedWrcSession } from "@/lib/session-time"
@@ -50,7 +49,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
               第 {event.round} 站
             </span>
           </div>
-          <h1 className="mt-3 text-xl font-bold"><MotionText text={event.name} /></h1>
+          <h1 className="mt-3 text-xl font-bold">{event.name}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
             <MapPin className="size-4" />
             {event.circuit} · {event.locality}，{event.country}

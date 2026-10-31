@@ -1,6 +1,6 @@
 "use client"
 
-import { MotionLoader, MotionText, MotionInput } from "@/components/interface-motion"
+import { MotionLoader, MotionInput } from "@/components/interface-motion"
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
@@ -336,14 +336,14 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-pretty text-2xl font-bold tracking-tight sm:text-3xl"><MotionText text="赛道时刻" /></h1>
+            <h1 className="text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
           <BeijingClock now={now} />
         </div>
-        {data ? <div className="flex items-center gap-2">{!playground && request.isValidating && <MotionLoader kind="sync" />}<SourceBar data={data} /></div> : null}
+        {data ? <SourceBar data={data} /> : null}
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
@@ -546,8 +546,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {isLoading ? (
         <div role="status" aria-label="赛程加载中" aria-busy="true" className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MotionLoader kind="page" size={16} />
-            <MotionLoader kind="schedule" size={24} />
+            <MotionLoader kind="schedule" size={16} />
+            <span>正在加载赛程…</span>
           </div>
           {[...Array(4)].map((_, i) => (
             <div

@@ -101,7 +101,7 @@ export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStrip
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <MotionLoader kind="weather" />
+        <MotionLoader kind="weather" size={12} />
         天气加载中...
       </div>
     )

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type InputHTMLAttributes } from "react"
 import type { Instance } from "tippy.js"
 
+let activeFavoriteTooltip: Instance | null = null
+
 export type LoaderKind = "schedule" | "sync" | "live" | "page" | "weather" | "standings"
 
 /** Native library presets, sized and coloured by the surrounding component. */
@@ -92,22 +94,30 @@ export function FavoriteMotion({ active, onToggle, label, className, children }:
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [announcement, setAnnouncement] = useState("")
   const pending = useRef(0)
-  useEffect(() => () => { pending.current++; clearTimeout(timer.current); instance.current?.destroy() }, [])
+  useEffect(() => () => { pending.current++; clearTimeout(timer.current); if (activeFavoriteTooltip === instance.current) activeFavoriteTooltip = null; instance.current?.destroy() }, [])
   const toggle = async () => {
     onToggle()
     const text = active ? "已取消收藏" : "已收藏"
     setAnnouncement(text)
     const token = ++pending.current
+    activeFavoriteTooltip?.hide()
     const { default: tippy } = await import("tippy.js").catch(() => ({ default: null }))
     if (!tippy) return
     if (token !== pending.current || !ref.current) return
+    if (activeFavoriteTooltip !== instance.current) activeFavoriteTooltip?.hide()
     instance.current?.destroy()
-    instance.current = tippy(ref.current, { content: text, trigger: "manual", animation: "scale", duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : [180, 140], theme: "racecalendar", appendTo: () => document.body })
+    const hide = () => instance.current?.hide()
+    instance.current = tippy(ref.current, { content: text, trigger: "manual", animation: "scale", placement: "bottom-end", arrow: false, offset: [0, 6], maxWidth: 200, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : [130, 100], theme: "racecalendar", appendTo: () => document.body,
+      onShow: () => window.addEventListener("scroll", hide, true),
+      onHide: () => { window.removeEventListener("scroll", hide, true) },
+      onDestroy: () => { window.removeEventListener("scroll", hide, true) },
+    })
+    activeFavoriteTooltip = instance.current
     instance.current.show()
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => instance.current?.hide(), 1500)
+    timer.current = setTimeout(() => instance.current?.hide(), 1000)
   }
-  return <><button ref={ref} type="button" aria-label={label} aria-pressed={active} className={className} onClick={toggle}>{children}</button><span className="sr-only" role="status">{announcement}</span></>
+  return <><button ref={ref} type="button" aria-label={label} title={label} aria-pressed={active} className={className} onClick={toggle} onBlur={() => instance.current?.hide()} onKeyDown={event => { if (event.key === "Escape") instance.current?.hide() }}>{children}</button><span className="sr-only" role="status">{announcement}</span></>
 }
 
 export function SpringToggle({ open }: { open: boolean }) {

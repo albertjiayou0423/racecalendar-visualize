@@ -41,7 +41,7 @@ export function WrcStandings() {
   const { data, error, isLoading, mutate } = useSWR<WrcResponse>(query, fetcher)
 
   if (isLoading && !data) {
-    return <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground"><MotionLoader kind="standings" />加载 WRC 官方积分榜…</div>
+    return <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground"><MotionLoader kind="standings" size={20} />加载 WRC 官方积分榜…</div>
   }
   if (error && !data) {
     return <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-muted-foreground"><div className="flex items-center gap-2"><TriangleAlert className="size-4 text-destructive" />{error.message}</div><button onClick={() => mutate()} className="mt-3 underline">重试</button></div>

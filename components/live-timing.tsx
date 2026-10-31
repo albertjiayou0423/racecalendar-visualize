@@ -121,7 +121,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
     return (
       <div className="border-t border-border bg-card px-4 py-6">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <MotionLoader kind="live" />
+          <MotionLoader kind="live" size={16} />
           正在加载 Live Timing...
         </div>
       </div>
