@@ -8,7 +8,7 @@ import { zonedWallTimeToUtc } from "./tz"
  * 各比赛日的赛段具体开始时间为按惯例估计值（tentative），最终以官方 itinerary 为准。
  */
 
-interface WrcRallyDef {
+export interface WrcRallyDef {
   round: number
   name: string
   hq: string
@@ -25,8 +25,8 @@ interface WrcRallyDef {
   /** 每天的赛段数 [首日Shakedown, 第一比赛日, 第二比赛日, 末日(不含Power Stage)] */
   stages?: [number, number, number, number]
   /** 赛事总部地理坐标（用于天气查询） */
-  lat: number
-  lon: number
+  lat?: number
+  lon?: number
   /** Wikipedia 赛事页面链接 */
   wikipediaUrl: string
   /** 赛道/赛事 Wikipedia 图片链接 */
@@ -168,8 +168,8 @@ function buildSessions(def: WrcRallyDef): RaceSession[] {
   return sessions
 }
 
-export function buildWrcEvents(): RaceEvent[] {
-  return RALLIES.map((def) => {
+export function buildWrcEvents(rallies: WrcRallyDef[] = RALLIES): RaceEvent[] {
+  return rallies.map((def) => {
     // 地区映射
     const regionMap: Record<string, "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"> = {
       "法国": "europe", "瑞典": "europe", "克罗地亚": "europe", "西班牙": "europe",
@@ -178,7 +178,7 @@ export function buildWrcEvents(): RaceEvent[] {
       "智利": "americas", "沙特阿拉伯": "middle-east",
     }
     return {
-      id: `wrc-2026-${def.round}`,
+      id: `wrc-${def.start[0]}-${def.round}`,
       series: "WRC" as const,
       round: def.round,
       name: def.name,
@@ -196,8 +196,7 @@ export function buildWrcEvents(): RaceEvent[] {
       tentative: true,
       circuitType: "rally",
       region: regionMap[def.country] ?? "europe",
-      lat: def.lat,
-      lon: def.lon,
+      ...(typeof def.lat === "number" && typeof def.lon === "number" ? { lat: def.lat, lon: def.lon } : {}),
       wikipediaUrl: def.wikipediaUrl,
       circuitImageUrl: def.circuitImageUrl,
       extraInfo: def.extraInfo,

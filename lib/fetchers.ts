@@ -121,14 +121,23 @@ const CIRCUIT_INFO: Record<string, { length: string; laps: string }> = {
 
 export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
   try {
-    const [currentRes, lastYearRaces] = await Promise.all([
-      fetch("https://api.jolpi.ca/ergast/f1/current.json", { next: { revalidate: 3600 } }),
-      fetchJolpicaResults<ErgastRace & { Results: ErgastResult[] }>(String(new Date().getFullYear() - 1)).catch(() => []),
+    const year = new Date().getFullYear()
+    const seasons = [year, year + 1, year + 2]
+    const [seasonResponses, lastYearRaces] = await Promise.all([
+      Promise.all(seasons.map(season => fetch(`https://api.jolpi.ca/ergast/f1/${season}.json?limit=100`, { next: { revalidate: 3600 } }))),
+      fetchJolpicaResults<ErgastRace & { Results: ErgastResult[] }>(String(year - 1)).catch(() => []),
     ])
-
-    if (!currentRes.ok) throw new Error(`HTTP ${currentRes.status}`)
-    const currentJson = await currentRes.json()
-    const races: ErgastRace[] = currentJson?.MRData?.RaceTable?.Races ?? []
+    const races: ErgastRace[] = []
+    for (let index = 0; index < seasonResponses.length; index++) {
+      const response = seasonResponses[index]
+      if (!response.ok) {
+        if (index === 0) throw new Error(`HTTP ${response.status}`)
+        continue
+      }
+      const json = await response.json()
+      races.push(...(json?.MRData?.RaceTable?.Races ?? []))
+    }
+    if (!races.length) throw new Error("F1 当前及后续赛季赛历为空")
 
     let lastYearResults: Record<string, ErgastResult[]> = {}
     for (const race of lastYearRaces) {
@@ -336,15 +345,23 @@ export async function fetchFe(): Promise<{ events: RaceEvent[]; ok: boolean; not
     if (!champRes.ok) throw new Error(`HTTP ${champRes.status}`)
     const champJson = await champRes.json()
     const champs: FeChampionship[] = champJson?.championships ?? []
-    const present = champs.find((c) => c.status === "Present") ?? champs[champs.length - 1]
-    if (!present) throw new Error("未找到当前 FE 赛季")
-
-    const racesRes = await fetch(`${FE_BASE}/races?championshipId=${present.id}`, {
-      next: { revalidate: 3600 },
+    const seasonStart = new Date().getFullYear() - 1
+    const upcoming = champs.filter(champ => {
+      const years = champ.name.match(/20\d{2}/g)?.map(Number) ?? []
+      return (champ.status === "Present" || champ.status === "Future" || champ.status === "Upcoming")
+        && (!years.length || Math.max(...years) >= seasonStart)
     })
-    if (!racesRes.ok) throw new Error(`HTTP ${racesRes.status}`)
-    const racesJson = await racesRes.json()
-    const races: FeRace[] = racesJson?.races ?? []
+    const seasons = upcoming.length ? upcoming : champs.filter(champ => champ.status === "Present").slice(0, 1)
+    if (!seasons.length) throw new Error("未找到当前或即将开始的 FE 赛季")
+
+    const seasonRaces = await Promise.all(seasons.map(async season => {
+      const response = await fetch(`${FE_BASE}/races?championshipId=${season.id}`, { next: { revalidate: 3600 } })
+      if (!response.ok) return [] as FeRace[]
+      const json = await response.json()
+      return (json?.races ?? []) as FeRace[]
+    }))
+    const races = [...new Map(seasonRaces.flat().filter(race => typeof race?.id === "string").map(race => [race.id, race])).values()]
+    if (!races.length) throw new Error("FE 当前及未来赛季赛历为空")
 
     const events = await Promise.all(
       races.map(async (r): Promise<RaceEvent | null> => {

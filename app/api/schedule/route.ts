@@ -58,7 +58,7 @@ export async function GET() {
       },
       {
         series: "WRC",
-        label: "WRC 官方 itinerary（爬取 / ocblacktop fallback）",
+        label: "WRC 官方赛历 / itinerary（行程回退）",
         ok: wrc.ok,
         note: wrc.ok
           ? wrcResult.fromCache ? (wrc.note || "使用持久化快照数据") : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
