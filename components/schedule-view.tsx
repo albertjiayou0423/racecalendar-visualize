@@ -424,35 +424,6 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="赛季范围">
-            {([
-              { key: "current-next" as const, label: "今明两年" },
-              { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
-              { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
-              { key: "all" as const, label: "全部年份" },
-            ]).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={season === tab.key}
-                onClick={() => setSeason(tab.key)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  season === tab.key
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          {season === "current-next" && (yearCounts.get(currentYear + 1) ?? 0) === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              当前数据中还没有 {currentYear + 1} 年的赛事；新赛历获取后会自动显示。
-            </p>
-          ) : null}
           {/* 视图切换 + 通知 - 移动端吸顶时隐藏 */}
           <div className={cn("flex items-center gap-2", filterStuck && isMobile && "hidden")}>
             <div data-guide="views" className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
@@ -507,26 +478,57 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </div>
         {/* 时间范围和高级筛选 - 移动端吸顶时隐藏 */}
         <div className={cn("flex flex-col gap-2 transition-all", filterStuck && isMobile && "hidden")}>
-          {view === "list" ? (
-            <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
-              {TIME_TABS.map((t) => (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {view === "list" ? (
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
+                {TIME_TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={time === t.key}
+                    onClick={() => setTime(t.key)}
+                    className={cn(
+                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      time === t.key
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="赛季范围">
+              {([
+                { key: "current-next" as const, label: "今明两年" },
+                { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
+                { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
+                { key: "all" as const, label: "全部年份" },
+              ]).map((tab) => (
                 <button
-                  key={t.key}
+                  key={tab.key}
                   type="button"
                   role="tab"
-                  aria-selected={time === t.key}
-                  onClick={() => setTime(t.key)}
+                  aria-selected={season === tab.key}
+                  onClick={() => setSeason(tab.key)}
                   className={cn(
                     "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                    time === t.key
+                    season === tab.key
                       ? "bg-secondary text-secondary-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {t.label}
+                  {tab.label}
                 </button>
               ))}
             </div>
+          </div>
+          {season === "current-next" && (yearCounts.get(currentYear + 1) ?? 0) === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              当前数据快照还未收录 {currentYear + 1} 年赛事。
+            </p>
           ) : null}
 
           {/* 高级筛选 */}
@@ -675,7 +677,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   {search
                     ? `没有找到包含「${search}」的赛事`
                     : typeof season === "number" && (yearCounts.get(season) ?? 0) === 0
-                      ? `当前数据中还没有 ${season} 年的赛事；赛历更新后会自动显示。`
+                      ? `当前数据中没有 ${season} 年的赛事；数据源更新后会自动显示。`
                       : "当前筛选条件下暂无赛事"}
                 </p>
               </div>
