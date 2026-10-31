@@ -698,10 +698,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               return (
                 <Fragment key={e.id}>
                   {yearBoundary ? (
-                    <div role="separator" aria-label={`${currentYear + 1} 年赛事`} className="my-2 flex items-center gap-3 px-1">
-                      <span className="h-px flex-1 bg-border/70" />
-                      <span className="text-[10px] font-medium tracking-wider text-muted-foreground/70">{currentYear + 1}</span>
-                      <span className="h-px flex-1 bg-border/70" />
+                    <div role="separator" aria-label={`${currentYear + 1} 年赛事`} className="my-3 flex items-center gap-3 px-1">
+                      <span className="h-0.5 flex-1 rounded-full bg-muted-foreground/40" />
+                      <span className="text-xs font-semibold text-muted-foreground">{currentYear + 1} 年</span>
+                      <span className="h-0.5 flex-1 rounded-full bg-muted-foreground/40" />
                     </div>
                   ) : null}
                   <EventCard event={e} now={now} />
