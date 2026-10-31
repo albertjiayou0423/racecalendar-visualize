@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import type { LoaderKind } from "@/components/interface-motion"
 import type { ReactNode } from "react"
 import { LoadingState, EmptyState } from "./primitives"
 
@@ -11,8 +12,8 @@ export function SimplePageHeader({ title, subtitle, action }: { title: string; s
 export function SimpleTabs<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { value: T; label: string }[]; onChange: (value: T) => void }) {
   return <div className="s-tabs" role="group" aria-label={label}>{options.map(option => <button type="button" key={option.value} aria-pressed={value === option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>
 }
-export function DataState({ loading, error, empty, retry, children }: { loading?: boolean; error?: Error | string; empty?: boolean; retry?: () => void; children: ReactNode }) {
-  if (loading) return <LoadingState />
+export function DataState({ loading, loadingKind = "schedule", error, empty, retry, children }: { loading?: boolean; loadingKind?: LoaderKind; error?: Error | string; empty?: boolean; retry?: () => void; children: ReactNode }) {
+  if (loading) return <LoadingState kind={loadingKind} />
   if (error) return <div className="s-error" role="alert"><p>{typeof error === "string" ? error : error.message}</p>{retry && <button type="button" className="s-button" onClick={retry}>重试</button>}</div>
   if (empty) return <EmptyState title="暂无数据" description="当前条件下还没有可用记录，可调整筛选或稍后重试。" />
   return <>{children}</>

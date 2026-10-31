@@ -1,12 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { MotionLoader, MotionInput } from "@/components/interface-motion"
+
+import { Fragment, useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
+import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { EditionEntry } from "@/app/new/components/edition-entry"
 import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
-import type { ScheduleResponse, Series } from "@/lib/types"
+import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 import {
     BEIJING_TZ,
@@ -81,6 +84,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
+type SeasonFilter = "current-next" | "all" | number
 type ViewMode = "list" | "week" | "month"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
@@ -97,6 +101,14 @@ const TIME_TABS: { key: TimeFilter; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "past", label: "已结束" },
 ]
+
+function getEventYear(event: RaceEvent): number | null {
+  const idYear = event.id.match(/(?:f1|wrc)-(20\d{2})-/)?.[1]
+  if (idYear) return Number(idYear)
+  const firstSession = event.sessions[0]
+  if (!firstSession || !Number.isFinite(Date.parse(firstSession.utc))) return null
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: BEIJING_TZ, year: "numeric" }).format(new Date(firstSession.utc)))
+}
 
 /** 每秒刷新的当前时间戳（标签页隐藏时暂停以降低后台 CPU） */
 function useNow(serverTime: number) {
@@ -180,6 +192,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const isLoading = requestLoading && !data
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
+  const [season, setSeason] = useState<SeasonFilter>("current-next")
   const [view, setView] = useState<ViewMode>("list")
   const [search, setSearch] = useState("")
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -290,9 +303,26 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
 
   const allEvents = data?.events ?? []
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
+  const currentYear = Number(new Intl.DateTimeFormat("en-US", { timeZone: BEIJING_TZ, year: "numeric" }).format(new Date(now)))
+  const yearCounts = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const event of allEvents.filter((item) => series === "ALL" || item.series === series)) {
+      const year = getEventYear(event)
+      if (year !== null) counts.set(year, (counts.get(year) ?? 0) + 1)
+    }
+    return counts
+  }, [allEvents, series])
 
   const filtered = useMemo(() => {
     let list = allEvents.filter((e) => (series === "ALL" ? true : e.series === series))
+    if (season === "current-next") {
+      list = list.filter((event) => {
+        const year = getEventYear(event)
+        return year === currentYear || year === currentYear + 1
+      })
+    } else if (typeof season === "number") {
+      list = list.filter((event) => getEventYear(event) === season)
+    }
     if (search) {
       const query = search.toLowerCase()
       list = list.filter((e) =>
@@ -317,7 +347,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       const bm = mainSession(b)?.utc ?? ""
       return am.localeCompare(bm)
     })
-  }, [allEvents, series, time, view, now, search, circuitType, region])
+  }, [allEvents, series, time, view, now, search, circuitType, region, season, currentYear])
 
   const nextUp = useMemo(() => {
     const upcoming = allEvents
@@ -362,7 +392,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         {/* 搜索框 - 移动端吸顶时隐藏 */}
         <div className={cn("relative transition-all", filterStuck && isMobile && "hidden")}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
+          <MotionInput
+            noResults={!!data && !filtered.length}
             id="search-input"
             type="text"
             value={search}
@@ -447,26 +478,57 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </div>
         {/* 时间范围和高级筛选 - 移动端吸顶时隐藏 */}
         <div className={cn("flex flex-col gap-2 transition-all", filterStuck && isMobile && "hidden")}>
-          {view === "list" ? (
-            <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
-              {TIME_TABS.map((t) => (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {view === "list" ? (
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
+                {TIME_TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={time === t.key}
+                    onClick={() => setTime(t.key)}
+                    className={cn(
+                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      time === t.key
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="赛季范围">
+              {([
+                { key: "current-next" as const, label: "今明两年" },
+                { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
+                { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
+                { key: "all" as const, label: "全部年份" },
+              ]).map((tab) => (
                 <button
-                  key={t.key}
+                  key={tab.key}
                   type="button"
                   role="tab"
-                  aria-selected={time === t.key}
-                  onClick={() => setTime(t.key)}
+                  aria-selected={season === tab.key}
+                  onClick={() => setSeason(tab.key)}
                   className={cn(
                     "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                    time === t.key
+                    season === tab.key
                       ? "bg-secondary text-secondary-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {t.label}
+                  {tab.label}
                 </button>
               ))}
             </div>
+          </div>
+          {season === "current-next" && (yearCounts.get(currentYear + 1) ?? 0) === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              当前数据快照还未收录 {currentYear + 1} 年赛事。
+            </p>
           ) : null}
 
           {/* 高级筛选 */}
@@ -539,12 +601,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </div>
       </div>
 
+      <SeriesRelay series={series} />
       {/* 加载 / 错误 */}
       {isLoading ? (
         <div role="status" aria-label="赛程加载中" aria-busy="true" className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="size-4 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+            <MotionLoader kind="schedule" size={16} />
+            <span>正在加载赛程…</span>
           </div>
           {[...Array(4)].map((_, i) => (
             <div
@@ -611,7 +674,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               <div>
                 <p className="font-medium text-foreground">未找到匹配的赛事</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {search ? `没有找到包含「${search}」的赛事` : "当前筛选条件下暂无赛事"}
+                  {search
+                    ? `没有找到包含「${search}」的赛事`
+                    : typeof season === "number" && (yearCounts.get(season) ?? 0) === 0
+                      ? `当前数据中没有 ${season} 年的赛事；数据源更新后会自动显示。`
+                      : "当前筛选条件下暂无赛事"}
                 </p>
               </div>
               {search ? (
@@ -624,7 +691,23 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               ) : null}
             </div>
           ) : (
-            filtered.map((e) => <EventCard key={e.id} event={e} now={now} />)
+            filtered.map((e, index) => {
+              const year = getEventYear(e)
+              const previousYear = index > 0 ? getEventYear(filtered[index - 1]) : null
+              const yearBoundary = season === "current-next" && year === currentYear + 1 && previousYear === currentYear
+              return (
+                <Fragment key={e.id}>
+                  {yearBoundary ? (
+                    <div role="separator" aria-label={`${currentYear + 1} 年赛事`} className="my-3 flex items-center gap-3 px-1">
+                      <span className="h-0.5 flex-1 rounded-full bg-muted-foreground/40" />
+                      <span className="text-xs font-semibold text-muted-foreground">{currentYear + 1} 年</span>
+                      <span className="h-0.5 flex-1 rounded-full bg-muted-foreground/40" />
+                    </div>
+                  ) : null}
+                  <EventCard event={e} now={now} />
+                </Fragment>
+              )
+            })
           )}
         </section>
       ) : null}
@@ -668,7 +751,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.3.0 · 沉浸倒计时
+            v2.3.2 · 动效与更新
           </Link>
           {!playground && <UsageGuideButton />}
           {!playground && <EditionEntry />}
@@ -690,6 +773,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </p>
       </footer>
 
+      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
       {/* 回到顶部 */}
       {showBackToTop ? (
         <button

@@ -1,5 +1,6 @@
 "use client"
 
+import { SeriesRelay, RaceFarewell } from "@/components/ritual-motion"
 import { useEffect, useRef, useState } from "react"
 import { useSimpleSchedule, useSimpleClock, useSimpleFavorites } from "../data"
 import { DEFAULT_FILTERS, filterEvents, dayEvents, dayKey, nextStart, type ViewMode, type StartSelection } from "../model"
@@ -75,7 +76,8 @@ export function SimpleHomeView({ serverTime }: { serverTime: number }) {
     <SimpleNextSession start={upcoming} now={now} onStart={setActive} />
     <SimpleSourceStatus data={data} error={!!error} refreshing={isValidating} onRefresh={() => mutate()} />
     <SimpleReminder events={events} />
-    <SimpleFilters value={filters} onChange={setFilters} view={view} onView={setView} />
+    <SimpleFilters value={filters} noResults={!!data && !filtered.length} onChange={setFilters} view={view} onView={setView} />
+    <SeriesRelay series={filters.series} />
     <DataState loading={isLoading && !data} error={!data ? error : undefined} retry={() => mutate()}>
       {view !== "list" && <SimpleCalendar events={filtered} view={view} anchor={anchor} selected={selected} now={now} onAnchor={setAnchor} onSelect={setSelected} />}
       {data && <p className="s-list-count" role="status">{view !== "list" && selected ? selected + " · " : ""}{visible.length} 场赛事</p>}
@@ -92,6 +94,7 @@ export function SimpleHomeView({ serverTime }: { serverTime: number }) {
     {!favorites.persisted && <p className="s-note" role="status">浏览器未允许保存，收藏仅在本次访问有效。</p>}
     {filters.series === "F1" && <SimpleLastResult />}
     <p className="s-shortcuts">/ 搜索 · F 沉浸倒计时 · 1 列表 · 2 周 · 3 月</p>
+    {data && visible.length > 0 && <RaceFarewell />}
     <SimpleFooter />
     <SimpleImmersionHost selection={active} onClose={() => setActive(null)} />
   </main>

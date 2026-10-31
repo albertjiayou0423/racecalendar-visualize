@@ -11,6 +11,16 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.3.2",
+    date: "2026-10-31",
+    items: [
+      { type: "ui", text: "新增 14 项现成动效预设，正式界面仅按场景使用加载、搜索校验、收藏确认和指南反馈；保留静态标题、原有筛选图标与整体设计" },
+      { type: "feat", text: "Playground 新增真实动效组件，支持独立参数、加载样式预设、收藏气泡、输入校验、打字与状态切换预览" },
+      { type: "perf", text: "JavaScript 动效库按需加载，不使用外部 CDN，不人为延长等待；后台同步保留现有内容" },
+      { type: "fix", text: "适配新旧版表单、天气和实时数据加载，统一小尺寸加载反馈，避免多个收藏气泡叠加；滚动或失焦时自动收起气泡，尊重系统减少动态效果设置" },
+    ],
+  },
+  {
     version: "v2.3.0",
     date: "2026-10-17",
     items: [

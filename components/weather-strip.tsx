@@ -1,5 +1,7 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
+
 import { useState, useEffect, useMemo } from "react"
 import { Cloud, CloudRain, CloudSnow, Sun, CloudSun, RefreshCw, Droplets } from "lucide-react"
 import { sessionWeatherDate } from "@/lib/weather-date"
@@ -99,7 +101,7 @@ export function WeatherStrip({ city, country, lat, lon, sessions }: WeatherStrip
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <RefreshCw className="size-3 animate-spin" />
+        <MotionLoader kind="weather" size={12} />
         天气加载中...
       </div>
     )

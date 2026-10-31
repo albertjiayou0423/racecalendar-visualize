@@ -4,7 +4,7 @@ import { getWrcRequestDiagnostics, type WrcRequestDiagnostics, withWrcRequestBud
 import { mapSettledWithConcurrency } from "./wrc-concurrency"
 import type { RaceEvent, RaceSession } from "./types"
 import { zonedWallTimeToUtc } from "./tz"
-import { buildWrcEvents, buildWrcLiveTimingUrl } from "./wrc-data"
+import { buildWrcEvents, buildWrcLiveTimingUrl, type WrcRallyDef } from "./wrc-data"
 
 // ============ 通用请求头（绕过 Akamai WAF） ============
 
@@ -992,6 +992,7 @@ function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: stri
 // ============ WRC 赛事列表 ============
 
 interface WrcRally {
+  year: number
   round: number
   name: string
   hq: string
@@ -1004,20 +1005,20 @@ interface WrcRally {
 }
 
 const WRC_RALLIES: WrcRally[] = [
-  { round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", eventSlug: "wrc-rallye-monte-carlo-2026", startDate: "2026-01-22" },
-  { round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", eventSlug: "wrc-rally-sweden-2026", startDate: "2026-02-12" },
-  { round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", eventSlug: "wrc-safari-rally-kenya-2026", startDate: "2026-03-12" },
-  { round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", eventSlug: "wrc-croatia-rally-2026", startDate: "2026-04-09" },
-  { round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", eventSlug: "wrc-rally-islas-canarias-2026", startDate: "2026-04-23" },
-  { round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-vodafone-rally-de-portugal-2026", startDate: "2026-05-07" },
-  { round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-forum8-rally-japan-2026", startDate: "2026-05-28" },
-  { round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-eko-acropolis-rally-greece-2026", startDate: "2026-06-25" },
-  { round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", eventSlug: "wrc-delfi-rally-estonia-2026", startDate: "2026-07-16" },
-  { round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", eventSlug: "wrc-secto-rally-finland-2026", startDate: "2026-07-30" },
-  { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-27" },
-  { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", startDate: "2026-09-10" },
-  { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-01" },
-  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-11" },
+  { year: 2026, round: 1, name: "蒙特卡洛拉力赛", hq: "加普（Gap）", city: "普罗旺斯", country: "法国", code: "FR", tz: "Europe/Paris", eventSlug: "wrc-rallye-monte-carlo-2026", startDate: "2026-01-22" },
+  { year: 2026, round: 2, name: "瑞典拉力赛", hq: "于默奥（Umeå）", city: "西博滕省", country: "瑞典", code: "SE", tz: "Europe/Stockholm", eventSlug: "wrc-rally-sweden-2026", startDate: "2026-02-12" },
+  { year: 2026, round: 3, name: "肯尼亚狩猎拉力赛", hq: "内罗毕", city: "纳库鲁郡", country: "肯尼亚", code: "KE", tz: "Africa/Nairobi", eventSlug: "wrc-safari-rally-kenya-2026", startDate: "2026-03-12" },
+  { year: 2026, round: 4, name: "克罗地亚拉力赛", hq: "里耶卡（Rijeka）", city: "滨海高地县", country: "克罗地亚", code: "HR", tz: "Europe/Zagreb", eventSlug: "wrc-croatia-rally-2026", startDate: "2026-04-09" },
+  { year: 2026, round: 5, name: "加那利群岛拉力赛", hq: "拉斯帕尔马斯", city: "大加那利岛", country: "西班牙", code: "ES", tz: "Atlantic/Canary", eventSlug: "wrc-rally-islas-canarias-2026", startDate: "2026-04-23" },
+  { year: 2026, round: 6, name: "葡萄牙拉力赛", hq: "马托西纽什", city: "波尔图", country: "葡萄牙", code: "PT", tz: "Europe/Lisbon", eventSlug: "wrc-vodafone-rally-de-portugal-2026", startDate: "2026-05-07" },
+  { year: 2026, round: 7, name: "日本拉力赛", hq: "丰田市", city: "爱知县", country: "日本", code: "JP", tz: "Asia/Tokyo", eventSlug: "wrc-forum8-rally-japan-2026", startDate: "2026-05-28" },
+  { year: 2026, round: 8, name: "希腊卫城拉力赛", hq: "卢特拉基（Loutraki）", city: "科林西亚", country: "希腊", code: "GR", tz: "Europe/Athens", eventSlug: "wrc-eko-acropolis-rally-greece-2026", startDate: "2026-06-25" },
+  { year: 2026, round: 9, name: "爱沙尼亚拉力赛", hq: "塔尔图（Tartu）", city: "塔尔图", country: "爱沙尼亚", code: "EE", tz: "Europe/Tallinn", eventSlug: "wrc-delfi-rally-estonia-2026", startDate: "2026-07-16" },
+  { year: 2026, round: 10, name: "芬兰拉力赛", hq: "于韦斯屈莱", city: "中芬兰", country: "芬兰", code: "FI", tz: "Europe/Helsinki", eventSlug: "wrc-secto-rally-finland-2026", startDate: "2026-07-30" },
+  { year: 2026, round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-27" },
+  { year: 2026, round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", startDate: "2026-09-10" },
+  { year: 2026, round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-01" },
+  { year: 2026, round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-11" },
 ]
 
 // 国家到时区映射（用于动态赛历）
@@ -1037,16 +1038,68 @@ const COUNTRY_TZ: Record<string, string> = {
   "Chile": "America/Santiago",
   "Italy": "Europe/Rome",
   "Saudi Arabia": "Asia/Riyadh",
+  "United Kingdom": "Europe/London",
+  "United States": "America/Chicago",
+}
+
+const WRC_COUNTRY_INFO: Record<string, { country: string; code: string }> = {
+  Monaco: { country: "摩纳哥", code: "MC" }, France: { country: "法国", code: "FR" }, Sweden: { country: "瑞典", code: "SE" },
+  Kenya: { country: "肯尼亚", code: "KE" }, Croatia: { country: "克罗地亚", code: "HR" }, Spain: { country: "西班牙", code: "ES" },
+  Portugal: { country: "葡萄牙", code: "PT" }, Japan: { country: "日本", code: "JP" }, Greece: { country: "希腊", code: "GR" },
+  Estonia: { country: "爱沙尼亚", code: "EE" }, Finland: { country: "芬兰", code: "FI" }, Paraguay: { country: "巴拉圭", code: "PY" },
+  Chile: { country: "智利", code: "CL" }, Italy: { country: "意大利", code: "IT" }, "Saudi Arabia": { country: "沙特阿拉伯", code: "SA" },
+  "United Kingdom": { country: "英国", code: "GB" }, "United States": { country: "美国", code: "US" },
+}
+
+function translateWrcEventName(name: string, slug: string): string {
+  const translations: Array<[string, string]> = [
+    ["rallye-monte-carlo", "蒙特卡洛拉力赛"], ["rally-sweden", "瑞典拉力赛"],
+    ["safari-rally-kenya", "肯尼亚狩猎拉力赛"], ["croatia-rally", "克罗地亚拉力赛"],
+    ["rally-islas-canarias", "加那利群岛拉力赛"], ["rally-de-portugal", "葡萄牙拉力赛"],
+    ["rally-japan", "日本拉力赛"], ["acropolis-rally-greece", "希腊卫城拉力赛"],
+    ["rally-estonia", "爱沙尼亚拉力赛"], ["rally-finland", "芬兰拉力赛"],
+    ["rally-us", "美国拉力赛"], ["rally-scotland", "苏格兰拉力赛"],
+    ["rally-del-paraguay", "巴拉圭拉力赛"], ["rally-chile", "智利拉力赛"],
+    ["rally-saudi-arabia", "沙特阿拉伯拉力赛"],
+  ]
+  return translations.find(([fragment]) => slug.includes(fragment))?.[1] || name
 }
 
 const WRC_EVENT_SERIES_ID = "rrn:content:event-series:444b650c-978a-4b2f-bcb6-e11e0b22a42a:en-INT"
 
 /** 从WRC官网 Event Series API 动态获取赛季完整赛历 */
-async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventSlug: string; startDate: string; tz: string }[] | null> {
-  console.log("WRC: fetching season calendar from official API...")
+type WrcCalendarTarget = { year: number; round: number; name: string; eventSlug: string; startDate: string; tz: string; country?: string; city?: string }
 
-  // 1. 获取 Event Series 列表
-  const seriesUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${WRC_EVENT_SERIES_ID}?rb3Locale=en&rb3Schema=v1:card`
+function findWrcSeriesId(value: unknown, slug: string, depth = 0): string | null {
+  if (!value || typeof value !== "object" || depth > 12) return null
+  if (Array.isArray(value)) {
+    for (const child of value) { const found = findWrcSeriesId(child, slug, depth + 1); if (found) return found }
+    return null
+  }
+  const item = value as Record<string, any>
+  if ((item.reference?.uriSlug === slug || item.uriSlug === slug) && typeof (item.reference?.id ?? item.id) === "string") return item.reference?.id ?? item.id
+  for (const child of Object.values(item)) { const found = findWrcSeriesId(child, slug, depth + 1); if (found) return found }
+  return null
+}
+
+async function fetchWrcCalendar(year: number = new Date().getFullYear()): Promise<WrcCalendarTarget[] | null> {
+  console.log(`WRC: discovering official ${year} calendar...`)
+
+  let seriesId = year === 2026 ? WRC_EVENT_SERIES_ID : null
+  if (!seriesId) {
+    const discoveryPages = [
+      `https://www.wrc.com/en/event-series/wrc-${year}`,
+      `https://www.wrc.com/en/events/wrc-rallye-monte-carlo-${year}`,
+    ]
+    for (const pageUrl of discoveryPages) {
+      const html = await fetchDirect(pageUrl)
+      const cache = html ? extractPrerenderCache(html) : null
+      seriesId = cache ? findWrcSeriesId(cache, `wrc-${year}`) : null
+      if (seriesId) break
+    }
+  }
+  if (!seriesId) return null
+  const seriesUrl = `https://www.wrc.com/v3/api/graphql/v1/v3/content/${seriesId}?rb3Locale=en&rb3Schema=v1:card`
   const seriesJson = await fetchJsonApi(seriesUrl)
   const entries = seriesJson?.data?.events
   const eventIds: string[] = Array.isArray(entries)
@@ -1071,20 +1124,26 @@ async function fetchWrcCalendar(): Promise<{ round: number; name: string; eventS
       const country = d.location?.countryName
 
       if (!Number.isInteger(round) || round < 1 || typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slug)
-        || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null
+        || !startDate.startsWith(`${year}-`) || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null
       const date = new Date(startDate)
       if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== startDate) return null
 
       return {
+        year,
         round,
-        name: typeof d.content?.title === "string" ? d.content.title : slug,
+        name: translateWrcEventName(typeof d.content?.title === "string" ? d.content.title : slug, slug),
         eventSlug: slug,
         startDate,
         tz: COUNTRY_TZ[country] || "UTC",
+        country: typeof country === "string" ? country : undefined,
+        city: typeof d.location?.cityName === "string" ? d.location.cityName : undefined,
       }
     })
 
-  const valid = eventDetails.flatMap(result => result.status === "fulfilled" && result.value ? [result.value] : [])
+  const parsed = eventDetails.flatMap(result => result.status === "fulfilled" && result.value ? [result.value] : [])
+  const rounds = new Map<number, number>()
+  for (const event of parsed) rounds.set(event.round, (rounds.get(event.round) || 0) + 1)
+  const valid = parsed.filter(event => rounds.get(event.round) === 1)
   valid.sort((a, b) => a.round - b.round)
 
   if (valid.length === 0) {
@@ -1109,21 +1168,84 @@ export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ ev
 
 async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
   const allowApiFallback = options?.allowApiFallback ?? true
-  const fallbackEvents = buildWrcEvents()
-  const events: RaceEvent[] = [...fallbackEvents]
+  const currentYear = new Date().getFullYear()
+  const targetYears = [currentYear, currentYear + 1]
+  const calendars = await Promise.all(targetYears.map(year => fetchWrcCalendar(year)))
+  const officialCalendarCount = calendars.reduce((count, calendar, index) => count + (calendar?.filter(
+    target => target.startDate.slice(0, 4) === String(targetYears[index]),
+  ).length || 0), 0)
+  const rallies = targetYears.flatMap((year, index) => {
+    const local = WRC_RALLIES.filter(rally => (rally.year || Number(rally.startDate.slice(0, 4))) === year)
+      .map(rally => ({ ...rally, year }))
+    const official = (calendars[index] || []).filter(target => target.startDate.slice(0, 4) === String(year))
+    if (local.length) {
+      const merged = mergeWrcTargets(local, official)
+      return merged.map(rally => {
+        const match = official.find(target => target.round === rally.round && target.startDate.slice(0, 4) === String(year))
+        return match ? { ...rally, ...match, year, hq: match.city || rally.hq, city: match.city || rally.city,
+          country: WRC_COUNTRY_INFO[match.country || ""]?.country || rally.country,
+          code: WRC_COUNTRY_INFO[match.country || ""]?.code || rally.code } : rally
+      })
+    }
+    if (official.length) return official.map(target => {
+      const countryInfo = WRC_COUNTRY_INFO[target.country || ""]
+      return {
+        year, round: target.round, name: target.name, hq: target.city || target.country || "待公布地点",
+        city: target.city || target.country || "", country: countryInfo?.country || target.country || "",
+        code: countryInfo?.code || "", tz: target.tz || "UTC", eventSlug: target.eventSlug, startDate: target.startDate,
+      }
+    })
+    return local
+  })
+  const localEvents = buildWrcEvents()
+  const events = rallies.map(rally => {
+    const eventId = `wrc-${rally.year}-${rally.round}`
+    const existing = localEvents.find(event => event.id === eventId)
+      || (localEvents.some(event => /^wrc-\d{4}-\d+$/.test(event.id)) ? undefined : localEvents.find(event => event.round === rally.round))
+    if (existing && existing.eventSlug === rally.eventSlug && existing.sessions[0]?.utc.startsWith(rally.startDate)) return existing
+    const [year, month, day] = rally.startDate.split("-").map(Number)
+    const start = new Date(Date.UTC(year, month - 1, day))
+    const finish = new Date(start.getTime() + 3 * 86400000)
+    const dateTuple = (date: Date): [number, number, number] => [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()]
+    const countryToChinese = rally.country
+    const def: WrcRallyDef = {
+      round: rally.round, name: rally.name, hq: rally.hq, city: rally.city, country: countryToChinese,
+      code: rally.code, tz: rally.tz, eventSlug: rally.eventSlug, start: dateTuple(start), finish: dateTuple(finish),
+      wikipediaUrl: `https://www.wrc.com/en/events/${rally.eventSlug}`,
+    }
+    const generatedCandidate = buildWrcEvents([def]).find(event => event.round === rally.round)
+    const generated = generatedCandidate ? { ...generatedCandidate, id: eventId, round: rally.round } : {
+      ...localEvents[0], id: eventId, round: rally.round, sessions: [], eventSlug: rally.eventSlug,
+    }
+    return existing ? {
+      ...existing,
+      id: eventId,
+      round: rally.round,
+      name: existing.name,
+      circuit: `${rally.hq} · 赛事总部`,
+      locality: rally.city || existing.locality,
+      country: rally.country || existing.country,
+      countryCode: rally.code || existing.countryCode,
+      tz: rally.tz,
+      sessions: generated.sessions,
+      eventSlug: rally.eventSlug,
+      liveTimingUrl: buildWrcLiveTimingUrl(rally.eventSlug),
+      url: `https://www.wrc.com/en/events/${rally.eventSlug}`,
+      tentative: true,
+    } : generated
+  })
   let successCount = 0
   let ocblacktopCount = 0
   const errors: string[] = []
+  const now = Date.now()
+  const soonEnoughForItinerary = rallies.filter(rally => {
+    if (rally.year <= currentYear) return true
+    const start = Date.parse(`${rally.startDate}T00:00:00Z`)
+    return Number.isFinite(start) && start - now <= 45 * 86400000
+  })
+  const prioritizedRallies = prioritizeWrcRallies(soonEnoughForItinerary)
 
-  // 1. 动态获取2026年完整赛历（从WRC官网API）
-  const calendar = await fetchWrcCalendar()
-
-  // A partial official calendar must not remove otherwise known season rounds.
-  let rallies: WrcRally[] = mergeWrcTargets(WRC_RALLIES, calendar || [])
-
-  rallies = prioritizeWrcRallies(rallies)
-
-  console.log(`WRC: scraping ${rallies.length} rallies (full season), allowApiFallback=${allowApiFallback}`)
+  console.log(`WRC: scraping ${prioritizedRallies.length} rallies from seasons ${targetYears.join(", ")}, allowApiFallback=${allowApiFallback}`)
 
   // Fetch the paid/quota-limited index only after an official itinerary fails.
   // A shared promise ensures concurrent failures issue at most one index request.
@@ -1133,11 +1255,11 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
     return indexPromise ??= fetchOcblacktopRallies()
   }
 
-  const firstResults = await mapSettledWithConcurrency(rallies, 4, async (rally) => {
+  const firstResults = await mapSettledWithConcurrency(prioritizedRallies, 4, async (rally) => {
     if (wrcBudgetExpired()) return { rally, sessions: null, source: "wrc-official" }
     let sessions = await scrapeWrcItinerary(rally.eventSlug, rally.tz, rally.startDate)
     let source = "wrc-official"
-    if (!sessions?.length) {
+    if (!sessions?.length && rally.year === currentYear) {
       const index = await loadThirdPartyIndex()
       if (index) {
         sessions = await tryOcblacktopFallback(rally, index)
@@ -1157,7 +1279,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
       resultMap.set(i, { rally, sessions, source })
     } else {
       console.error(`WRC error: ${result.reason}`)
-      const rally = rallies[i]
+      const rally = prioritizedRallies[i]
       resultMap.set(i, { rally, sessions: null, source: "wrc-official" })
     }
   }
@@ -1168,7 +1290,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   // 应用结果
   for (const [_, { rally, sessions, source }] of resultMap) {
     if (sessions && sessions.length > 0) {
-      const index = events.findIndex((e) => e.round === rally.round)
+      const index = events.findIndex((e) => e.id === `wrc-${rally.year}-${rally.round}`)
       if (index === -1) {
         errors.push(`${rally.name}（未匹配到赛历轮次 ${rally.round}）`)
         continue
@@ -1200,7 +1322,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
     }
   }
 
-  const ok = successCount > 0 || ocblacktopCount > 0
+  const ok = officialCalendarCount > 0 || successCount > 0 || ocblacktopCount > 0
   
   let dataSource: "scraped" | "api" | "mixed" = "scraped"
   if (ocblacktopCount > 0 && successCount === 0) {
@@ -1211,6 +1333,7 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
 
   const parts: string[] = []
   if (wrcBudgetExpired()) parts.push("抓取达到时间上限，保留已获取结果")
+  if (officialCalendarCount > 0) parts.push(`${officialCalendarCount} 场赛事来自官网年度赛历`)
   if (successCount > 0) parts.push(`${successCount} 场官网爬取成功`)
   if (ocblacktopCount > 0) parts.push(`${ocblacktopCount} 场来自 ocblacktop API`)
   const estimatedEvents = events.filter(event => event.tentative || event.sessions.some(session => session.tentative))

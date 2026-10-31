@@ -66,7 +66,20 @@ function getFocusables(container: HTMLElement): HTMLElement[] {
     container.querySelectorAll<HTMLElement>(selectors),
   ).filter((el) => {
     // Closed <details> descendants can retain layout boxes but cannot take focus.
-    if (!el.checkVisibility()) return false
+    if (typeof el.checkVisibility === "function") {
+      if (!el.checkVisibility()) return false
+    } else {
+      if (el.getClientRects().length === 0) return false
+      // Closed details can still expose layout boxes in older WebKit.
+      let ancestor: HTMLElement | null = el.parentElement
+      while (ancestor) {
+        if (ancestor.tagName === "DETAILS" && !ancestor.hasAttribute("open")) {
+          const summary = ancestor.querySelector("summary")
+          if (!summary?.contains(el)) return false
+        }
+        ancestor = ancestor.parentElement
+      }
+    }
     return !el.matches(':disabled, [inert], [inert] *')
   })
 }

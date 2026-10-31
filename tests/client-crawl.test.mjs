@@ -5,6 +5,7 @@ import vm from 'node:vm'
 import ts from 'typescript'
 import { createRequire } from 'node:module'
 import * as crawl from '../lib/client-crawl.ts'
+import * as browserAbort from '../lib/browser-abort.ts'
 import * as sessions from '../lib/admin-session.ts'
 const require = createRequire(import.meta.url)
 const next = require('next/server')
@@ -184,7 +185,7 @@ function browserHarness({ pathname = '/', hidden = false, saveData = false } = {
   }
   const source = ts.transpileModule(fs.readFileSync('components/client-crawl.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
   const exports = {}
-  vm.runInNewContext(source, { exports, require: name => name === 'react' ? { useEffect: work => effects.push(work) } : name === 'next/navigation' ? { usePathname: () => pathname } : name === 'swr' ? { useSWRConfig: () => ({ mutate: key => updates.push(key) }) } : { ...crawl, fetchClientCrawl: (job, signal) => crawl.fetchClientCrawl(job, signal, fetcher) },
+  vm.runInNewContext(source, { exports, require: name => name === '@/lib/browser-abort' ? browserAbort : name === 'react' ? { useEffect: work => effects.push(work) } : name === 'next/navigation' ? { usePathname: () => pathname } : name === 'swr' ? { useSWRConfig: () => ({ mutate: key => updates.push(key) }) } : { ...crawl, fetchClientCrawl: (job, signal) => crawl.fetchClientCrawl(job, signal, fetcher) },
     window: { setTimeout: (work, delay) => { timers.push({ work, delay }); return timers.length }, clearTimeout() {}, addEventListener() {}, removeEventListener() {} },
     document: { hidden, addEventListener() {}, removeEventListener() {} }, navigator: { onLine: true, connection: { saveData } },
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },

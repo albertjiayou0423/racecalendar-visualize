@@ -1,5 +1,7 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
+
 import { useEffect, useState } from "react"
 import { ArrowLeft, Trophy, Users, Car, LoaderCircle, TriangleAlert, Flag } from "lucide-react"
 import Link from "@/components/edition-link"
@@ -156,7 +158,7 @@ export default function StandingsPage() {
         <FeDriverStandings />
       ) : loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-          <LoaderCircle className="size-5 animate-spin" />
+          <MotionLoader kind="standings" size={20} />
           加载积分榜数据…
         </div>
       ) : error ? (

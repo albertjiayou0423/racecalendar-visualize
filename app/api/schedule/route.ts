@@ -5,6 +5,7 @@ import { initCrawlTables, getLatestSnapshot, getAllOverrides, getCrawlQuota } fr
 import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
 import { normalizeF1Metadata } from "@/lib/f1-metadata"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
+import { addOfficialCalendarFallbacks } from "@/lib/official-calendar-fallback"
 
 export const revalidate = 3600
 export const maxDuration = 300
@@ -43,8 +44,12 @@ export async function GET() {
     ? wrc.events
     : buildWrcEvents()
 
-  // 合并所有赛事并应用覆盖
-  const allEvents = [...f1.events, ...wrcEvents, ...fe.events].map(normalizeF1Metadata)
+  // Calendar dates can be public before session times. Keep the fast snapshot path
+  // and overlay the published next-year date-only safety calendar while source refresh runs.
+  const currentYear = new Date().getFullYear()
+  const snapshotEvents = [...f1.events, ...wrcEvents, ...fe.events]
+  const calendarFallback = addOfficialCalendarFallbacks(snapshotEvents, currentYear + 1)
+  const allEvents = calendarFallback.events.map(normalizeF1Metadata)
   const mergedEvents = await applyOverrides(allEvents)
 
   const body: ScheduleResponse = {
@@ -54,21 +59,21 @@ export async function GET() {
         series: "F1",
         label: "Jolpica F1 API（Ergast 兼容）",
         ok: f1.ok,
-        note: f1.note || (f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"),
+        note: [f1.note || (f1Result.fromCache ? "使用持久化快照数据" : "实时公开数据，时间为 UTC"), calendarFallback.added.F1 ? `官网赛历日期补齐 ${calendarFallback.added.F1} 场，具体场次时间待确认` : null].filter(Boolean).join("；"),
       },
       {
         series: "WRC",
-        label: "WRC 官方 itinerary（爬取 / ocblacktop fallback）",
+        label: "WRC 官方赛历 / itinerary（行程回退）",
         ok: wrc.ok,
-        note: wrc.ok
+        note: [wrc.ok
           ? wrcResult.fromCache ? (wrc.note || "使用持久化快照数据") : (wrc.note || "成功从官方 itinerary 爬取真实赛段时间")
-          : "爬取失败，使用估计时间（以官方 itinerary 为准）",
+          : "爬取失败，使用官方日期和待确认的赛段时间", calendarFallback.added.WRC ? `官方日期补齐 ${calendarFallback.added.WRC} 场，赛段时间待确认` : null].filter(Boolean).join("；"),
       },
       {
         series: "FE",
         label: "Formula E 官方 API（pulselive）",
         ok: fe.ok,
-        note: fe.note || (feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"),
+        note: [fe.note || (feResult.fromCache ? "使用持久化快照数据" : "实时公开数据，含当地时间与 GMT 偏移"), calendarFallback.added.FE ? `官网赛历日期补齐 ${calendarFallback.added.FE} 场，具体场次时间待确认` : null].filter(Boolean).join("；"),
       },
     ],
     fetchedAt: new Date().toISOString(),

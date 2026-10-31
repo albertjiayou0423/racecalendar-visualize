@@ -1,5 +1,8 @@
 "use client"
 
+import { WinnerReveal } from "./ritual-motion"
+import { browserTimeoutSignal } from "@/lib/browser-abort"
+
 import { useEffect, useState } from "react"
 import { Trophy, Medal, ChevronRight, Eye, AlertTriangle } from "lucide-react"
 
@@ -43,7 +46,7 @@ export function LastRaceResults() {
 
   const fetchLastRace = async () => {
     try {
-      const res = await fetch("/api/f1-last-result", { signal: AbortSignal.timeout(12000) })
+      const res = await fetch("/api/f1-last-result", { signal: browserTimeoutSignal(12000) })
       if (!res.ok) throw new Error("Results unavailable")
       const json = await res.json()
       const race = json?.MRData?.RaceTable?.Races?.[0]
@@ -159,10 +162,10 @@ export function LastRaceResults() {
               return (
                 <div key={driver.position} className="flex flex-col items-center gap-1.5">
                   <Medal className="size-7 text-muted-foreground" aria-label={`第 ${pos} 名`} />
-                  <div className="text-center">
-                    <div className="font-bold text-sm">{driver.driver.code}</div>
-                    <div className="text-[10px] text-muted-foreground">{driver.constructor.name}</div>
-                  </div>
+                  <WinnerReveal><span className="block text-center">
+                    <span className="block font-bold text-sm">{driver.driver.code}</span>
+                    <span className="block text-[10px] text-muted-foreground">{driver.constructor.name}</span>
+                  </span></WinnerReveal>
                   <div
                     className={`w-full rounded-t-lg ${heights[idx]} flex items-end justify-center pb-2`}
                     style={{

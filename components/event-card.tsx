@@ -1,7 +1,7 @@
 "use client"
 import { eventSourceLabel } from "@/lib/f1-metadata"
 
-import { isEstimatedWrcSession } from "@/lib/session-time"
+import { isTimeUnconfirmed } from "@/lib/session-time"
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart, Moon } from "lucide-react"
@@ -37,6 +37,18 @@ interface DayGroup {
 }
 
 function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
+  const nextResult = nextSession(event, now)
+  const past = isPast(event, now)
+  if (past) {
+    return (
+      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="赛事已结束">
+        已结束
+      </span>
+    )
+  }
+  if (nextResult && isTimeUnconfirmed(event, nextResult.session)) {
+    return <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="比赛日期已公布，具体时间待确认">时间待确认</span>
+  }
   const live = isLive(event, now)
   if (live) {
     return (
@@ -50,18 +62,7 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
     )
   }
 
-  // 使用 isPast 检查整个赛事是否已结束（所有赛段都结束）
-  const past = isPast(event, now)
-  if (past) {
-    return (
-      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="赛事已结束">
-        已结束
-      </span>
-    )
-  }
-
   // 使用下一个未结束的赛段计算倒计时
-  const nextResult = nextSession(event, now)
   if (!nextResult) {
     return (
       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="赛程待定">
@@ -71,11 +72,24 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
   }
 
   const c = countdown(nextResult.session.utc, now)
+  const remainingMs = Date.parse(nextResult.session.utc) - now
+  const oneDayMs = 24 * 60 * 60 * 1000
+  const sevenDaysMs = 7 * oneDayMs
   const soon = c.days === 0
   const urgent = c.days === 0 && c.hours === 0 && c.minutes < 30
-  const countdownLabel = c.days > 0
-    ? `${c.days}天 ${c.hours}时 ${c.minutes}分后开赛`
-    : `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后开赛`
+  const showSeconds = remainingMs < oneDayMs
+  const showHoursAndMinutes = remainingMs <= sevenDaysMs
+  const farDays = Math.ceil(remainingMs / oneDayMs)
+  const countdownLabel = !showHoursAndMinutes
+    ? `${farDays}天后开赛`
+    : showSeconds
+      ? `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后开赛`
+      : `${c.days}天 ${c.hours}时 ${c.minutes}分后开赛`
+  const countdownText = !showHoursAndMinutes
+    ? `${farDays}天后`
+    : showSeconds
+      ? `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后`
+      : `${c.days}天 ${c.hours}时 ${c.minutes}分后`
   return (
     <span
       className={cn(
@@ -85,19 +99,18 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
       aria-live="polite"
       aria-label={countdownLabel}
     >
-      {c.days > 0 ? `${c.days}天 ` : ""}
-      {c.hours}时 {c.minutes}分{c.days === 0 ? ` ${c.seconds}秒` : ""}后
+      {countdownText}
     </span>
   )
 }
 
-function groupSessionsByDay(sessions: RaceSession[]): DayGroup[] {
+function groupSessionsByDay(sessions: RaceSession[], event: RaceEvent): DayGroup[] {
   const groups: DayGroup[] = []
   let currentDate = ""
   let currentGroup: DayGroup | null = null
 
   for (const s of sessions) {
-    const date = formatDate(s.utc, BEIJING_TZ)
+    const date = formatDate(s.utc, isTimeUnconfirmed(event, s) ? event.tz : BEIJING_TZ)
     if (date !== currentDate) {
       if (currentGroup) groups.push(currentGroup)
       currentDate = date
@@ -152,10 +165,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const nextResult = nextSession(event, now)
   const next = nextResult?.session ?? firstSession(event)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
-  const dayGroups = groupSessionsByDay(event.sessions)
+  const dayGroups = groupSessionsByDay(event.sessions, event)
   const hasTentative = event.tentative === true
 
   const isLiveNow = useMemo(() => event.sessions.some((s) => {
+    if (isTimeUnconfirmed(event, s)) return false
     const start = new Date(s.utc).getTime()
     const end = start + 2 * 60 * 60 * 1000
     return now >= start && now <= end
@@ -284,10 +298,10 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               <div className="text-right">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Clock className="size-3.5" aria-hidden />
-                  <span>开赛 · 北京时间</span>
+                  <span>{isTimeUnconfirmed(event, next) ? "比赛日期 · 当地" : "开赛 · 北京时间"}</span>
                 </div>
                 <div className="font-mono text-sm font-semibold tabular-nums">
-                  {formatDateTime(next.utc, BEIJING_TZ)}
+                  {isTimeUnconfirmed(event, next) ? `${formatDate(next.utc, event.tz)} · 时间待确认` : formatDateTime(next.utc, BEIJING_TZ)}
                 </div>
               </div>
             ) : (
@@ -393,7 +407,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                               <span className="flex items-center gap-1.5 text-sm">
                                 {s.isMain ? <Trophy className="size-3.5 text-primary" aria-hidden /> : null}
                                 <span className={cn(s.isMain && "font-semibold")}>{s.name}</span>
-                                {!isEstimatedWrcSession(event, s) && isNightRace(s.utc, event.tz) && (
+                                {!isTimeUnconfirmed(event, s) && isNightRace(s.utc, event.tz) && (
                                   <span title="夜赛" aria-label="夜赛">
                                     <Moon className="size-3 text-indigo-400" aria-hidden="true" />
                                   </span>
@@ -403,12 +417,12 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                                 ) : null}
                               </span>
                               <span className="text-right font-mono font-medium tabular-nums text-foreground text-sm">
-                                {isEstimatedWrcSession(event, s) ? "时间待确认" : `${s.tentative ? "约 " : ""}${formatTime(s.utc, BEIJING_TZ)}`}
+                                {isTimeUnconfirmed(event, s) ? "时间待确认" : `${s.tentative ? "约 " : ""}${formatTime(s.utc, BEIJING_TZ)}`}
                               </span>
                             </div>
                             <div className="hidden sm:flex mt-0.5 justify-end">
                               <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                                {isEstimatedWrcSession(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)}`}
+                                {isTimeUnconfirmed(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)}`}
                               </span>
                             </div>
                           </li>
@@ -420,7 +434,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               })}
             </div>
             <p className="px-4 py-2 text-[11px] text-muted-foreground">
-              首个场次：{firstSession(event) ? isEstimatedWrcSession(event, firstSession(event)) ? "时间待确认" : formatDateTime(firstSession(event).utc, BEIJING_TZ) : "—"}（北京时间）
+              首个场次：{firstSession(event) ? isTimeUnconfirmed(event, firstSession(event)) ? `${formatDate(firstSession(event).utc, event.tz)} · 时间待确认` : `${formatDateTime(firstSession(event).utc, BEIJING_TZ)}（北京时间）` : "—"}
               <span className="ml-2">·</span>
               {event.series === "WRC" ? (
                 hasTentative ? (
@@ -436,7 +450,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             </p>
 
             {/* 天气预报 */}
-            {main && !isEstimatedWrcSession(event, main) && (
+            {main && !isTimeUnconfirmed(event, main) && (
               <div data-guide="card-live" className="border-t border-border/50 px-4 py-3">
                 <WeatherCard
                   city={event.locality}
@@ -545,7 +559,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               ) : null}
 
               {/* 天气预报 */}
-              {main && !isEstimatedWrcSession(event, main) && (
+              {main && !isTimeUnconfirmed(event, main) && (
                 <div className="rounded-xl border border-border/30 bg-background/50 p-4">
                   <WeatherCard
                     city={event.locality}

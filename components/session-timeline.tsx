@@ -1,6 +1,6 @@
 "use client"
 
-import { isEstimatedWrcSession } from "@/lib/session-time"
+import { isTimeUnconfirmed } from "@/lib/session-time"
 
 import { useRef, useEffect } from "react"
 import { Clock } from "lucide-react"
@@ -133,7 +133,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
   }, [hasSessions, centerIdx])
 
   if (!hasSessions) return null
-  if (sessions.some(s => isEstimatedWrcSession(event, s))) {
+  if (sessions.some(s => isTimeUnconfirmed(event, s))) {
     return (
       <section className="mt-4 rounded-xl border border-border bg-card p-5">
         <h2 className="text-sm font-semibold">赛段安排</h2>
@@ -143,7 +143,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
             <li key={index} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm">
               <span>{session.name}</span>
               <span className="text-xs text-muted-foreground">
-                {isEstimatedWrcSession(event, session) ? "时间待确认" : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地）`}
+                {isTimeUnconfirmed(event, session) ? `${formatDate(session.utc, event.tz)} · 时间待确认` : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地）`}
               </span>
               <WrcStageCountdown event={event} session={session} />
             </li>

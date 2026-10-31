@@ -1,12 +1,14 @@
 "use client"
 
+import { browserTimeoutSignal } from "@/lib/browser-abort"
+
 import { useEffect, useState } from "react"
 import useSWR from "swr"
 import type { ScheduleResponse } from "@/lib/types"
 import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 
 export async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { ...init, cache: "no-store", signal: init?.signal ?? AbortSignal.timeout(20000) })
+  const response = await fetch(url, { ...init, cache: "no-store", signal: init?.signal ?? browserTimeoutSignal(20000) })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || payload.ok === false) throw new Error(payload.message || payload.note || payload.error || (response.status === 401 ? "管理员会话已过期，请重新登录" : "暂时无法获取数据，请重试"))
   return payload as T

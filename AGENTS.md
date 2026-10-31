@@ -34,7 +34,7 @@
 - `lib/types.ts`：`RaceEvent`、`RaceSession`、`ScheduleResponse` 数据契约。
 - `lib/fetchers.ts`：F1 / FE 适配，重新导出 WRC 获取函数。
 - `lib/wrc-puppeteer.ts`：WRC 官网接口、HTML 解析及第三方回退。名字含 puppeteer，但当前实现不启动 Puppeteer。
-- `lib/wrc-data.ts`：硬编码 WRC 2026 日历和估计赛段。
+- `lib/wrc-data.ts`：WRC 本地兼容日历和估计赛段；运行时另外按当前年及未来两年发现官方赛季。
 - `lib/crawl-store.ts`：Neon 快照、配额、人工覆盖。
 - `lib/db.ts`：数据库连接及其他业务表初始化。
 - `lib/admin-session.ts` / `lib/admin-auth.ts`：签名管理员会话及服务端授权。

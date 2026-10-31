@@ -76,18 +76,18 @@ export function StandingsChart({ title, data }: StandingsChartProps) {
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={sortedData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="shortName"
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-              axisLine={{ stroke: "hsl(var(--border))" }}
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+              axisLine={{ stroke: "var(--border)" }}
               tickLine={false}
               interval={0}
               angle={data.length > 8 ? 45 : 0}
               height={data.length > 8 ? 50 : 30}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
               axisLine={false}
               tickLine={false}
               domain={[0, Math.ceil(maxValue * 1.1)]}

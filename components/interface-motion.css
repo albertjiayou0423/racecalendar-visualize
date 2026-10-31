@@ -1,0 +1,46 @@
+/* Library geometry only: surrounding layouts, type and palette stay unchanged. */
+.rc-motion-loader{--sk-size:var(--rc-loader-size);--sk-color:currentColor;display:inline-flex;width:var(--rc-loader-size);height:var(--rc-loader-size);align-items:center;justify-content:center;flex-shrink:0;vertical-align:middle}
+.rc-motion-loader>span{flex-shrink:0}
+.rc-motion-loader .ball-pulse{display:flex;align-items:center}
+.rc-motion-loader .ball-pulse>div{width:calc(var(--rc-loader-size)/5);height:calc(var(--rc-loader-size)/5);margin:calc(var(--rc-loader-size)/20);background:currentColor}
+.rc-motion-loader .ball-grid-pulse{width:var(--rc-loader-size);height:var(--rc-loader-size)}
+.rc-motion-loader .ball-grid-pulse>div{width:calc(var(--rc-loader-size)/3 - 2px);height:calc(var(--rc-loader-size)/3 - 2px);margin:1px;background:currentColor}
+.rc-motion-loader .line-scale{display:flex;align-items:center;height:var(--rc-loader-size)}
+.rc-motion-loader .line-scale>div{width:calc(var(--rc-loader-size)/9);height:calc(var(--rc-loader-size)*.78);margin:0 calc(var(--rc-loader-size)/36);background:currentColor}
+.rc-motion-shake{animation-iteration-count:1!important;animation-play-state:running!important}
+.rc-motion-text{position:relative;display:inline-block;vertical-align:bottom}
+.rc-motion-reserve{visibility:hidden}
+.rc-motion-letters{position:absolute;inset:0;white-space:inherit}
+.tippy-box[data-theme~=racecalendar]{background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;box-shadow:0 4px 16px #0002}
+.tippy-box[data-theme~=racecalendar] .tippy-arrow{color:var(--card)}
+.rc-spring.hamburger{padding:0;display:inline-flex;line-height:0;color:inherit}
+.rc-spring .hamburger-box{width:14px;height:14px}
+.rc-spring .hamburger-inner,.rc-spring .hamburger-inner:before,.rc-spring .hamburger-inner:after{width:14px;height:1.5px;background:currentColor;border-radius:1px}
+.rc-spring.hamburger--spring .hamburger-inner{top:1px}
+.rc-spring.hamburger--spring .hamburger-inner:before{top:5px}
+.rc-spring.hamburger--spring .hamburger-inner:after{top:10px}
+.rc-spring.hamburger--spring.is-active .hamburger-inner{background:transparent}
+.rc-spring.hamburger--spring.is-active .hamburger-inner:before{background:currentColor;top:0;transform:translateY(5px) rotate(45deg)}
+.rc-spring.hamburger--spring.is-active .hamburger-inner:after{background:currentColor;top:0;transform:translateY(5px) rotate(-45deg)}
+@media(prefers-reduced-motion:reduce){.rc-motion-loader *,.rc-motion-loader *:before,.rc-motion-shake,.rc-spring *,.rc-spring *:before,.rc-spring *:after{animation:none!important;transition:none!important}.rc-motion-loader .sk-circle-dot:before{transform:scale(1)}.tippy-box[data-theme~=racecalendar]{transition:none!important}}
+
+/* Driver.js 1.3.6 native fade preset; its global pointer/overflow resets are intentionally not imported. */
+@keyframes animate-fade-in{0%{opacity:0}to{opacity:1}}
+.driver-fade .driver-overlay{animation:animate-fade-in .2s ease-in-out}
+form.rc-motion-shake{display:block}
+@media(prefers-reduced-motion:reduce){.driver-fade .driver-overlay{animation:none!important}}
+
+/* These existing pages style direct-child spans; animation wrappers must inherit the original text metrics. */
+.simple-home .s-header h1>.rc-motion-text{font:inherit;color:inherit;padding:0;border:0;border-radius:0;letter-spacing:inherit}
+.simple-home .s-source summary>.rc-motion-text{margin-left:0;font-size:inherit}
+.simple-home .s-source summary>.rc-motion-loader{margin-left:0;font-size:inherit}
+
+/* Timing adaptations of native presets: restrained feedback, no new choreography. */
+.rc-motion-loader{transition:opacity 120ms ease-out}
+.rc-motion-loader[data-ready=false]{opacity:0}
+.rc-motion-loader .sk-chase{animation-duration:3s}
+.rc-motion-loader .line-scale>div{animation-duration:1.35s}
+.rc-motion-shake{animation-duration:240ms!important}
+.tippy-box[data-theme~=racecalendar]{box-shadow:0 3px 12px #0002}
+.tippy-box[data-theme~=racecalendar] .tippy-content{padding:6px 9px;line-height:1.5}
+@media(prefers-reduced-motion:reduce){.rc-motion-loader{opacity:1!important;transition:none!important}}

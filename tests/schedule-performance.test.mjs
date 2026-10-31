@@ -19,6 +19,7 @@ function fixture({ stale = false, missing = false, exhausted = false } = {}) {
     } },
     "@/lib/wrc-data": { buildWrcEvents: () => [] },
     "@/lib/fetchers": { CIRCUIT_IMAGES: {} },
+    "@/lib/official-calendar-fallback": { addOfficialCalendarFallbacks: events => ({ events, added: { F1: 0, WRC: 0, FE: 0 } }) },
     "@/lib/crawl-store": {
       initCrawlTables: async () => {},
       getLatestSnapshot: async series => missing ? null : ({

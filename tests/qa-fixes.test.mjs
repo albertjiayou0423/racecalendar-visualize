@@ -7,7 +7,7 @@ import { fetchJolpicaResults } from '../lib/jolpica-results.ts'
 import { fetchFeStandings, parseFeStandings, parseFeRaceResults, parseFeRounds, parseFeSeason } from '../lib/fe-results.ts'
 import { beijingWeek, isoWeek, weekMonday } from '../lib/iso-week.ts'
 import { normalizeF1Metadata, eventSourceLabel } from '../lib/f1-metadata.ts'
-import { isEstimatedWrcSession } from '../lib/session-time.ts'
+import { isTimeUnconfirmed } from '../lib/session-time.ts'
 
 const race = (round, positions) => ({ season: '2026', round, Results: positions.map(position => ({ position })) })
 test('result-row pagination merges split races and includes the final round', async () => {
@@ -103,7 +103,7 @@ test('old snapshots receive metadata fixes without changing IDs or sessions', ()
 test('calendar has UTC, stable UID, escaped text, UTF-8 folding and excludes estimates', () => {
   const output = ts.transpileModule(fs.readFileSync('lib/calendar.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
   const exports = {}
-  vm.runInNewContext(output, { exports, require: () => ({ isEstimatedWrcSession }), TextEncoder, Date })
+  vm.runInNewContext(output, { exports, require: () => ({ isTimeUnconfirmed }), TextEncoder, Date })
   const event = { id: 'f1-2026-17', series: 'F1', name: '赛事,分号;\n' + '中文'.repeat(50), circuit: 'Singapore', locality: 'Marina Bay', country: 'Singapore', round: 17, sessions: [{ isMain: true, utc: '2026-10-11T12:00:00Z', name: 'Race' }] }
   const ics = exports.buildRaceCalendar(event, new Date('2026-10-11T00:00:00Z'))
   assert.match(ics, /UID:f1-2026-17@racecalendar/)
@@ -116,7 +116,7 @@ test('calendar has UTC, stable UID, escaped text, UTF-8 folding and excludes est
 test('calendar export returns an attachment and rejects invalid dates or filename injection', async () => {
   const compilerOptions = { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   const calendar = {}, route = {}
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/calendar.ts', 'utf8'), { compilerOptions }).outputText, { exports: calendar, require: () => ({ isEstimatedWrcSession }), TextEncoder, Date })
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/calendar.ts', 'utf8'), { compilerOptions }).outputText, { exports: calendar, require: () => ({ isTimeUnconfirmed }), TextEncoder, Date })
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/api/calendar/route.ts', 'utf8'), { compilerOptions }).outputText, { exports: route, require: () => calendar, Response, Date })
   const url = new URL('https://example.com/api/calendar?id=f1-2026-17&series=F1&round=17&name=Singapore&utc=2026-10-11T12:00:00Z')
   const response = await route.GET({ nextUrl: url })

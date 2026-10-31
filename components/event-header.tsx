@@ -1,11 +1,13 @@
 "use client"
 
+
+import { RoundArrival } from "./ritual-motion"
 import { downloadFile } from "@/lib/download"
-import { isEstimatedWrcSession } from "@/lib/session-time"
+import { isTimeUnconfirmed } from "@/lib/session-time"
 
 import { Bell, Calendar, Clock, MapPin } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, countdown, formatDateTime, isLive, isPast, mainSession } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, countdown, formatDate, formatDateTime, isLive, isPast, mainSession } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface EventHeaderProps {
@@ -20,7 +22,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
   const live = isLive(event, now)
   const past = isPast(event, now)
   const status = live ? "进行中" : past ? "已结束" : "即将开始"
-  const estimated = !!main && isEstimatedWrcSession(event, main)
+  const estimated = !!main && isTimeUnconfirmed(event, main)
   const mainCountdown = main && !estimated ? countdown(main.utc, now) : null
 
   const downloadCalendar = () => {
@@ -45,7 +47,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
               {live ? "LIVE" : meta.label}
             </span>
             <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              第 {event.round} 站
+              第 <RoundArrival key={event.id} round={event.round} /> 站
             </span>
           </div>
           <h1 className="mt-3 text-xl font-bold">{event.name}</h1>
@@ -72,22 +74,27 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
         <div className="mt-5 rounded-lg bg-secondary/50 p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="size-4" />
-            <span>正赛时间</span>
-            {main.tentative && <span className="text-amber-600">（时间待确认）</span>}
+            <span>{estimated ? "比赛日期 · 当地" : "正赛时间"}</span>
+            {estimated && <span className="text-amber-600">（时间待确认）</span>}
           </div>
           <div className="mt-2 flex flex-wrap items-baseline gap-4">
-            <div>
-              <div className="text-xs text-muted-foreground">北京时间</div>
-              <div className="text-lg font-bold font-mono tabular-nums">
-                {estimated ? "时间待确认" : formatDateTime(main.utc, BEIJING_TZ)}
+            {estimated ? (
+              <div>
+                <div className="text-xs text-muted-foreground">赛事日期</div>
+                <div className="text-lg font-bold font-mono tabular-nums">{formatDate(main.utc, event.tz)}</div>
               </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">当地时间</div>
-              <div className="text-lg font-bold font-mono tabular-nums">
-                {estimated ? "时间待确认" : formatDateTime(main.utc, event.tz)}
-              </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <div className="text-xs text-muted-foreground">北京时间</div>
+                  <div className="text-lg font-bold font-mono tabular-nums">{formatDateTime(main.utc, BEIJING_TZ)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">当地时间</div>
+                  <div className="text-lg font-bold font-mono tabular-nums">{formatDateTime(main.utc, event.tz)}</div>
+                </div>
+              </>
+            )}
           </div>
           {!past && mainCountdown && (
             <div className="mt-3 flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5">

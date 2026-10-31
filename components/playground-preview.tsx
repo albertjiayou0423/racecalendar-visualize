@@ -6,6 +6,8 @@ import { playgroundData } from "@/lib/playground-data"
 import { componentCatalog, PLAYGROUND_NOW, type CatalogProps } from "@/lib/playground-catalog"
 
 const loaders: Record<string, () => Promise<Record<string, unknown>>> = {
+  SeriesRelay: () => import("./ritual-motion"), RoundArrival: () => import("./ritual-motion"), WinnerReveal: () => import("./ritual-motion"), RaceFarewell: () => import("./ritual-motion"),
+  MotionLoader: () => import("./interface-motion"), MotionInput: () => import("./interface-motion"), MotionText: () => import("./interface-motion"), FavoriteMotion: () => import("./interface-motion"), SpringToggle: () => import("./interface-motion"),
   Button: () => import("./ui/button"), EventCard: () => import("./event-card"), EventHeader: () => import("./event-header"),
   NextRacePreview: () => import("./next-race-preview"), NextSessionPill: () => import("./next-session-pill"),
   SessionTimeline: () => import("./session-timeline"), ShareCard: () => import("./share-card"),
@@ -40,6 +42,9 @@ class PreviewBoundary extends Component<{ children: ReactNode; resetKey: Catalog
 }
 
 export function PlaygroundComponentPreview({ name, props }: { name: string; props: CatalogProps }) {
+  const [favoriteActive, setFavoriteActive] = useState(!!props.active)
+  const [inputValue, setInputValue] = useState(String(props.value ?? ""))
+  useEffect(() => { setFavoriteActive(!!props.active); setInputValue(String(props.value ?? "")) }, [props])
   const [previewDismissed, setPreviewDismissed] = useState(false)
   useEffect(() => setPreviewDismissed(false), [props])
   const now = typeof props.now === "number" ? props.now : typeof props.serverTime === "number" ? props.serverTime : PLAYGROUND_NOW
@@ -57,7 +62,7 @@ export function PlaygroundComponentPreview({ name, props }: { name: string; prop
             : <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">组件加载中…</p>}>
               {supportsInlinePreview && previewDismissed
                 ? previewCloseButton
-                : ActualComponent ? <ActualComponent {...props} {...callbacks} {...(name === "Button" ? { onClick: () => {} } : {})} {...(name === "NextSessionPill" || supportsInlinePreview ? { preview: true } : {})} /> : null}
+                : ActualComponent ? name === "MotionInput" ? <form className="space-y-3" onSubmit={event => event.preventDefault()}><ActualComponent {...props} value={inputValue} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setInputValue(event.target.value)} /><button type="submit" className="rounded-full border border-border px-3 py-1.5 text-xs">检查输入</button></form> : <ActualComponent {...props} {...callbacks} {...(name === "FavoriteMotion" ? { active: favoriteActive, onToggle: () => setFavoriteActive(value => !value) } : {})} {...(name === "Button" ? { onClick: () => {} } : {})} {...(name === "NextSessionPill" || supportsInlinePreview ? { preview: true } : {})} /> : null}
               {name === "UsageGuideButton" && <components.UsageGuide />}
             </Suspense>}
     </PreviewBoundary>
