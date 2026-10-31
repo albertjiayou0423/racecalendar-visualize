@@ -44,7 +44,7 @@ function crawl({ fail = false, allow = true } = {}) {
   vm.createContext(context)
   vm.runInContext(source + `
     WRC_RALLIES.splice(0, WRC_RALLIES.length, ...rallies);
-    fetchWrcCalendar = async () => rallies;
+    fetchWrcCalendar = async () => null;
     scrapeWrcItinerary = async slug => { calls.push('official:' + slug); return fail ? null : [{ name: 'SS1', utc: '2026-01-01T09:00:00Z' }] };
     fetchOcblacktopRallies = async () => { calls.push('index'); return [{ id: 'fixture' }] };
     tryOcblacktopFallback = async () => { calls.push('detail'); return null };

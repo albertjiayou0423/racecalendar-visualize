@@ -1082,7 +1082,7 @@ function findWrcSeriesId(value: unknown, slug: string, depth = 0): string | null
   return null
 }
 
-async function fetchWrcCalendar(year: number): Promise<WrcCalendarTarget[] | null> {
+async function fetchWrcCalendar(year: number = new Date().getFullYear()): Promise<WrcCalendarTarget[] | null> {
   console.log(`WRC: discovering official ${year} calendar...`)
 
   let seriesId = year === 2026 ? WRC_EVENT_SERIES_ID : null
@@ -1171,7 +1171,9 @@ async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): P
   const currentYear = new Date().getFullYear()
   const targetYears = [currentYear, currentYear + 1, currentYear + 2]
   const calendars = await Promise.all(targetYears.map(year => fetchWrcCalendar(year)))
-  const officialCalendarCount = calendars.reduce((count, calendar) => count + (calendar?.length || 0), 0)
+  const officialCalendarCount = calendars.reduce((count, calendar, index) => count + (calendar?.filter(
+    target => target.startDate.slice(0, 4) === String(targetYears[index]),
+  ).length || 0), 0)
   const rallies = targetYears.flatMap((year, index) => {
     const local = WRC_RALLIES.filter(rally => (rally.year || Number(rally.startDate.slice(0, 4))) === year)
       .map(rally => ({ ...rally, year }))
