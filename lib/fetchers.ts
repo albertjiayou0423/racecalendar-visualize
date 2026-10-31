@@ -2,6 +2,7 @@ import { fetchJolpicaResults } from "./jolpica-results"
 import type { RaceEvent, RaceSession } from "./types"
 import { F1_CIRCUIT_TZ, COUNTRY_MAP, COUNTRY_CODE_MAP, zonedWallTimeToUtc } from "./tz"
 import { buildWrcEvents } from "./wrc-data"
+import { fetchOfficialF1Calendar, fetchOfficialFeCalendar, mergeCalendarEvents } from "./official-calendar-scrapers"
 export { fetchWrc } from "./wrc-puppeteer"
 
 const F1_BROADCASTER = {
@@ -120,12 +121,14 @@ const CIRCUIT_INFO: Record<string, { length: string; laps: string }> = {
 }
 
 export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
+  const year = new Date().getFullYear()
+  const seasons = [year, year + 1]
+  const officialCalendarPromise = Promise.all(seasons.map(fetchOfficialF1Calendar)).then(results => results.flat()).catch(() => [] as RaceEvent[])
   try {
-    const year = new Date().getFullYear()
-    const seasons = [year, year + 1, year + 2]
-    const [seasonResponses, lastYearRaces] = await Promise.all([
+    const [seasonResponses, lastYearRaces, officialCalendar] = await Promise.all([
       Promise.all(seasons.map(season => fetch(`https://api.jolpi.ca/ergast/f1/${season}.json?limit=100`, { next: { revalidate: 3600 } }))),
       fetchJolpicaResults<ErgastRace & { Results: ErgastResult[] }>(String(year - 1)).catch(() => []),
+      officialCalendarPromise,
     ])
     const races: ErgastRace[] = []
     for (let index = 0; index < seasonResponses.length; index++) {
@@ -137,7 +140,7 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
       const json = await response.json()
       races.push(...(json?.MRData?.RaceTable?.Races ?? []))
     }
-    if (!races.length) throw new Error("F1 当前及后续赛季赛历为空")
+    if (!races.length && !officialCalendar.length) throw new Error("F1 当前及下一赛季赛历为空")
 
     let lastYearResults: Record<string, ErgastResult[]> = {}
     for (const race of lastYearRaces) {
@@ -241,8 +244,15 @@ export async function fetchF1(): Promise<{ events: RaceEvent[]; ok: boolean; not
       }
     })
 
-    return { events, ok: true }
+    const merged = mergeCalendarEvents(events, officialCalendar, seasons)
+    return {
+      events: merged,
+      ok: true,
+      ...(officialCalendar.length ? { note: "Jolpica 公开 API 提供场次时间；缺失轮次由 F1 官网公开赛历补齐，官网仅公布日期时标记为待确认" } : {}),
+    }
   } catch (err) {
+    const officialCalendar = await officialCalendarPromise
+    if (officialCalendar.length) return { events: officialCalendar, ok: true, note: "使用 F1 官网公开赛历；具体场次时间待确认" }
     return { events: [], ok: false, note: err instanceof Error ? err.message : "F1 数据获取失败" }
   }
 }
@@ -340,6 +350,9 @@ function feSessionLabel(name: string): string | null {
 }
 
 export async function fetchFe(): Promise<{ events: RaceEvent[]; ok: boolean; note?: string }> {
+  const currentYear = new Date().getFullYear()
+  const targetYears = [currentYear, currentYear + 1]
+  const officialCalendarPromise = fetchOfficialFeCalendar().catch(() => [] as RaceEvent[])
   try {
     const champRes = await fetch(`${FE_BASE}/championships`, { next: { revalidate: 3600 } })
     if (!champRes.ok) throw new Error(`HTTP ${champRes.status}`)
@@ -420,8 +433,15 @@ export async function fetchFe(): Promise<{ events: RaceEvent[]; ok: boolean; not
       }),
     )
 
-    return { events: events.filter((e): e is RaceEvent => e !== null), ok: true }
+    const merged = mergeCalendarEvents(events.filter((e): e is RaceEvent => e !== null), await officialCalendarPromise, targetYears)
+    return {
+      events: merged,
+      ok: true,
+      ...((await officialCalendarPromise).length ? { note: "Formula E 官方公开接口提供场次；缺失轮次由官网赛历补齐，官网仅公布日期时标记为待确认" } : {}),
+    }
   } catch (err) {
+    const officialCalendar = (await officialCalendarPromise).filter(event => targetYears.includes(Number(event.sessions[0]?.utc.slice(0, 4))))
+    if (officialCalendar.length) return { events: officialCalendar, ok: true, note: "使用 Formula E 官网公开赛历；具体场次时间待确认" }
     return { events: [], ok: false, note: err instanceof Error ? err.message : "FE 数据获取失败" }
   }
 }

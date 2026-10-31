@@ -1,6 +1,6 @@
 "use client"
 
-import { isEstimatedWrcSession } from "@/lib/session-time"
+import { isTimeUnconfirmed } from "@/lib/session-time"
 
 import { useEffect, useState } from "react"
 import { Clock } from "lucide-react"
@@ -53,7 +53,7 @@ export function NextSessionPill({ event, now, preview = false }: NextSessionPill
     return () => window.removeEventListener("scroll", onScroll)
   }, [preview])
 
-  if (!nextResult || past || isEstimatedWrcSession(event, nextResult.session)) return null
+  if (!nextResult || past || isTimeUnconfirmed(event, nextResult.session)) return null
 
   const next = nextResult.session
   const isLive = nextResult.live

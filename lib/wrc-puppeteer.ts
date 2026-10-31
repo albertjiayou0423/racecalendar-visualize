@@ -1169,7 +1169,7 @@ export function fetchWrc(options?: { allowApiFallback?: boolean }): Promise<{ ev
 async function fetchWrcWithinBudget(options?: { allowApiFallback?: boolean }): Promise<{ events: RaceEvent[]; ok: boolean; note?: string; dataSource: "scraped" | "api" | "mixed"; diagnostics?: WrcRequestDiagnostics }> {
   const allowApiFallback = options?.allowApiFallback ?? true
   const currentYear = new Date().getFullYear()
-  const targetYears = [currentYear, currentYear + 1, currentYear + 2]
+  const targetYears = [currentYear, currentYear + 1]
   const calendars = await Promise.all(targetYears.map(year => fetchWrcCalendar(year)))
   const officialCalendarCount = calendars.reduce((count, calendar, index) => count + (calendar?.filter(
     target => target.startDate.slice(0, 4) === String(targetYears[index]),

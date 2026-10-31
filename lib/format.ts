@@ -1,4 +1,5 @@
 import type { RaceEvent, Series } from "./types"
+import { isTimeUnconfirmed } from "./session-time"
 
 export const BEIJING_TZ = "Asia/Shanghai"
 
@@ -109,6 +110,7 @@ export function isPast(event: RaceEvent, now: number): boolean {
 /** 事件是否正在进行中（当前时间在某个场次的开始和结束之间） */
 export function isLive(event: RaceEvent, now: number): boolean {
   return event.sessions.some((s) => {
+    if (isTimeUnconfirmed(event, s)) return false
     const start = new Date(s.utc).getTime()
     const end = start + 2 * 60 * 60 * 1000
     return now >= start && now <= end

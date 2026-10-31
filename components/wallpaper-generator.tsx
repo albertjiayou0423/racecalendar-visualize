@@ -6,7 +6,7 @@ import { toPng } from "html-to-image"
 import { Download, ImageIcon, RotateCcw, Smartphone, Monitor } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { RaceEvent, RaceSession } from "@/lib/types"
-import { isEstimatedWrcSession } from "@/lib/session-time"
+import { isTimeUnconfirmed } from "@/lib/session-time"
 
 interface WallpaperGeneratorProps {
   events: RaceEvent[]
@@ -336,7 +336,7 @@ const PhoneWallpaper = ({
                             style={{ backgroundColor: SERIES_COLORS[event.series] }}
                           />
                           <span className="text-xl text-white/90 flex-1 truncate">{event.name}</span>
-                          {s && <span className="text-base text-white/40 font-mono">{isEstimatedWrcSession(event, s) ? "待确认" : formatTime(s.utc)}</span>}
+                          {s && <span className="text-base text-white/40 font-mono">{isTimeUnconfirmed(event, s) ? "待确认" : formatTime(s.utc)}</span>}
                         </div>
                       )
                     })}
