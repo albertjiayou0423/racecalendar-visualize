@@ -34,3 +34,13 @@ form.rc-motion-shake{display:block}
 .simple-home .s-header h1>.rc-motion-text{font:inherit;color:inherit;padding:0;border:0;border-radius:0;letter-spacing:inherit}
 .simple-home .s-source summary>.rc-motion-text{margin-left:0;font-size:inherit}
 .simple-home .s-source summary>.rc-motion-loader{margin-left:0;font-size:inherit}
+
+/* Timing adaptations of native presets: restrained feedback, no new choreography. */
+.rc-motion-loader{transition:opacity 120ms ease-out}
+.rc-motion-loader[data-ready=false]{opacity:0}
+.rc-motion-loader .sk-chase{animation-duration:3s}
+.rc-motion-loader .line-scale>div{animation-duration:1.35s}
+.rc-motion-shake{animation-duration:240ms!important}
+.tippy-box[data-theme~=racecalendar]{box-shadow:0 3px 12px #0002}
+.tippy-box[data-theme~=racecalendar] .tippy-content{padding:6px 9px;line-height:1.5}
+@media(prefers-reduced-motion:reduce){.rc-motion-loader{opacity:1!important;transition:none!important}}

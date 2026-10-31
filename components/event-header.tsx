@@ -1,6 +1,7 @@
 "use client"
 
 
+import { RoundArrival } from "./ritual-motion"
 import { downloadFile } from "@/lib/download"
 import { isEstimatedWrcSession } from "@/lib/session-time"
 
@@ -46,7 +47,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
               {live ? "LIVE" : meta.label}
             </span>
             <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              第 {event.round} 站
+              第 <RoundArrival key={event.id} round={event.round} /> 站
             </span>
           </div>
           <h1 className="mt-3 text-xl font-bold">{event.name}</h1>

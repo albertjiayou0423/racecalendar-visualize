@@ -4,20 +4,28 @@ import { useEffect, useRef, useState, type CSSProperties, type InputHTMLAttribut
 import type { Instance } from "tippy.js"
 
 let activeFavoriteTooltip: Instance | null = null
+let favoriteInteraction = 0
 
 export type LoaderKind = "schedule" | "sync" | "live" | "page" | "weather" | "standings"
 
 /** Native library presets, sized and coloured by the surrounding component. */
 export function MotionLoader({ kind, size = 18 }: { kind: LoaderKind; size?: number }) {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setReady(true); return }
+    // Suppress flashes on fast requests without delaying data or its status text.
+    const timer = window.setTimeout(() => setReady(true), 120)
+    return () => window.clearTimeout(timer)
+  }, [])
   const count = { schedule: 3, sync: 9, live: 5, page: 0, weather: 6, standings: 12 }[kind]
   const name = { schedule: "ball-pulse", sync: "ball-grid-pulse", live: "line-scale", page: "sk-plane", weather: "sk-chase", standings: "sk-circle" }[kind]
-  return <span aria-hidden="true" className="rc-motion-loader" style={{ "--rc-loader-size": `${Math.max(8, Math.min(64, Number.isFinite(size) ? size : 18))}px` } as CSSProperties}><span className={`${kind === "schedule" || kind === "sync" || kind === "live" ? "loader-inner " : ""}${name}`}>{Array.from({ length: count }, (_, index) => kind === "weather" || kind === "standings" ? <span key={index} className={`${name}-dot`} /> : <div key={index} />)}</span></span>
+  return <span aria-hidden="true" data-ready={ready} className="rc-motion-loader" style={{ "--rc-loader-size": `${Math.max(8, Math.min(64, Number.isFinite(size) ? size : 18))}px` } as CSSProperties}><span className={`${kind === "schedule" || kind === "sync" || kind === "live" ? "loader-inner " : ""}${name}`}>{Array.from({ length: count }, (_, index) => kind === "weather" || kind === "standings" ? <span key={index} className={`${name}-dot`} /> : <div key={index} />)}</span></span>
 }
 
 export function useShake() {
   const ref = useRef<HTMLElement | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => () => { clearTimeout(timer.current); ref.current?.classList.remove("shake-little", "shake-horizontal", "shake-constant", "rc-motion-shake") }, [])
   const shake = (element: HTMLElement | null, kind: "little" | "horizontal" = "little") => {
     clearTimeout(timer.current)
     ref.current?.classList.remove("shake-little", "shake-horizontal", "shake-constant", "rc-motion-shake")
@@ -25,7 +33,7 @@ export function useShake() {
     ref.current = element
     void element.offsetWidth
     element.classList.add(`shake-${kind}`, "shake-constant", "rc-motion-shake")
-    timer.current = setTimeout(() => element.classList.remove(`shake-${kind}`, "shake-constant", "rc-motion-shake"), 650)
+    timer.current = setTimeout(() => element.classList.remove(`shake-${kind}`, "shake-constant", "rc-motion-shake"), 300)
   }
   return shake
 }
@@ -95,29 +103,31 @@ export function FavoriteMotion({ active, onToggle, label, className, children }:
   const [announcement, setAnnouncement] = useState("")
   const pending = useRef(0)
   useEffect(() => () => { pending.current++; clearTimeout(timer.current); if (activeFavoriteTooltip === instance.current) activeFavoriteTooltip = null; instance.current?.destroy() }, [])
+  const dismiss = () => { pending.current++; clearTimeout(timer.current); instance.current?.hide() }
   const toggle = async () => {
     onToggle()
     const text = active ? "已取消收藏" : "已收藏"
     setAnnouncement(text)
     const token = ++pending.current
+    const interaction = ++favoriteInteraction
     activeFavoriteTooltip?.hide()
     const { default: tippy } = await import("tippy.js").catch(() => ({ default: null }))
     if (!tippy) return
-    if (token !== pending.current || !ref.current) return
+    if (token !== pending.current || interaction !== favoriteInteraction || !ref.current) return
     if (activeFavoriteTooltip !== instance.current) activeFavoriteTooltip?.hide()
-    instance.current?.destroy()
     const hide = () => instance.current?.hide()
-    instance.current = tippy(ref.current, { content: text, trigger: "manual", animation: "scale", placement: "bottom-end", arrow: false, offset: [0, 6], maxWidth: 200, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : [130, 100], theme: "racecalendar", appendTo: () => document.body,
+    if (!instance.current || instance.current.state.isDestroyed) instance.current = tippy(ref.current, { content: text, trigger: "manual", animation: "scale", placement: "bottom-end", arrow: false, offset: [0, 6], maxWidth: 200, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : [140, 100], theme: "racecalendar", appendTo: () => document.body,
       onShow: () => window.addEventListener("scroll", hide, true),
       onHide: () => { window.removeEventListener("scroll", hide, true) },
       onDestroy: () => { window.removeEventListener("scroll", hide, true) },
     })
+    else instance.current.setContent(text)
     activeFavoriteTooltip = instance.current
     instance.current.show()
     clearTimeout(timer.current)
     timer.current = setTimeout(() => instance.current?.hide(), 1000)
   }
-  return <><button ref={ref} type="button" aria-label={label} title={label} aria-pressed={active} className={className} onClick={toggle} onBlur={() => instance.current?.hide()} onKeyDown={event => { if (event.key === "Escape") instance.current?.hide() }}>{children}</button><span className="sr-only" role="status">{announcement}</span></>
+  return <><button ref={ref} type="button" aria-label={label} aria-pressed={active} className={className} onClick={toggle} onBlur={dismiss} onKeyDown={event => { if (event.key === "Escape") dismiss() }}>{children}</button><span className="sr-only" role="status">{announcement}</span></>
 }
 
 export function SpringToggle({ open }: { open: boolean }) {

@@ -80,5 +80,9 @@ export function componentCatalog(now: number): CatalogEntry[] {
   for (const [name, labels] of [["MotionInput", ["搜索提示", "搜索无结果", "邮箱校验"]], ["MotionText", ["标题打字", "连接状态", "更新状态"]], ["FavoriteMotion", ["未收藏", "已收藏", "长文案"]], ["SpringToggle", ["收起", "展开", "默认"]]] as const) {
     entries.find(entry => entry.name === name)?.presets.forEach((preset, index) => { preset.label = labels[index] })
   }
+  add("SeriesRelay", "ritual-motion", "切换系列参数播放原生三色接力；初次加载不播放。", { series: "F1" }, { series: "WRC" }, { series: "FE" })
+  add("RoundArrival", "ritual-motion", "真实详情页轮次抵达；首次进入视野播放。", { round: 19 }, { round: 5 }, { round: 24 })
+  add("WinnerReveal", "ritual-motion", "仅在用户主动揭晓赛果后挂载，沿用原有内容。", { children: "冠军 · 示例车手" }, { children: "第二名 · 示例车手" }, { children: "第三名 · 示例车手" })
+  add("RaceFarewell", "ritual-motion", "赛历末尾的一次性片尾文字；不循环。", { text: "下站见，赛道见。" }, { text: "下一站，继续热爱。" }, { text: "赛道时刻。" })
   return entries
 }

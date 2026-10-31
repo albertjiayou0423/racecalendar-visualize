@@ -1,5 +1,6 @@
 "use client"
 
+import { WinnerReveal } from "@/components/ritual-motion"
 import { MotionLoader } from "@/components/interface-motion"
 import { browserTimeoutSignal } from "@/lib/browser-abort"
 
@@ -67,7 +68,7 @@ export function SimpleLastResult() {
   const [revealed, setRevealed] = useState(false)
   const { data, error, isLoading, mutate } = useSWR(revealed ? "/api/f1-last-result" : null, getJson, { revalidateOnFocus: false, shouldRetryOnError: false })
   const race = data?.MRData?.RaceTable?.Races?.[0] as ResultRace | undefined
-  return <section className="s-last-result"><div className="s-between"><span>上一站回顾 · F1</span><button type="button" className="s-link" aria-expanded={revealed} onClick={() => setRevealed(value => !value)}>{revealed ? "隐藏赛果" : "显示赛果"}</button></div>{revealed && <div>{isLoading ? <p className="s-note">加载赛果…</p> : error ? <p className="s-note">赛果暂不可用。<button type="button" className="s-link" onClick={() => mutate()}>重试</button></p> : !race ? <p className="s-note">暂无上一站赛果</p> : <><p className="s-note">{race.raceName}</p>{race.Results.slice(0, 3).map(result => <div className="s-result-row" key={result.position}><b>{result.position}</b><span>{result.Driver.givenName} {result.Driver.familyName}</span><small>{result.Constructor.name}</small></div>)}</>}</div>}</section>
+  return <section className="s-last-result"><div className="s-between"><span>上一站回顾 · F1</span><button type="button" className="s-link" aria-expanded={revealed} onClick={() => setRevealed(value => !value)}>{revealed ? "隐藏赛果" : "显示赛果"}</button></div>{revealed && <div>{isLoading ? <p className="s-note">加载赛果…</p> : error ? <p className="s-note">赛果暂不可用。<button type="button" className="s-link" onClick={() => mutate()}>重试</button></p> : !race ? <p className="s-note">暂无上一站赛果</p> : <><p className="s-note">{race.raceName}</p>{race.Results.slice(0, 3).map(result => <div className="s-result-row" key={result.position}><b>{result.position}</b><WinnerReveal>{result.Driver.givenName} {result.Driver.familyName}</WinnerReveal><small>{result.Constructor.name}</small></div>)}</>}</div>}</section>
 }
 
 export function SimpleTiming({ event }: { event: RaceEvent }) {

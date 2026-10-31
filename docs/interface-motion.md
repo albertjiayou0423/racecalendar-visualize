@@ -28,3 +28,19 @@ v2.3.2 的 Playground 新增 `MotionLoader`、`MotionInput`、`MotionText`、`Fa
 Driver 的全局 pointer-events / overflow 样式不引入：只使用其原生聚焦 SVG 和淡入预设，将遮罩放进现有原生 dialog，以免遮罩落到顶层对话框后方或使关闭按钮失效。原有边框与面板布局保留；库未加载时继续使用现有聚焦实现。
 
 验证不应额外提交真实反馈、触发生产爬取或修改数据库。加载、失败、空数据应使用 Playground 或本地测试数据检查。
+
+
+## 仪式感选型适配（2026-10-31）
+
+来自用户导出的仪式感动效选择，保留现有字体、页面结构及操作方式：
+
+| 选型 | 原生库 | 适配位置 |
+| --- | --- | --- |
+| 09 三色接力 | Animate.css 4.1.1 slideInRight / slideOutLeft | 新旧首页切换赛事系列后的 3px 细线；不阻塞筛选，初次加载不播放 |
+| 11 轮次抵达 | CountUp.js 2.10.0 + Animate.css backInLeft | 共用详情页 EventHeader 的轮次；首次进入视野一次播放，时钟刷新不重播 |
+| 17 冠军揭晓 | Magic.css 1.4.8 vanishIn | 新旧首页上一站回顾的前三名姓名；只在主动揭晓且已有真实赛果时挂载 |
+| 24 下站再见 | Typed.js 2.1.0 + Animate.css fadeInUp | 新旧首页赛历末尾的一行片尾文字，进入视野一次播放 |
+
+共用真实组件为 SeriesRelay、RoundArrival、WinnerReveal、RaceFarewell，均列入 Playground。JS 库按需加载，卸载时清理实例；库加载失败保留最终静态文字，减弱动态效果设置下直接展示。CSS 仅打包使用的原生关键帧，MIT 来源：[Animate.css](https://github.com/animate-css/animate.css)、[Magic.css](https://github.com/miniMAC/magic)、[CountUp](https://github.com/inorganik/countUp.js)。依赖随构建发布，不从 CDN 请求。未修改真实倒计时与归零程序。
+
+同时收敛上一轮动效：快速请求不闪现加载器（120ms 显示门槛，不延迟数据）；收藏只保留最后一次交互的气泡，失焦/Escape 取消尚未完成的异步展示；缩短输入校验抖动。

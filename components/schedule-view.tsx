@@ -4,6 +4,7 @@ import { MotionLoader, MotionInput } from "@/components/interface-motion"
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
+import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { EditionEntry } from "@/app/new/components/edition-entry"
@@ -542,6 +543,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </div>
       </div>
 
+      <SeriesRelay series={series} />
       {/* 加载 / 错误 */}
       {isLoading ? (
         <div role="status" aria-label="赛程加载中" aria-busy="true" className="flex flex-col gap-3">
@@ -693,6 +695,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </p>
       </footer>
 
+      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
       {/* 回到顶部 */}
       {showBackToTop ? (
         <button

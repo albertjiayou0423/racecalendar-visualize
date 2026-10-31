@@ -6,6 +6,7 @@ import { playgroundData } from "@/lib/playground-data"
 import { componentCatalog, PLAYGROUND_NOW, type CatalogProps } from "@/lib/playground-catalog"
 
 const loaders: Record<string, () => Promise<Record<string, unknown>>> = {
+  SeriesRelay: () => import("./ritual-motion"), RoundArrival: () => import("./ritual-motion"), WinnerReveal: () => import("./ritual-motion"), RaceFarewell: () => import("./ritual-motion"),
   MotionLoader: () => import("./interface-motion"), MotionInput: () => import("./interface-motion"), MotionText: () => import("./interface-motion"), FavoriteMotion: () => import("./interface-motion"), SpringToggle: () => import("./interface-motion"),
   Button: () => import("./ui/button"), EventCard: () => import("./event-card"), EventHeader: () => import("./event-header"),
   NextRacePreview: () => import("./next-race-preview"), NextSessionPill: () => import("./next-session-pill"),
