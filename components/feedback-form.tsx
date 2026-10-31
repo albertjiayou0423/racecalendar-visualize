@@ -1,5 +1,7 @@
 "use client"
 
+import { useShake } from "@/components/interface-motion"
+
 import { useEffect, useRef, useState } from "react"
 import { useFocusTrap } from "@/lib/use-focus-trap"
 import { MessageSquarePlus, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
@@ -30,6 +32,7 @@ export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
     window.addEventListener("keydown", close)
     return () => window.removeEventListener("keydown", close)
   }, [onClose, preview])
+  const shake = useShake()
   const [type, setType] = useState<FeedbackType>("bug")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -38,11 +41,12 @@ export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
   const [status, setStatus] = useState<"idle" | "success" | "error" | "preview">("idle")
   const [message, setMessage] = useState("")
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!title.trim() || !description.trim()) {
       setStatus("error")
+      shake(e.currentTarget)
       setMessage("请填写标题和详细描述")
       return
     }
@@ -119,7 +123,7 @@ export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onInvalidCapture={event => shake(event.target as HTMLElement)} onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium">反馈类型</label>
             <div className="grid grid-cols-2 gap-2">

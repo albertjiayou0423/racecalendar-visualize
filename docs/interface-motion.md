@@ -1,0 +1,28 @@
+# 界面动效适配
+
+采用选型 HTML 中选中的原生库预设；保留现有页面布局、字体、配色和数据请求逻辑。依赖通过 pnpm 固定版本并随项目打包，不使用运行时 CDN。
+
+| 选型 | 库 / 预设 | 项目中的触发位置 |
+| --- | --- | --- |
+| 12 | CSShake / little | 反馈表单必填项、邮箱校验失败 |
+| 13 | CSShake / horizontal | 新旧首页搜索无结果时按 Enter，输入期间不抖动 |
+| 15 | Loaders.css / ball-pulse | 赛历加载区域，保留原有骨架 |
+| 16 | Loaders.css / ball-grid-pulse | 新旧首页已有赛历的后台重新验证，保留已有内容 |
+| 17 | Loaders.css / line-scale | Live Timing 首次请求 |
+| 18 | SpinKit / plane | 旧版首页首次等待赛历时的原有加载位置，无全屏遮挡 |
+| 19 | SpinKit / chase | 天气组件请求中 |
+| 20 | SpinKit / circle | F1、FE、WRC 积分榜请求中 |
+| 22 | Hamburgers / spring | 新版现有高级筛选展开按钮，保留按钮文字与功能，不新增菜单 |
+| 25 | Tippy.js / scale | 新版原有收藏按钮操作确认，状态仍由原收藏逻辑维护 |
+| 43 | Driver.js / spotlight | 旧版使用指南的目标聚焦，沿用原指南内容、对话框和步骤控制 |
+| 48 | Typed.js / type | 首页标题、详情页标题，预留完整文字宽度 |
+| 49 | Typed.js / backspace | 新旧首页搜索 placeholder，聚焦立即停止，不操作输入值 |
+| 50 | Typed.js / fade | 新版现有数据来源状态变化，不制造额外状态文案 |
+
+共用实现：`components/interface-motion.tsx` 与 `interface-motion.css`。没有计时器人为延长加载；失败和空数据仍由原组件决定。JavaScript 动效库按需导入，组件卸载时销毁实例和计时器。
+
+`prefers-reduced-motion: reduce` 下保留静态加载标记和完整文字，关闭抖动、打字、灯点旋转、菜单过渡与气泡缩放。库不注入字体；Tippy 使用现有设计变量。
+
+Driver 的全局 pointer-events / overflow 样式不引入：只使用其原生聚焦 SVG 和淡入预设，将遮罩放进现有原生 dialog，以免遮罩落到顶层对话框后方或使关闭按钮失效。原有边框与面板布局保留；库未加载时继续使用现有聚焦实现。
+
+验证不应额外提交真实反馈、触发生产爬取或修改数据库。加载、失败、空数据应使用 Playground 或本地测试数据检查。

@@ -1,5 +1,7 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
+
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Activity, Clock, ExternalLink, Flag, Pause, RefreshCw, Shield, Timer, TrendingUp, AlertTriangle } from "lucide-react"
 import type { LiveTimingData, LiveTimingDriver } from "@/lib/live-timing"
@@ -119,7 +121,7 @@ export function LiveTiming({ series, eventName, isExpanded }: LiveTimingProps) {
     return (
       <div className="border-t border-border bg-card px-4 py-6">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <RefreshCw className="size-4 animate-spin" />
+          <MotionLoader kind="live" />
           正在加载 Live Timing...
         </div>
       </div>

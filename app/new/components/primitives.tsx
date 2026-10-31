@@ -1,5 +1,7 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
+
 import type { ButtonHTMLAttributes, ReactNode } from "react"
 import { RefreshCw } from "lucide-react"
 import type { Series } from "@/lib/types"
@@ -22,5 +24,5 @@ export function EmptyState({ title, description, action }: { title: string; desc
   return <div className="s-empty"><p>{title}</p>{description && <span>{description}</span>}{action}</div>
 }
 export function LoadingState() {
-  return <div className="s-loading" role="status" aria-label="赛历加载中"><RefreshCw size={15} className="s-spin" aria-hidden="true" />正在加载赛程…</div>
+  return <div className="s-loading" role="status" aria-label="赛历加载中"><MotionLoader kind="schedule" size={15} />正在加载赛程…</div>
 }

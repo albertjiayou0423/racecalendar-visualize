@@ -28,6 +28,7 @@ export function UsageGuide() {
   const [panelHeight, setPanelHeight] = useState(240)
   const [selected, setSelected] = useState<string | null>(null)
   const panel = useRef<HTMLDivElement>(null)
+  const [nativeSpotlight, setNativeSpotlight] = useState(false)
   const selectedPath = GUIDE_CHOICES.find(choice => choice.key === selected)?.path
   const navigating = !playground && !!selectedPath && selectedPath !== pathname
   const steps = selected === "cards" ? CARD_GUIDE_STEPS : selected === "details" ? CARD_GUIDE_STEPS.slice(-1) : getGuideSteps(selectedPath || pathname)
@@ -123,13 +124,42 @@ export function UsageGuide() {
     return () => resize.disconnect()
   }, [open, step, selected, pathname])
 
+  // Use Driver's real spotlight while retaining the existing dialog and controls.
+  useEffect(() => {
+    setNativeSpotlight(false)
+    if (!open || !selected || navigating || !rect) return
+    const target = current.card
+      ? document.querySelector("[data-event-card]")?.querySelector<HTMLElement>(`[data-guide="card-${current.card}"]`)
+      : document.querySelector<HTMLElement>(current.selector)
+    if (!target || !dialog.current) return
+    let disposed = false
+    let cleanup: (() => void) | undefined
+    import("driver.js").then(({ driver }) => {
+      if (disposed || !target.isConnected) return
+      const instance = driver({ animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches, allowKeyboardControl: false, overlayOpacity: 0.72, stagePadding: 6, stageRadius: 12, overlayClickBehavior: "close", onHighlighted: () => {
+        const overlay = document.querySelector<SVGElement>(".driver-overlay")
+        if (overlay && dialog.current) {
+          overlay.style.pointerEvents = "none"
+          dialog.current.prepend(overlay)
+          setNativeSpotlight(true)
+        }
+      } })
+      instance.highlight({ element: target })
+      const refresh = () => instance.refresh()
+      window.addEventListener("resize", refresh)
+      window.addEventListener("scroll", refresh, true)
+      cleanup = () => { window.removeEventListener("resize", refresh); window.removeEventListener("scroll", refresh, true); instance.destroy() }
+    })
+    return () => { disposed = true; cleanup?.() }
+  }, [open, selected, navigating, step, pathname, !!rect])
+
   const position = guidePanelPosition(selected ? rect : null, viewport, panelHeight, !selected ? 640 : 360)
   if (pathname.startsWith("/new") || (pathname.startsWith("/playground") && !playground)) return null
   return <>
     {pathname !== "/" && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && <div className="fixed bottom-4 right-4 z-40 rounded-full bg-background shadow-lg"><UsageGuideButton /></div>}
     <dialog ref={dialog} aria-labelledby="usage-guide-title" aria-describedby="usage-guide-description" onCancel={() => setOpen(false)} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">
-      {rect ? <div aria-hidden="true" className="pointer-events-none fixed rounded-xl border-2 border-primary" style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.72)" }} /> : <div aria-hidden="true" className="fixed inset-0 bg-black/70" />}
-      <div ref={panel} className="fixed overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" style={position}>
+      {rect ? <div aria-hidden="true" className="pointer-events-none fixed rounded-xl border-2 border-primary" style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: nativeSpotlight ? undefined : "0 0 0 9999px rgb(0 0 0 / 0.72)", zIndex: 100001 }} /> : <div aria-hidden="true" className="fixed inset-0 bg-black/70" />}
+      <div ref={panel} className="fixed overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" style={{ ...position, zIndex: 100002 }}>
         <div className="flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">{selected ? `功能指南 · ${step + 1} / ${steps.length}` : "欢迎使用赛车日历"}</span><button type="button" onClick={() => setOpen(false)} aria-label="关闭使用指南" className="min-h-10 min-w-10 rounded-full p-2 hover:bg-secondary"><X className="mx-auto size-4" /></button></div>
         <div aria-live="polite" aria-atomic="true"><h2 id="usage-guide-title" className="mt-2 text-lg font-semibold">{selected ? current.title : "你想先了解哪个界面？"}</h2><p id="usage-guide-description" className="mt-3 text-sm leading-relaxed text-muted-foreground">{selected ? current.description : "选择感兴趣的功能开始。页面指南会带你前往对应界面，赛事卡片直接定位首页最上面的真实赛事；随时可以回来选择其他内容。"}</p></div>
         {!selected ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{GUIDE_CHOICES.map(choice => <button key={choice.key} type="button" onClick={() => { setStep(0); setRect(null); setSelected(choice.key); if (!playground && choice.path && choice.path !== pathname) router.push(choice.path) }} className="rounded-xl border border-border p-4 text-left transition-colors hover:border-primary hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary"><span className="block font-medium">{choice.label}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{choice.detail}</span></button>)}</div> : null}

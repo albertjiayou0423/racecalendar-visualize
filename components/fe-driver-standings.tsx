@@ -1,5 +1,6 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
 import { useEffect, useState } from "react"
 import useSWR from "swr"
 import { Trophy, Flag } from "lucide-react"
@@ -30,6 +31,7 @@ export function FeDriverStandings() {
   if (isLoading) {
     return (
       <div className="space-y-2">
+        <span role="status" aria-label="加载 FE 积分榜"><MotionLoader kind="standings" /></span>
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
             <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />

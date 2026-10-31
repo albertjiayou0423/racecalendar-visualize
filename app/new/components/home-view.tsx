@@ -75,7 +75,7 @@ export function SimpleHomeView({ serverTime }: { serverTime: number }) {
     <SimpleNextSession start={upcoming} now={now} onStart={setActive} />
     <SimpleSourceStatus data={data} error={!!error} refreshing={isValidating} onRefresh={() => mutate()} />
     <SimpleReminder events={events} />
-    <SimpleFilters value={filters} onChange={setFilters} view={view} onView={setView} />
+    <SimpleFilters value={filters} noResults={!!data && !filtered.length} onChange={setFilters} view={view} onView={setView} />
     <DataState loading={isLoading && !data} error={!data ? error : undefined} retry={() => mutate()}>
       {view !== "list" && <SimpleCalendar events={filtered} view={view} anchor={anchor} selected={selected} now={now} onAnchor={setAnchor} onSelect={setSelected} />}
       {data && <p className="s-list-count" role="status">{view !== "list" && selected ? selected + " · " : ""}{visible.length} 场赛事</p>}

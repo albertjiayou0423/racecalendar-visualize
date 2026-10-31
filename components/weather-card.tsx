@@ -1,5 +1,7 @@
 "use client"
 
+import { MotionLoader } from "@/components/interface-motion"
+
 import { useState, useEffect, useCallback, useMemo } from "react"
 import ReactEChartsCore from "echarts-for-react/lib/core"
 import * as echarts from "echarts/core"
@@ -76,7 +78,7 @@ export function WeatherCard({ city, country, date, startTime, lat, lon, compact 
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <RefreshCw className="size-3 animate-spin" />
+        <MotionLoader kind="weather" />
         <Thermometer className="size-3" />
       </div>
     )
