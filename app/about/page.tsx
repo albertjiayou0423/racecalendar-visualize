@@ -11,6 +11,15 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.3.3",
+    date: "2026-10-31",
+    items: [
+      { type: "feat", text: "F1、FE 继续提前获取未来赛事已公布的练习、排位与正赛时间；未公布的时间保持待确认" },
+      { type: "feat", text: "WRC 行程提前检查当前年及未来两年已发现的赛事，不再等到开赛前 45 天；官方发布时间表后自动以已确认赛段时间替换待确认数据" },
+      { type: "fix", text: "修复待确认的 WRC 兼容赛段阻止官网行程抓取的问题；未来两年不调用有额度限制的第三方回退" },
+    ],
+  },
+  {
     version: "v2.3.2",
     date: "2026-10-31",
     items: [
