@@ -71,11 +71,24 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
   }
 
   const c = countdown(nextResult.session.utc, now)
+  const remainingMs = Date.parse(nextResult.session.utc) - now
+  const oneDayMs = 24 * 60 * 60 * 1000
+  const sevenDaysMs = 7 * oneDayMs
   const soon = c.days === 0
   const urgent = c.days === 0 && c.hours === 0 && c.minutes < 30
-  const countdownLabel = c.days > 0
-    ? `${c.days}天 ${c.hours}时 ${c.minutes}分后开赛`
-    : `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后开赛`
+  const showSeconds = remainingMs < oneDayMs
+  const showHoursAndMinutes = remainingMs <= sevenDaysMs
+  const farDays = Math.ceil(remainingMs / oneDayMs)
+  const countdownLabel = !showHoursAndMinutes
+    ? `${farDays}天后开赛`
+    : showSeconds
+      ? `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后开赛`
+      : `${c.days}天 ${c.hours}时 ${c.minutes}分后开赛`
+  const countdownText = !showHoursAndMinutes
+    ? `${farDays}天后`
+    : showSeconds
+      ? `${c.hours}时 ${c.minutes}分 ${c.seconds}秒后`
+      : `${c.days}天 ${c.hours}时 ${c.minutes}分后`
   return (
     <span
       className={cn(
@@ -85,8 +98,7 @@ function CountdownPill({ event, now }: { event: RaceEvent; now: number }) {
       aria-live="polite"
       aria-label={countdownLabel}
     >
-      {c.days > 0 ? `${c.days}天 ` : ""}
-      {c.hours}时 {c.minutes}分{c.days === 0 ? ` ${c.seconds}秒` : ""}后
+      {countdownText}
     </span>
   )
 }
