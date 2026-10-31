@@ -697,7 +697,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               const yearBoundary = season === "current-next" && year === currentYear + 1 && previousYear === currentYear
               return (
                 <Fragment key={e.id}>
-                  {yearBoundary ? <div role="separator" aria-label={`${currentYear + 1} 年赛事`} className="my-1 h-px w-full bg-border/50" /> : null}
+                  {yearBoundary ? (
+                    <div role="separator" aria-label={`${currentYear + 1} 年赛事`} className="my-2 flex items-center gap-3 px-1">
+                      <span className="h-px flex-1 bg-border/70" />
+                      <span className="text-[10px] font-medium tracking-wider text-muted-foreground/70">{currentYear + 1}</span>
+                      <span className="h-px flex-1 bg-border/70" />
+                    </div>
+                  ) : null}
                   <EventCard event={e} now={now} />
                 </Fragment>
               )
