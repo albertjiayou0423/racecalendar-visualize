@@ -21,7 +21,6 @@ import {
   } from "@/lib/format"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
-import { PixelRippleWordmark } from "@/components/pixel-ripple-wordmark"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { CountdownAutoEntry } from "@/components/countdown-auto-entry"
@@ -791,7 +790,6 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           <TriangleAlert className="mx-0.5 inline size-3" aria-hidden />
           的为估计时间）。转播信息仅供参考，请以对应平台节目单为准。
         </p>
-        <PixelRippleWordmark />
       </footer>
 
       {/* 回到顶部 */}

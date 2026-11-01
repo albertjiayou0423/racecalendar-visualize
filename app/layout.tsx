@@ -10,7 +10,9 @@ import 'tippy.js/animations/scale.css'
 import './globals.css'
 import '@/components/interface-motion.css'
 import '@/components/ritual-motion.css'
+import '@/components/adaptive-cursor.css'
 import { SWRegister } from '@/components/sw-register'
+import { AdaptiveCursor } from '@/components/adaptive-cursor'
 import { UsageGuide } from '@/components/usage-guide'
 import { ClientCrawl } from '@/components/client-crawl'
 import { PlaygroundNetworkGuard } from '@/components/playground-network-guard'
@@ -54,6 +56,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
       <body className="antialiased font-sans">
+        <AdaptiveCursor />
         <PlaygroundNetworkGuard />
         {children}
         <UsageGuide />
