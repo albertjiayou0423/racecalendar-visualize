@@ -432,7 +432,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-selected={series === t.key}
                 onClick={() => setSeries(t.key)}
                 className={cn(
-                  "min-h-11 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
+                  "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
                   series === t.key
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground",
@@ -451,7 +451,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="列表视图"
                 aria-pressed={view === "list"}
                 className={cn(
-                  "flex min-h-10 items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors sm:min-h-0",
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
                   view === "list"
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -466,7 +466,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="周视图"
                 aria-pressed={view === "week"}
                 className={cn(
-                  "flex min-h-10 items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors sm:min-h-0",
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
                   view === "week"
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -481,7 +481,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="月视图"
                 aria-pressed={view === "month"}
                 className={cn(
-                  "flex min-h-10 items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors sm:min-h-0",
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
                   view === "month"
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -498,7 +498,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         <div className={cn("flex flex-col gap-2 transition-all")}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             {view === "list" ? (
-              <div className="flex flex-wrap gap-1.5 sm:gap-2" role="tablist" aria-label="时间范围">
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
                 {TIME_TABS.map((t) => (
                   <button
                     key={t.key}
@@ -507,7 +507,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                     aria-selected={time === t.key}
                     onClick={() => setTime(t.key)}
                     className={cn(
-                      "min-h-10 rounded-md px-3 py-1 text-xs font-medium transition-colors sm:min-h-0",
+                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
                       time === t.key
                         ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground hover:text-foreground",
@@ -532,7 +532,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   aria-selected={season === tab.key}
                   onClick={() => setSeason(tab.key)}
                   className={cn(
-                    "min-h-10 rounded-md px-3 py-1 text-xs font-medium transition-colors sm:min-h-0",
+                    "rounded-md px-3 py-1 text-xs font-medium transition-colors",
                     season === tab.key
                       ? "bg-secondary text-secondary-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -555,7 +555,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               type="button"
               data-guide="advanced-filters" onClick={() => setShowAdvancedFilters((v) => !v)}
               className={cn(
-                "inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:min-h-0",
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 showAdvancedFilters || circuitType !== "all" || region !== "all"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -576,7 +576,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   <select
                     value={circuitType}
                     onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
-                    className="min-h-11 rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary sm:min-h-0"
+                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
                   >
                     <option value="all">全部赛道</option>
                     <option value="street">街道赛道</option>
@@ -590,7 +590,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   <select
                     value={region}
                     onChange={(e) => setRegion(e.target.value as RegionFilter)}
-                    className="min-h-11 rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary sm:min-h-0"
+                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
                   >
                     <option value="all">全部地区</option>
                     <option value="europe">欧洲</option>
