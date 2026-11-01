@@ -21,6 +21,7 @@ import {
   } from "@/lib/format"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
+import { PixelRippleWordmark } from "@/components/pixel-ripple-wordmark"
 import { LastRaceResults } from "@/components/last-race-results"
 import { NextRacePreview } from "@/components/next-race-preview"
 import { CountdownAutoEntry } from "@/components/countdown-auto-entry"
@@ -783,6 +784,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       </div>
 
       <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+        <PixelRippleWordmark />
         <p>
           时间说明：F1 与 Formula E 场次时间来自官方公开接口并换算为北京时间（UTC+8）；WRC
           为官方公布赛历，各赛段具体发车时间以官方 itinerary 为准（标有

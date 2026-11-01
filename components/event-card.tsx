@@ -323,9 +323,6 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               <>
                 <Radio className="size-3.5 shrink-0 text-primary" aria-hidden />
                 <span className="truncate font-medium">{event.broadcaster.name}</span>
-                {event.broadcaster.note ? (
-                  <span className="hidden truncate text-muted-foreground sm:inline">{event.broadcaster.note}</span>
-                ) : null}
               </>
             ) : (
               <span className="text-muted-foreground">转播待确认</span>
