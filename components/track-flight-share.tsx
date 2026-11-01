@@ -13,7 +13,7 @@ import { pointAtDistance, prepareTrackDrawing, smoothedPointAtDistance, smoothst
 const WIDTH = 720
 const HEIGHT = 1280
 const DURATION_MS = 22_000
-const INTRO_DURATION_MS = 2_100
+const INTRO_DURATION_MS = 1_850
 const DRAW_DURATION_MS = 15_400
 const CAMERA_PULLBACK_MS = 2_500
 const FPS = 30
@@ -49,12 +49,13 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
   const cameraPullback = smoothstep((elapsed - drawingEndsAt) / CAMERA_PULLBACK_MS)
   const reveal = smoothstep((elapsed - drawingEndsAt - CAMERA_PULLBACK_MS + 250) / 850)
   const tip = pointAtDistance(track, track.length * drawProgress)
-  const followZoom = Math.max(track.fitScale * 3.25, 1.15)
+  const followZoom = Math.max(track.fitScale * 6, 1.8)
   const zoomIn = track.fitScale + (followZoom - track.fitScale) * introProgress
   const zoom = zoomIn + (track.fitScale - zoomIn) * cameraPullback
   const followCenter = smoothedPointAtDistance(
     track,
-    track.length * drawProgress - Math.min(185, track.length * 0.08),
+    track.length * drawProgress - Math.min(78, track.length * 0.035),
+    82,
   )
   const zoomCenter = {
     x: track.center.x + (followCenter.x - track.center.x) * introProgress,
@@ -82,6 +83,21 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
   accentWash.addColorStop(1, `${accent}00`)
   ctx.fillStyle = accentWash
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
+
+  // A quiet technical grid gives the moving camera a stable visual reference.
+  ctx.save()
+  ctx.lineWidth = 1
+  for (let x = 24; x < WIDTH; x += 24) {
+    const major = x % 120 === 24
+    ctx.strokeStyle = major ? `${accent}18` : "#dbeafe0a"
+    ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, HEIGHT); ctx.stroke()
+  }
+  for (let y = 24; y < HEIGHT; y += 24) {
+    const major = y % 120 === 24
+    ctx.strokeStyle = major ? `${accent}18` : "#dbeafe0a"
+    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(WIDTH, y + 0.5); ctx.stroke()
+  }
+  ctx.restore()
 
   const visibleDistance = track.length * drawProgress
   const start = track.points[0]
@@ -130,17 +146,17 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
     }
   }
 
-  const titleMorph = smoothstep((elapsed - 650) / 1_400)
-  const titleOpacity = 1 - smoothstep((elapsed - 750) / 1_250)
+  const titleMorph = smoothstep(elapsed / 1_050)
+  const titleOpacity = 1 - smoothstep((elapsed - 150) / 1_050)
   if (titleOpacity > 0) {
     const startScreen = toScreen(track.points[0] ?? { x: 0, y: 0 })
     const titleX = WIDTH / 2 + (startScreen.x - WIDTH / 2) * titleMorph
     const titleY = 500 + (startScreen.y - 500) * titleMorph
     ctx.save()
     ctx.globalAlpha = titleOpacity
-    ctx.filter = `blur(${titleMorph * 10}px)`
+    ctx.filter = `blur(${titleMorph * 12}px)`
     ctx.translate(titleX, titleY)
-    ctx.scale(1 - titleMorph * 0.94, 1 - titleMorph * 0.94)
+    ctx.scale(1 - titleMorph * 0.995, 1 - titleMorph * 0.995)
     ctx.textAlign = "center"
     ctx.fillStyle = accent
     ctx.font = "700 17px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
@@ -154,8 +170,8 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
     ctx.textAlign = "left"
   }
 
-  const penReveal = smoothstep((elapsed - 650) / 650)
-  const penExit = smoothstep((elapsed - INTRO_DURATION_MS + 100) / 260)
+  const penReveal = smoothstep(elapsed / 320)
+  const penExit = smoothstep((elapsed - 1_150) / 500)
   const penOpacity = penReveal * (1 - penExit)
   if (penOpacity > 0 && reveal === 0) {
     const pen = toScreen(track.points[0] ?? { x: 0, y: 0 })
