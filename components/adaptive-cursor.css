@@ -1,6 +1,7 @@
 .adaptive-cursor {
   position: fixed;
-  z-index: 9999;
+  /* Keep the custom pointer above the immersive countdown overlay (z-index: 10000). */
+  z-index: 10020;
   top: 0;
   left: 0;
   box-sizing: border-box;
