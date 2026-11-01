@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { motion, useMotionTemplate, useMotionValue } from "motion/react"
 
-const TEXT_SELECTOR = 'input:not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]'
+const TEXT_SELECTOR = 'input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input[type="password"], input[type="number"], textarea, [contenteditable="true"]'
 
 export function AdaptiveCursor() {
   const x = useMotionValue(-100)
@@ -28,20 +28,12 @@ export function AdaptiveCursor() {
       const element = event.target instanceof Element ? event.target : null
       if (element === currentElementRef.current) return
       currentElementRef.current = element
-      const interactive = element?.closest('a, button, [role="button"], [role="link"], select, input[type="button"], input[type="submit"]')
       const textEntry = element?.closest(TEXT_SELECTOR)
-      const documentWithCaret = document as Document & {
-        caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node } | null
-        caretRangeFromPoint?: (x: number, y: number) => Range | null
-      }
-      const caretNode = documentWithCaret.caretPositionFromPoint?.(event.clientX, event.clientY)?.offsetNode
-        ?? documentWithCaret.caretRangeFromPoint?.(event.clientX, event.clientY)?.startContainer
-      const isText = !!textEntry || (!interactive && caretNode?.nodeType === Node.TEXT_NODE)
 
       if (cursorRef.current) {
-        const type = isText ? "text" : "dot"
+        const type = textEntry ? "text" : "dot"
         if (cursorRef.current.dataset.type !== type) cursorRef.current.dataset.type = type
-        if (isText && element) {
+        if (textEntry && element) {
           const fontSize = Number.parseFloat(window.getComputedStyle(element).fontSize)
           const textHeight = Math.max(14, Math.min(28, Number.isFinite(fontSize) ? fontSize * 1.12 : 18))
           cursorRef.current.style.setProperty("--cursor-text-height", `${textHeight}px`)
