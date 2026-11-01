@@ -8,7 +8,7 @@ import { BEIJING_TZ, SERIES_META, formatDate, formatDateTime, mainSession } from
 import { isTimeUnconfirmed } from "@/lib/session-time"
 import { downloadFile } from "@/lib/download"
 import { getTrackFlightRoute } from "@/lib/track-flight"
-import { pointAtDistance, prepareTrackDrawing, smoothstep, type TrackDrawing } from "@/lib/track-flight-drawing"
+import { pointAtDistance, prepareTrackDrawing, smoothedPointAtDistance, smoothstep, type TrackDrawing } from "@/lib/track-flight-drawing"
 
 const WIDTH = 720
 const HEIGHT = 1280
@@ -49,16 +49,13 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
   const cameraPullback = smoothstep((elapsed - drawingEndsAt) / CAMERA_PULLBACK_MS)
   const reveal = smoothstep((elapsed - drawingEndsAt - CAMERA_PULLBACK_MS + 250) / 850)
   const tip = pointAtDistance(track, track.length * drawProgress)
-  const tangentBefore = pointAtDistance(track, Math.max(0, track.length * drawProgress - 1.5))
-  const tangentAfter = pointAtDistance(track, Math.min(track.length, track.length * drawProgress + 1.5))
-  const dx = tangentAfter.x - tangentBefore.x
-  const dy = tangentAfter.y - tangentBefore.y
-  const tangentLength = Math.max(Math.hypot(dx, dy), 0.001)
-  const tangent = { x: dx / tangentLength, y: dy / tangentLength }
-  const followZoom = Math.max(track.fitScale * 2.15, 0.78)
+  const followZoom = Math.max(track.fitScale * 3.25, 1.15)
   const zoomIn = track.fitScale + (followZoom - track.fitScale) * introProgress
   const zoom = zoomIn + (track.fitScale - zoomIn) * cameraPullback
-  const followCenter = { x: tip.x - tangent.x * 150, y: tip.y - tangent.y * 150 }
+  const followCenter = smoothedPointAtDistance(
+    track,
+    track.length * drawProgress - Math.min(185, track.length * 0.08),
+  )
   const zoomCenter = {
     x: track.center.x + (followCenter.x - track.center.x) * introProgress,
     y: track.center.y + (followCenter.y - track.center.y) * introProgress,

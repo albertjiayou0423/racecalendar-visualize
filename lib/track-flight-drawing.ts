@@ -52,14 +52,38 @@ export function prepareTrackDrawing(route: TrackFlightRoute): TrackDrawing {
 
 export function pointAtDistance(track: TrackDrawing, requestedDistance: number): DrawingPoint {
   const distance = Math.min(track.length, Math.max(0, requestedDistance))
-  let index = 1
-  while (index < track.distances.length - 1 && track.distances[index] < distance) index++
+  let low = 1
+  let high = Math.max(1, track.distances.length - 1)
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2)
+    if (track.distances[middle] < distance) low = middle + 1
+    else high = middle
+  }
+  const index = low
   const startDistance = track.distances[index - 1] ?? 0
   const endDistance = track.distances[index] ?? startDistance
   const ratio = endDistance === startDistance ? 0 : (distance - startDistance) / (endDistance - startDistance)
   const start = track.points[index - 1] ?? track.points[0] ?? { x: 0, y: 0 }
   const end = track.points[index] ?? start
   return { x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio }
+}
+
+export function smoothedPointAtDistance(track: TrackDrawing, requestedDistance: number, radius = 44): DrawingPoint {
+  const weights = [1, 4, 6, 4, 1]
+  let x = 0
+  let y = 0
+  let totalWeight = 0
+
+  for (let index = 0; index < weights.length; index++) {
+    const offset = (index - 2) * radius / 2
+    const weight = weights[index]
+    const point = pointAtDistance(track, requestedDistance + offset)
+    x += point.x * weight
+    y += point.y * weight
+    totalWeight += weight
+  }
+
+  return { x: x / totalWeight, y: y / totalWeight }
 }
 
 export function smoothstep(value: number) {
