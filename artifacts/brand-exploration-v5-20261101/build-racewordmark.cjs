@@ -7,20 +7,20 @@ function markShape(ink, red, muted = ink) {
   return `
     <path d="M18 142H57C77 142 88 134 96 114L121 53C128 35 139 27 157 27H184" fill="none" stroke="${ink}" stroke-width="12" stroke-linecap="butt" stroke-linejoin="bevel"/>
     <path d="M18 158H58C86 158 103 146 114 119L138 61C143 49 149 43 163 43H184" fill="none" stroke="${muted}" stroke-width="4" stroke-linecap="butt" stroke-linejoin="bevel" opacity=".52"/>
-    <path d="M114 49H187L168 76H102Z" fill="${red}"/>
+    <path d="M105 51H162L147 73H95Z" fill="${red}"/>
     <path d="M29 125H47" stroke="${red}" stroke-width="4"/>
-    <path d="M154 56H176" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity=".36"/>
+    <path d="M114 57H151" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity=".36"/>
   `;
 }
 
 function mark(ink, red, muted = ink) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180" viewBox="0 0 200 180" role="img" aria-labelledby="title desc"><title id="title">赛道时刻竞速标志</title><desc id="desc">一条连续的高速弯心路线与红色计时分段切线。</desc><g transform="translate(-5 4)">${markShape(ink, red, muted)}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180" viewBox="0 0 200 180" role="img" aria-labelledby="title desc"><title id="title">赛道时刻竞速标志</title><desc id="desc">一条连续的高速弯心路线与红色计时分段切线。</desc><g transform="translate(-7 5)">${markShape(ink, red, muted)}</g></svg>`;
 }
 
 function logo(ink, muted, red) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="880" height="180" viewBox="0 0 880 180" role="img" aria-labelledby="title desc">
     <title id="title">赛道时刻</title><desc id="desc">赛车日历品牌字标，配以高速弯心路线与计时切线。</desc>
-    <g transform="translate(-5 4)">${markShape(ink, red, muted)}</g>
+    <g transform="translate(-7 5)">${markShape(ink, red, muted)}</g>
     <g transform="translate(232 0) skewX(-8)">
       <text x="0" y="103" fill="${ink}" font-family="Bahnschrift SemiCondensed, Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="57" font-weight="900" letter-spacing="2">赛道时刻</text>
       <path d="M4 122H115" stroke="${red}" stroke-width="5"/>
