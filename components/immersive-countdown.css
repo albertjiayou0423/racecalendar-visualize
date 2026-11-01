@@ -127,17 +127,18 @@
 
 /* Mobile landscape keeps the start hardware and countdown visible side by side. */
 @media (orientation:landscape) and (max-width:1000px) and (max-height:600px){
-  .immersion-lab-page{max-width:none;margin-inline:0;padding:8px 20px 20px}
-  .immersion-lab-page>h1{margin-top:4px;font-size:20px}
-  .immersion-lab-page>p{margin-top:4px;font-size:11px;line-height:1.5}
-  .immersion-lab-page>p[role=status]{margin-block:4px}
-  .immersion-lab-page>nav[aria-label="全屏测试目录"]{margin:6px 0;flex-wrap:nowrap;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:4px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-  .immersion-lab-page>nav[aria-label="全屏测试目录"]>a{flex:none;padding:6px 9px;font-size:11px}
-  .immersion-lab-page article[aria-label]{padding-block:10px}
-  .immersion-lab-page article[aria-label]>div:first-child{margin-bottom:8px}
-  .immersion-lab-page article[aria-label]>div:first-child h2{font-size:14px}
-  .immersion-lab-page article[aria-label]>div:first-child p{margin-top:2px;font-size:11px;line-height:1.4}
-  .immersion-case-layout{grid-template-columns:minmax(0,1fr) minmax(220px,34%);align-items:center;gap:16px}
+  .immersion-lab-page{max-width:none;margin-inline:0;padding:4px 16px 12px}
+  .immersion-lab-page>h1{margin-top:2px;font-size:16px;line-height:1.2}
+  .immersion-lab-page>p{margin-top:2px;font-size:9px;line-height:1.25}
+  .immersion-lab-page>p[role=status]{margin-block:3px;font-size:9px;line-height:1.2}
+  .immersion-lab-page>nav[aria-label="全屏测试目录"]{margin:4px 0;flex-wrap:nowrap;gap:5px;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .immersion-lab-page>nav[aria-label="全屏测试目录"]::-webkit-scrollbar{display:none}
+  .immersion-lab-page>nav[aria-label="全屏测试目录"]>a{flex:none;padding:4px 8px;font-size:10px}
+  .immersion-lab-page article[aria-label]{padding-block:6px}
+  .immersion-lab-page article[aria-label]>div:first-child{margin-bottom:6px}
+  .immersion-lab-page article[aria-label]>div:first-child h2{font-size:12px}
+  .immersion-lab-page article[aria-label]>div:first-child p{margin-top:2px;font-size:9px;line-height:1.25}
+  .immersion-case-layout{grid-template-columns:minmax(0,1fr) minmax(220px,34%);align-items:center;gap:12px}
   .immersion-case-layout>section[aria-label$="预览"]{min-width:0}
   .immersion-case-layout>section[aria-label$="参数"]{max-height:min(48dvh,240px);overflow-y:auto;overscroll-behavior:contain;padding-right:6px}
   .immersion-case-layout .race-immersive-preview,.immersion-case-layout .immersion-effect-stage:not(.immersion-effect-full){height:min(48dvh,240px);min-height:0;padding:22px 16px 12px}
@@ -154,7 +155,8 @@
   .race-immersive-overlay.has-start-stage:not([data-rally-clock=true])>.race-stage .start-signal{width:min(38vw,340px)}
   .race-immersive-overlay.has-start-stage>.race-countdown-panel{position:absolute;left:43vw;right:3vw;top:50%;width:auto;padding:0;transform:translateY(-50%);align-items:center}
   .race-immersive-overlay.has-start-stage .race-clock{max-width:none}
-  .race-immersive-overlay[data-rally-clock=true]>.race-stage{left:50%;width:92vw;transform:translate(-50%,-50%)}
+  .race-immersive-overlay[data-rally-clock=true]>.race-stage{position:absolute;inset:0;display:grid;place-items:center;width:auto;height:auto;max-width:none;min-height:0;margin:0;transform:none}
+  .race-immersive-overlay[data-rally-clock=true] .rally-parallax{width:92vw}
   .race-immersive-overlay[data-rally-clock=true] .race-stage{min-height:0}
   .race-immersive-overlay:not(.has-start-stage)>header{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:4vw;right:4vw;padding:0;text-align:left}
   .race-immersive-overlay:not(.has-start-stage)>header h2{margin-top:4px;font-size:13px}
@@ -163,8 +165,9 @@
   .race-immersive-overlay>.race-countdown-note{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 5px);margin:0;padding:0;font-size:9px}
   .race-immersive-overlay.has-test-controls>.race-countdown-note{display:none}
   .race-immersive-overlay>nav[aria-label="全屏测试控制"],main>nav[aria-label="全屏测试控制"]{top:auto;left:12px;right:12px;bottom:8px;align-items:flex-end}
-  .race-immersive-overlay>nav[aria-label="全屏测试控制"] details,main>nav[aria-label="全屏测试控制"] details{max-height:42dvh}
-  .immersion-effect-full{padding:48px 4vw 20px}
+  .race-immersive-overlay>nav[aria-label="全屏测试控制"]>a,.race-immersive-overlay>nav[aria-label="全屏测试控制"]>button{padding:6px 10px;font-size:11px}
+  .race-immersive-overlay>nav[aria-label="全屏测试控制"] details,main>nav[aria-label="全屏测试控制"] details{width:min(58vw,260px);max-height:40dvh;padding:8px}
+  .immersion-effect-full{height:auto;min-height:0;padding:12px 4vw 56px}
   .immersion-effect-full .race-stage{width:min(72vw,820px);min-height:0;margin:0}
   .immersion-effect-full[data-series=WRC] .race-stage{width:min(90vw,900px)}
   .immersion-effect-full .start-signal{width:min(48vw,380px)}
