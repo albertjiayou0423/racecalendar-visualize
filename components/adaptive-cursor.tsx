@@ -37,32 +37,7 @@ export function AdaptiveCursor() {
 
       markTargets(document.body)
       root.classList.add("has-ipad-cursor")
-      initCursor({
-        className: "ipad-cursor",
-        adsorptionStrength: 0,
-        blockPadding: 3,
-        enableAutoTextCursor: false,
-        enableAutoUpdateCursor: false,
-        enableLighting: false,
-        normalStyle: {
-          width: 22,
-          height: 22,
-          radius: "50%",
-          background: "rgba(255, 255, 255, 0.18)",
-          border: "1px solid rgba(255, 255, 255, 0.62)",
-          backdropBlur: 0,
-          durationBase: "100ms",
-          durationPosition: "0ms",
-        },
-        blockStyle: {
-          radius: "auto",
-          background: "rgba(255, 255, 255, 0.18)",
-          border: "1px solid rgba(255, 255, 255, 0.54)",
-          backdropBlur: 0,
-          durationBase: "100ms",
-          durationPosition: "70ms",
-        },
-      })
+      initCursor()
 
       const observer = new MutationObserver(records => {
         let needsUpdate = false
