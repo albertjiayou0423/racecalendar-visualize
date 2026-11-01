@@ -1,48 +1,14 @@
-.adaptive-cursor {
-  --cursor-x: -100px;
-  --cursor-y: -100px;
-  --cursor-width: 26px;
-  --cursor-height: 26px;
-  position: fixed;
-  z-index: 9999;
-  top: 0;
-  left: 0;
-  width: var(--cursor-width);
-  height: var(--cursor-height);
-  border: 1px solid rgb(255 255 255 / 66%);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 18%);
-  box-shadow: 0 1px 8px rgb(0 0 0 / 16%), inset 0 0 0 1px rgb(0 0 0 / 8%);
-  opacity: 0;
-  pointer-events: none;
-  transform: translate3d(var(--cursor-x), var(--cursor-y), 0) translate(-50%, -50%);
-  transition:
-    width 180ms cubic-bezier(.2, .8, .2, 1),
-    height 180ms cubic-bezier(.2, .8, .2, 1),
-    border-radius 180ms cubic-bezier(.2, .8, .2, 1),
-    background-color 180ms ease,
-    opacity 120ms ease;
-  will-change: transform, width, height;
-  mix-blend-mode: difference;
-}
-
-.adaptive-cursor[data-visible="true"] { opacity: 1; }
-.adaptive-cursor[data-morphed="true"] {
-  border-radius: 11px;
-  background: rgb(255 255 255 / 27%);
-}
-.adaptive-cursor[data-text-entry="true"] { opacity: 0; }
-
 @media (hover: hover) and (pointer: fine) {
-  html.has-adaptive-cursor,
-  html.has-adaptive-cursor body,
-  html.has-adaptive-cursor body * { cursor: none !important; }
+  html.has-ipad-cursor input:not([type="button"]):not([type="submit"]),
+  html.has-ipad-cursor textarea,
+  html.has-ipad-cursor [contenteditable="true"] { cursor: text !important; }
 
-  html.has-adaptive-cursor input:not([type="button"]):not([type="submit"]),
-  html.has-adaptive-cursor textarea,
-  html.has-adaptive-cursor [contenteditable="true"] { cursor: text !important; }
-}
+  html.has-ipad-cursor .ipad-cursor {
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, width, height;
+  }
 
-@media (prefers-reduced-motion: reduce) {
-  .adaptive-cursor { display: none; }
+  html.has-ipad-cursor[data-cursor-ready="true"] .ipad-cursor { opacity: 1; }
+  html.has-ipad-cursor .ipad-cursor.text-active { opacity: 0 !important; }
 }

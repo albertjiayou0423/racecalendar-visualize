@@ -1,84 +1,106 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 
-const INTERACTIVE_SELECTOR =
-  'a, button, [role="button"], [role="link"], summary, select, input[type="button"], input[type="submit"], [data-cursor-target]'
-const TEXT_SELECTOR = 'input:not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]'
+const CURSOR_TARGETS = 'a, button, [role="button"], [role="link"], summary, select, input[type="button"], input[type="submit"]'
+const TEXT_TARGETS = 'input:not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]'
 
 export function AdaptiveCursor() {
-  const cursorRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
-    const cursor = cursorRef.current
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)")
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
-    if (!cursor || !finePointer.matches || reducedMotion.matches) return
+    if (!finePointer.matches || reducedMotion.matches) return
 
-    const root = document.documentElement
-    root.classList.add("has-adaptive-cursor")
+    let cancelled = false
+    let cleanup: (() => void) | undefined
 
-    const setPosition = (x: number, y: number) => {
-      cursor.style.setProperty("--cursor-x", `${x}px`)
-      cursor.style.setProperty("--cursor-y", `${y}px`)
-    }
+    void import("ipad-cursor").then(({ initCursor, updateCursor, disposeCursor }) => {
+      if (cancelled) return
 
-    const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerType === "touch") return
-      setPosition(event.clientX, event.clientY)
-      cursor.dataset.visible = "true"
+      const root = document.documentElement
+      const addedAttributes = new Set<HTMLElement>()
 
-      const target = event.target instanceof Element
-        ? event.target.closest<HTMLElement>(INTERACTIVE_SELECTOR)
-        : null
-
-      const textEntry = event.target instanceof Element && event.target.closest(TEXT_SELECTOR)
-      cursor.dataset.textEntry = textEntry ? "true" : "false"
-
-      if (!target || textEntry) {
-        cursor.dataset.morphed = "false"
-        cursor.style.setProperty("--cursor-width", "26px")
-        cursor.style.setProperty("--cursor-height", "26px")
-        return
+      const markTargets = (scope: ParentNode) => {
+        const candidates = [
+          ...(scope instanceof HTMLElement && scope.matches(`${CURSOR_TARGETS}, ${TEXT_TARGETS}`) ? [scope] : []),
+          ...scope.querySelectorAll<HTMLElement>(`${CURSOR_TARGETS}, ${TEXT_TARGETS}`),
+        ]
+        let changed = false
+        for (const element of candidates) {
+          if (element.hasAttribute("data-cursor")) continue
+          addedAttributes.add(element)
+          element.setAttribute("data-cursor", element.matches(TEXT_TARGETS) ? "text" : "block")
+          changed = true
+        }
+        return changed
       }
 
-      const rect = target.getBoundingClientRect()
-      // Keep large cards and navigation regions from swallowing the pointer.
-      const width = Math.min(Math.max(rect.width + 12, 38), 156)
-      const height = Math.min(Math.max(rect.height + 8, 34), 58)
-      cursor.dataset.morphed = "true"
-      cursor.style.setProperty("--cursor-x", `${rect.left + rect.width / 2}px`)
-      cursor.style.setProperty("--cursor-y", `${rect.top + rect.height / 2}px`)
-      cursor.style.setProperty("--cursor-width", `${width}px`)
-      cursor.style.setProperty("--cursor-height", `${height}px`)
-    }
+      markTargets(document.body)
+      root.classList.add("has-ipad-cursor")
+      initCursor({
+        className: "ipad-cursor",
+        adsorptionStrength: 0,
+        blockPadding: 3,
+        enableAutoTextCursor: false,
+        enableAutoUpdateCursor: false,
+        enableLighting: false,
+        normalStyle: {
+          width: 22,
+          height: 22,
+          radius: "50%",
+          background: "rgba(255, 255, 255, 0.18)",
+          border: "1px solid rgba(255, 255, 255, 0.62)",
+          backdropBlur: 0,
+          durationBase: "100ms",
+          durationPosition: "0ms",
+        },
+        blockStyle: {
+          radius: "auto",
+          background: "rgba(255, 255, 255, 0.18)",
+          border: "1px solid rgba(255, 255, 255, 0.54)",
+          backdropBlur: 0,
+          durationBase: "100ms",
+          durationPosition: "70ms",
+        },
+      })
 
-    const onPointerLeave = () => {
-      cursor.dataset.visible = "false"
-      cursor.dataset.morphed = "false"
-      cursor.dataset.textEntry = "false"
-    }
+      const observer = new MutationObserver(records => {
+        let needsUpdate = false
+        for (const record of records) {
+          record.addedNodes.forEach(node => {
+            if (node instanceof HTMLElement && markTargets(node)) needsUpdate = true
+          })
+          record.removedNodes.forEach(node => {
+            if (node instanceof HTMLElement && (node.matches("[data-cursor]") || node.querySelector("[data-cursor]"))) {
+              needsUpdate = true
+            }
+          })
+        }
+        if (needsUpdate) updateCursor()
+      })
+      observer.observe(document.body, { childList: true, subtree: true })
 
-    window.addEventListener("pointermove", onPointerMove, { passive: true })
-    window.addEventListener("blur", onPointerLeave)
-    document.documentElement.addEventListener("pointerleave", onPointerLeave)
+      const reveal = () => { root.dataset.cursorReady = "true" }
+      window.addEventListener("mousemove", reveal, { once: true, passive: true })
+
+      cleanup = () => {
+        observer.disconnect()
+        window.removeEventListener("mousemove", reveal)
+        disposeCursor()
+        for (const element of addedAttributes) {
+          if (!element.isConnected) continue
+          element.removeAttribute("data-cursor")
+        }
+        delete root.dataset.cursorReady
+        root.classList.remove("has-ipad-cursor")
+      }
+    })
 
     return () => {
-      window.removeEventListener("pointermove", onPointerMove)
-      window.removeEventListener("blur", onPointerLeave)
-      document.documentElement.removeEventListener("pointerleave", onPointerLeave)
-      root.classList.remove("has-adaptive-cursor")
+      cancelled = true
+      cleanup?.()
     }
   }, [])
 
-  return (
-    <div
-      ref={cursorRef}
-      className="adaptive-cursor"
-      data-visible="false"
-      data-morphed="false"
-      data-text-entry="false"
-      aria-hidden="true"
-    />
-  )
+  return null
 }

@@ -59,6 +59,9 @@ importers:
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
+      ipad-cursor:
+        specifier: 0.5.2
+        version: 0.5.2
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
@@ -1502,6 +1505,9 @@ packages:
   ip-address@10.2.0:
     resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
     engines: {node: '>= 12'}
+
+  ipad-cursor@0.5.2:
+    resolution: {integrity: sha512-RC8ib+wtOzvi0gsuINYnn2lfALmLBsnrabyShyTSaaPupzILLoDfVqowiWIajeiBdml8JC09C/V025pBH+FH2Q==}
 
   ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
@@ -3692,6 +3698,8 @@ snapshots:
   iobuffer@5.4.0: {}
 
   ip-address@10.2.0: {}
+
+  ipad-cursor@0.5.2: {}
 
   ipaddr.js@1.9.1: {}
 
