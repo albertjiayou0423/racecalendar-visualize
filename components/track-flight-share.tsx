@@ -40,10 +40,26 @@ function drawOverlay(canvas: HTMLCanvasElement, sceneCanvas: HTMLCanvasElement, 
   const ctx = canvas.getContext("2d", { alpha: false })
   if (!ctx) return
   const accent = COLORS[event.series]
-  const progress = clamp(elapsed / DURATION_MS, 0, 1)
   const reveal = clamp(elapsed / 900, 0, 1)
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT)
+  const background = ctx.createLinearGradient(0, 0, 0, HEIGHT)
+  background.addColorStop(0, "#05070d")
+  background.addColorStop(0.52, "#101722")
+  background.addColorStop(1, "#04060a")
+  ctx.fillStyle = background
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+  const accentWash = ctx.createRadialGradient(WIDTH / 2, HEIGHT * 0.56, 20, WIDTH / 2, HEIGHT * 0.56, HEIGHT * 0.68)
+  accentWash.addColorStop(0, `${accent}24`)
+  accentWash.addColorStop(1, `${accent}00`)
+  ctx.fillStyle = accentWash
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+
+  ctx.save()
+  ctx.globalAlpha = 0.48
+  ctx.filter = "blur(16px)"
+  ctx.drawImage(sceneCanvas, 0, 0, WIDTH, HEIGHT)
+  ctx.restore()
   ctx.drawImage(sceneCanvas, 0, 0, WIDTH, HEIGHT)
 
   const topShade = ctx.createLinearGradient(0, 0, 0, 310)
@@ -73,31 +89,8 @@ function drawOverlay(canvas: HTMLCanvasElement, sceneCanvas: HTMLCanvasElement, 
   ctx.font = "500 15px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
   ctx.fillStyle = "#ffffffc7"; ctx.fillText(route.sourceLabel, 46, 246)
 
-  // Discreet camera reticle sits above the rendered 3D view, not on a map illustration.
-  ctx.save(); ctx.globalAlpha = 0.48; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.4
-  ctx.beginPath(); ctx.moveTo(WIDTH / 2 - 17, 575); ctx.lineTo(WIDTH / 2 - 7, 575)
-  ctx.moveTo(WIDTH / 2 + 7, 575); ctx.lineTo(WIDTH / 2 + 17, 575)
-  ctx.moveTo(WIDTH / 2, 567); ctx.lineTo(WIDTH / 2, 572)
-  ctx.arc(WIDTH / 2, 575, 3, 0, Math.PI * 2); ctx.stroke(); ctx.restore()
-
-  ctx.globalAlpha = reveal
-  ctx.fillStyle = "#070a0d9c"; ctx.beginPath(); ctx.roundRect(38, 1008, 644, 130, 18); ctx.fill()
-  ctx.strokeStyle = "#ffffff28"; ctx.lineWidth = 1; ctx.stroke()
-  ctx.font = "500 13px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#d4dcdf"
-  ctx.fillText("飞行速度", 62, 1040); ctx.fillText("镜头高度", 252, 1040); ctx.fillText("航向", 454, 1040)
-  ctx.font = "650 22px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#ffffff"
-  ctx.fillText(`${Math.round(21 + Math.sin(progress * Math.PI * 3) * 3)} km/h`, 62, 1078)
-  ctx.fillText(`${event.series === "WRC" ? "9" : "10"} m`, 252, 1078)
-  const heading = Math.floor((progress * 160 + event.round * 37) % 360)
-  ctx.fillText(`${String(heading).padStart(3, "0")}°`, 454, 1078)
-  ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(638, 1064, 5, 0, Math.PI * 2); ctx.fill()
-  ctx.font = "600 12px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#ffffffd0"; ctx.fillText("REC", 650, 1068)
-  ctx.font = "500 13px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#d4dcdf"
-  ctx.fillText(`赛程日期 · ${metadata.date}`, 62, 1112)
-  fitText(ctx, metadata.beijingTime, 252, 1112, 390, 13, metadata.uncertain ? "#b9c1c5" : "#ffffffd0", 500)
-
   ctx.font = "500 13px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#ffffffb0"
-  ctx.fillText("无人机航拍视角 · 路线几何仅作视觉参考", 46, 1190)
+  ctx.fillText("无人机前视 · 路线几何仅作视觉参考", 46, 1190)
   ctx.textAlign = "right"; ctx.fillText("赛道时刻", 674, 1190); ctx.textAlign = "left"
 
   const closing = clamp((elapsed - DURATION_MS + 2800) / 1800, 0, 1)
@@ -156,7 +149,7 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
     observer.observe(canvas)
     let flight: ReturnType<typeof createTrackFlightScene>
     try {
-      flight = createTrackFlightScene(route, event.series, event.round)
+      flight = createTrackFlightScene(route, event.series)
     } catch (cause) {
       setError(cause instanceof Error ? `3D 画面初始化失败：${cause.message}` : "当前设备无法启动 3D 画面，请更新浏览器后重试。")
       observer.disconnect()
@@ -267,7 +260,7 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 id={`track-flight-title-${event.id}`} className="text-sm font-medium">赛道飞行短片</h3>
-          <p className="mt-1 text-xs text-muted-foreground">22 秒竖屏 3D 无人机航拍，可下载或分享；{route.sourceLabel}。</p>
+          <p className="mt-1 text-xs text-muted-foreground">22 秒竖屏无人机前视镜头，只显示赛道线；可下载或分享。</p>
         </div>
         {!videoUrl && (
           <button type="button" onClick={record} disabled={recording} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60">

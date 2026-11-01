@@ -82,7 +82,6 @@ function illustrationRoute(event: RaceEvent): TrackFlightRoute {
       )) as [number, number])
     }
   }
-  if (event.series !== "WRC") points.push(points[0])
   return {
     points,
     closed: event.series !== "WRC",
