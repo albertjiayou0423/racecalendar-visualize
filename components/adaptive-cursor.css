@@ -4,21 +4,26 @@
   top: 0;
   left: 0;
   box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   border: 1px solid rgb(255 255 255 / 58%);
-  background: rgb(255 255 255 / 17%);
-  box-shadow: 0 1px 7px rgb(0 0 0 / 12%);
+  background: rgb(225 232 242 / 16%);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 12%), inset 0 0 3px rgb(255 255 255 / 10%);
   pointer-events: none;
-  will-change: transform, width, height;
+  will-change: transform;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  html.has-adaptive-cursor,
-  html.has-adaptive-cursor body,
-  html.has-adaptive-cursor body * { cursor: none !important; }
+  html.has-fixed-cursor,
+  html.has-fixed-cursor body,
+  html.has-fixed-cursor body * { cursor: none !important; }
 
-  html.has-adaptive-cursor input:not([type="button"]):not([type="submit"]),
-  html.has-adaptive-cursor textarea,
-  html.has-adaptive-cursor [contenteditable="true"] { cursor: text !important; }
+  html.has-fixed-cursor input:not([type="button"]):not([type="submit"]),
+  html.has-fixed-cursor textarea,
+  html.has-fixed-cursor [contenteditable="true"] { cursor: text !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
