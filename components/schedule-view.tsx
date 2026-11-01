@@ -783,17 +783,17 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </Link>
       </div>
 
+      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
       <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
-        <PixelRippleWordmark />
         <p>
           时间说明：F1 与 Formula E 场次时间来自官方公开接口并换算为北京时间（UTC+8）；WRC
           为官方公布赛历，各赛段具体发车时间以官方 itinerary 为准（标有
           <TriangleAlert className="mx-0.5 inline size-3" aria-hidden />
           的为估计时间）。转播信息仅供参考，请以对应平台节目单为准。
         </p>
+        <PixelRippleWordmark />
       </footer>
 
-      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
       {/* 回到顶部 */}
       {showBackToTop ? (
         <button
