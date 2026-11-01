@@ -16,6 +16,7 @@ import { NextSessionPill } from "@/components/next-session-pill"
 import { PageTransition } from "@/components/page-transition"
 import { AIPrediction } from "@/components/ai-prediction"
 import { ShareCard } from "@/components/share-card"
+import { TrackFlightShare } from "@/components/track-flight-share"
 import { parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 import { nextConfirmedSession } from "@/lib/together"
 import { TogetherShareButton } from "@/components/together-share-button"
@@ -208,6 +209,7 @@ export default function EventDetailPage() {
           <DeepInfo event={event} />
           <AIPrediction event={event} />
           <ShareCard event={event} now={now} />
+          <TrackFlightShare event={event} />
           {event.liveTimingUrl && (
             <div className="mt-4">
               <OfficialLiveTiming url={event.liveTimingUrl} eventName={event.name} />
