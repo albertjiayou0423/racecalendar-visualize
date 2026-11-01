@@ -17,6 +17,8 @@ import { PageTransition } from "@/components/page-transition"
 import { AIPrediction } from "@/components/ai-prediction"
 import { ShareCard } from "@/components/share-card"
 import { parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
+import { nextConfirmedSession } from "@/lib/together"
+import { TogetherShareButton } from "@/components/together-share-button"
 
 const SCHEDULE_CACHE_KEY = "schedule-cache-v2"
 const LEGACY_SCHEDULE_CACHE_KEY = "schedule-cache"
@@ -155,6 +157,7 @@ export default function EventDetailPage() {
   if (!event || event.id !== id) return null
 
   const meta = SERIES_META[event.series]
+  const shareSession = nextConfirmedSession(event, now)
 
   return (
     <div className="min-h-screen bg-background">
@@ -195,6 +198,10 @@ export default function EventDetailPage() {
             now={now}
             onSetNotification={() => setNotificationManager(true)}
           />
+          {shareSession && <section className="my-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
+            <div><h2 className="text-sm font-semibold">和朋友一起等发车</h2><p className="mt-1 text-xs text-muted-foreground">{shareSession.name} · 打开链接即可同步倒计时</p></div>
+            <TogetherShareButton event={event} session={shareSession} />
+          </section>}
           <SessionTimeline event={event} now={now} />
           <WatchInfo event={event} />
           <Highlights event={event} />

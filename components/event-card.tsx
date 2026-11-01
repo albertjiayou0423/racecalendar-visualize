@@ -30,6 +30,8 @@ import {
 import { cn } from "@/lib/utils"
 import { isEventFavorite, toggleFavorite } from "@/lib/favorites"
 import { usePlayground } from "./playground-context"
+import { nextConfirmedSession } from "@/lib/together"
+import { TogetherShareButton } from "@/components/together-share-button"
 
 interface DayGroup {
   date: string
@@ -164,6 +166,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const main = mainSession(event)
   const nextResult = nextSession(event, now)
   const next = nextResult?.session ?? firstSession(event)
+  const shareSession = nextConfirmedSession(event, now)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions, event)
   const hasTentative = event.series === "WRC" && (event.sessions.length
@@ -345,6 +348,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {!playground && shareSession && <TogetherShareButton event={event} session={shareSession} compact />}
             <Link prefetch={!playground}
               data-guide="card-details"
               href={`/event/${event.id}`}
