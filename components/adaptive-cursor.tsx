@@ -37,7 +37,7 @@ export function AdaptiveCursor() {
 
       markTargets(document.body)
       root.classList.add("has-ipad-cursor")
-      initCursor()
+      initCursor({ adsorptionStrength: 0 })
 
       const observer = new MutationObserver(records => {
         let needsUpdate = false
