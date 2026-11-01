@@ -13,7 +13,7 @@ import { pointAtDistance, prepareTrackDrawing, smoothedPointAtDistance, smoothst
 const WIDTH = 720
 const HEIGHT = 1280
 const DURATION_MS = 22_000
-const INTRO_DURATION_MS = 1_850
+const INTRO_DURATION_MS = 2_400
 const DRAW_DURATION_MS = 15_400
 const CAMERA_PULLBACK_MS = 2_500
 const FPS = 30
@@ -49,13 +49,13 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
   const cameraPullback = smoothstep((elapsed - drawingEndsAt) / CAMERA_PULLBACK_MS)
   const reveal = smoothstep((elapsed - drawingEndsAt - CAMERA_PULLBACK_MS + 250) / 850)
   const tip = pointAtDistance(track, track.length * drawProgress)
-  const followZoom = Math.max(track.fitScale * 6, 1.8)
+  const followZoom = Math.max(track.fitScale * 11.5, 2.6)
   const zoomIn = track.fitScale + (followZoom - track.fitScale) * introProgress
   const zoom = zoomIn + (track.fitScale - zoomIn) * cameraPullback
   const followCenter = smoothedPointAtDistance(
     track,
-    track.length * drawProgress - Math.min(78, track.length * 0.035),
-    82,
+    track.length * drawProgress - Math.min(28, track.length * 0.012),
+    108,
   )
   const zoomCenter = {
     x: track.center.x + (followCenter.x - track.center.x) * introProgress,
@@ -84,18 +84,31 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
   ctx.fillStyle = accentWash
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-  // A quiet technical grid gives the moving camera a stable visual reference.
+  // Draw the grid in track coordinates so it stays anchored to the route as the camera moves.
   ctx.save()
   ctx.lineWidth = 1
-  for (let x = 24; x < WIDTH; x += 24) {
-    const major = x % 120 === 24
-    ctx.strokeStyle = major ? `${accent}18` : "#dbeafe0a"
-    ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, HEIGHT); ctx.stroke()
+  const minorGrid = 24
+  const majorGrid = minorGrid * 5
+  const leftWorld = cameraCenter.x - WIDTH / (2 * zoom)
+  const rightWorld = cameraCenter.x + WIDTH / (2 * zoom)
+  const topWorld = cameraCenter.y + viewCenterY / zoom
+  const bottomWorld = cameraCenter.y + (viewCenterY - HEIGHT) / zoom
+  const gridOrigin = track.points[0] ?? { x: 0, y: 0 }
+  const firstGridX = gridOrigin.x + Math.floor((leftWorld - gridOrigin.x) / minorGrid) * minorGrid
+  const lastGridX = gridOrigin.x + Math.ceil((rightWorld - gridOrigin.x) / minorGrid) * minorGrid
+  for (let x = firstGridX; x <= lastGridX; x += minorGrid) {
+    const screenX = toScreen({ x, y: cameraCenter.y }).x
+    const major = Math.abs((x - gridOrigin.x) % majorGrid) < 0.001
+    ctx.strokeStyle = major ? `${accent}20` : "#dbeafe0c"
+    ctx.beginPath(); ctx.moveTo(screenX + 0.5, 0); ctx.lineTo(screenX + 0.5, HEIGHT); ctx.stroke()
   }
-  for (let y = 24; y < HEIGHT; y += 24) {
-    const major = y % 120 === 24
-    ctx.strokeStyle = major ? `${accent}18` : "#dbeafe0a"
-    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(WIDTH, y + 0.5); ctx.stroke()
+  const firstGridY = gridOrigin.y + Math.floor((bottomWorld - gridOrigin.y) / minorGrid) * minorGrid
+  const lastGridY = gridOrigin.y + Math.ceil((topWorld - gridOrigin.y) / minorGrid) * minorGrid
+  for (let y = firstGridY; y <= lastGridY; y += minorGrid) {
+    const screenY = toScreen({ x: cameraCenter.x, y }).y
+    const major = Math.abs((y - gridOrigin.y) % majorGrid) < 0.001
+    ctx.strokeStyle = major ? `${accent}20` : "#dbeafe0c"
+    ctx.beginPath(); ctx.moveTo(0, screenY + 0.5); ctx.lineTo(WIDTH, screenY + 0.5); ctx.stroke()
   }
   ctx.restore()
 
@@ -171,7 +184,7 @@ function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnT
   }
 
   const penReveal = smoothstep(elapsed / 320)
-  const penExit = smoothstep((elapsed - 1_150) / 500)
+  const penExit = smoothstep((elapsed - INTRO_DURATION_MS + 160) / 180)
   const penOpacity = penReveal * (1 - penExit)
   if (penOpacity > 0 && reveal === 0) {
     const pen = toScreen(track.points[0] ?? { x: 0, y: 0 })
