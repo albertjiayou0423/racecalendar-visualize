@@ -236,33 +236,85 @@ function addAmbientScore(context: AudioContext, destination: MediaStreamAudioDes
   const now = context.currentTime
   const filter = context.createBiquadFilter()
   filter.type = "lowpass"
-  filter.frequency.setValueAtTime(420, now)
-  filter.frequency.linearRampToValueAtTime(1_650, now + DURATION_MS / 1000)
-  filter.Q.value = 0.35
+  filter.frequency.setValueAtTime(360, now)
+  filter.frequency.linearRampToValueAtTime(2_400, now + DURATION_MS / 1000)
+  filter.Q.value = 0.55
 
   const master = context.createGain()
-  master.gain.setValueAtTime(0.002, now)
-  master.gain.linearRampToValueAtTime(0.075, now + DURATION_MS / 1000)
+  master.gain.setValueAtTime(0.0008, now)
+  master.gain.linearRampToValueAtTime(0.2, now + DURATION_MS / 1000)
   filter.connect(master)
   master.connect(destination)
 
-  const tones: Array<{ start: number; end: number; gain: number }> = [
-    { start: 110, end: 110, gain: 0.24 },
-    { start: 164.81, end: 164.81, gain: 0.15 },
-    { start: 220, end: 220, gain: 0.08 },
-    { start: 261.63, end: 329.63, gain: 0.075 },
-    { start: 392, end: 523.25, gain: 0.018 },
-  ]
-  for (const tone of tones) {
+  const addVoice = (options: {
+    frequency: number
+    start: number
+    hold: number
+    attack: number
+    release: number
+    volume: number
+    type?: OscillatorType
+    detune?: number
+  }) => {
     const oscillator = context.createOscillator()
     const level = context.createGain()
-    oscillator.type = "sine"
-    oscillator.frequency.setValueAtTime(tone.start, now)
-    oscillator.frequency.linearRampToValueAtTime(tone.end, now + DURATION_MS / 1000)
-    level.gain.value = tone.gain
+    oscillator.type = options.type ?? "sine"
+    oscillator.frequency.setValueAtTime(options.frequency, options.start)
+    if (options.detune) oscillator.detune.setValueAtTime(options.detune, options.start)
+    const peak = Math.max(options.volume, 0.0002)
+    level.gain.setValueAtTime(0.0001, options.start)
+    level.gain.exponentialRampToValueAtTime(peak, options.start + options.attack)
+    level.gain.setValueAtTime(peak, options.start + options.attack + options.hold)
+    level.gain.exponentialRampToValueAtTime(0.0001, options.start + options.attack + options.hold + options.release)
     oscillator.connect(level)
     level.connect(filter)
-    oscillator.start(now)
+    oscillator.start(options.start)
+    oscillator.stop(options.start + options.attack + options.hold + options.release + 0.03)
+  }
+
+  const seconds = DURATION_MS / 1_000
+  const chordProgression = [
+    [73.42, 146.83, 220, 293.66, 349.23],
+    [58.27, 116.54, 174.61, 233.08, 293.66],
+    [87.31, 174.61, 220, 261.63, 349.23],
+    [65.41, 130.81, 196, 261.63, 349.23],
+    [73.42, 146.83, 220, 293.66, 349.23],
+  ]
+  const chordLength = seconds / chordProgression.length
+  chordProgression.forEach((chord, chordIndex) => {
+    const start = now + chordIndex * chordLength
+    const hold = chordLength + 0.45
+    for (const [noteIndex, frequency] of chord.entries()) {
+      const weight = noteIndex === 0 ? 0.14 : noteIndex < 3 ? 0.055 : 0.035
+      addVoice({ frequency, start, hold, attack: 0.75, release: 0.85, volume: weight, type: "triangle" })
+      if (noteIndex > 0) addVoice({ frequency: frequency * 1.003, start, hold, attack: 1.1, release: 0.9, volume: weight * 0.22, type: "sine", detune: -4 })
+    }
+  })
+
+  const motif = [293.66, 440, 523.25, 587.33, 523.25, 440, 392, 349.23, 392, 440, 587.33, 698.46]
+  let beat = 0
+  for (let time = 0.55; time < seconds - 0.2; beat++) {
+    const intensity = 0.025 + 0.075 * (time / seconds)
+    const pulse = 0.72 - 0.27 * (time / seconds)
+    const note = motif[(beat * 5 + Math.floor(time / chordLength) * 3) % motif.length]
+    addVoice({ frequency: note, start: now + time, hold: 0.035, attack: 0.012, release: 0.19, volume: intensity, type: beat % 4 === 2 ? "sine" : "triangle" })
+
+    if (beat % 2 === 0) {
+      const thump = context.createOscillator()
+      const thumpLevel = context.createGain()
+      const thumpTime = now + time
+      thump.type = "sine"
+      thump.frequency.setValueAtTime(92 - 18 * (time / seconds), thumpTime)
+      thump.frequency.exponentialRampToValueAtTime(42, thumpTime + 0.16)
+      thumpLevel.gain.setValueAtTime(0.0001, thumpTime)
+      thumpLevel.gain.exponentialRampToValueAtTime(0.09 + 0.08 * (time / seconds), thumpTime + 0.012)
+      thumpLevel.gain.exponentialRampToValueAtTime(0.0001, thumpTime + 0.25)
+      thump.connect(thumpLevel)
+      thumpLevel.connect(filter)
+      thump.start(thumpTime)
+      thump.stop(thumpTime + 0.28)
+    }
+    time += pulse
   }
 }
 
