@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { fetchFeStandings } from "@/lib/fe-results"
+import { logServerError } from "@/lib/server-log"
 
 export async function GET(request: NextRequest) {
   const seasonValue = request.nextUrl.searchParams.get("season")
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ drivers: await fetchFeStandings(season), ok: true, season: season ?? null }, {
       headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
     })
-  } catch {
+  } catch (error) {
+    logServerError("api.fe_driver_roster.fetch_failed", { season: season ?? "current" }, error)
     return NextResponse.json({ drivers: [], ok: false, note: "FE 官方积分榜暂时无法加载，请稍后重试。" }, { status: 502, headers: { "Cache-Control": "no-store" } })
   }
 }

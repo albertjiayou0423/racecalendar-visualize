@@ -6,6 +6,7 @@ import type { ScheduleResponse, Series, RaceEvent } from "@/lib/types"
 import { normalizeF1Metadata } from "@/lib/f1-metadata"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 import { addOfficialCalendarFallbacks } from "@/lib/official-calendar-fallback"
+import { logServerError, logServerWarn } from "@/lib/server-log"
 
 export const revalidate = 3600
 export const maxDuration = 300
@@ -15,11 +16,23 @@ export async function GET() {
   // Fetch only during a request; production builds must not crawl an entire season.
   await connection()
   // 初始化爬虫表（幂等）
-  await initCrawlTables()
+  try {
+    await initCrawlTables()
+  } catch (error) {
+    logServerError("api.schedule.database_init_failed", {}, error)
+    throw error
+  }
 
   // Return persisted data immediately; expensive upstream work runs after the response.
   const series: Series[] = ["F1", "FE", "WRC"]
-  const snapshots = await Promise.all(series.map(getLatestSnapshot))
+  const snapshots = await Promise.all(series.map(async name => {
+    try {
+      return await getLatestSnapshot(name)
+    } catch (error) {
+      logServerWarn("api.schedule.snapshot_read_failed", { series: name }, error)
+      return null
+    }
+  }))
   const results = await Promise.all(series.map(async (name, i) => {
     const snapshot = snapshots[i]
     if (snapshot?.data?.ok && snapshot.data.events?.length) {
@@ -35,6 +48,15 @@ export async function GET() {
     return refreshSeries(name, await canCrawlToday(name))
   }))
   const [f1Result, feResult, wrcResult] = results
+
+  results.forEach(({ result, fromCache }, index) => {
+    if (!result.ok) logServerWarn("api.schedule.series_unavailable", {
+      series: series[index],
+      source: fromCache ? "snapshot" : "upstream",
+      eventCount: result.events.length,
+      note: result.note,
+    })
+  })
 
   const f1 = f1Result.result
   const fe = feResult.result
@@ -87,7 +109,8 @@ async function canCrawlToday(series: Series): Promise<boolean> {
   try {
     const { used, limit } = await getCrawlQuota(series)
     return used < limit
-  } catch {
+  } catch (error) {
+    logServerWarn("api.schedule.quota_check_failed", { series }, error)
     // DB 不可用时，允许爬取
     return true
   }
@@ -109,7 +132,10 @@ async function loadFromSnapshot(
         fromCache: true,
       }
     }
-  } catch {}
+  } catch (error) {
+    logServerError("api.schedule.snapshot_read_failed", { series }, error)
+  }
+  logServerWarn("api.schedule.snapshot_unavailable", { series })
   return {
     result: { events: [], ok: false, note: "无快照数据且爬取配额已用尽" },
     fromCache: true,
@@ -162,7 +188,8 @@ async function applyOverrides(events: RaceEvent[]): Promise<RaceEvent[]> {
 
         return result
       })
-  } catch {
+  } catch (error) {
+    logServerWarn("api.schedule.overrides_read_failed", {}, error)
     return events
   }
 }
@@ -175,7 +202,7 @@ function refreshInBackground(series: Series): Promise<void> {
   const pending = (async () => {
     const allowed = await canCrawlToday(series)
     if (series === "WRC" || allowed) await refreshSeries(series, allowed)
-  })().catch(error => console.error("后台赛历更新失败", series, error))
+  })().catch(error => logServerError("api.schedule.background_refresh_failed", { series }, error))
     .finally(() => activeRefreshes.delete(series))
   activeRefreshes.set(series, pending)
   return pending

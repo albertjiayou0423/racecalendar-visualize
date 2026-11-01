@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { logServerError } from "@/lib/server-log"
 export async function GET(request: NextRequest) {
   const season = request.nextUrl.searchParams.get("season") ?? String(new Date().getFullYear())
   if (!/^\d{4}$/.test(season) || Number(season) < 1950 || Number(season) > new Date().getFullYear()) return NextResponse.json({ ok: false, drivers: [] }, { status: 400 })
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     if (drivers.some(driver => !driver.code || !driver.name.trim())) throw new Error("invalid")
     return NextResponse.json({ ok: true, drivers })
   } catch (error) {
-    console.error("Failed to fetch F1 prediction candidates:", error instanceof Error ? error.message : "unknown error")
+    logServerError("api.prediction_roster.fetch_failed", { series: "F1", season }, error)
     return NextResponse.json({ ok: false, drivers: [], note: "该赛季预测候选暂时无法加载，请重试。" }, { status: 502, headers: { "Cache-Control": "no-store" } })
   }
 }

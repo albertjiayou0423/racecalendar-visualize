@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { logServerError } from "@/lib/server-log"
 
 const API_BASE = "https://p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api"
 const CACHE_SECONDS = 3600
@@ -109,7 +110,10 @@ export async function GET(request: NextRequest) {
       standings,
     }, { headers: { "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=86400` } })
   } catch (error) {
-    console.error("Failed to fetch official WRC standings:", error)
+    logServerError("api.wrc_standings.fetch_failed", {
+      season: request.nextUrl.searchParams.get("season") ?? "current",
+      hasChampionshipFilter: request.nextUrl.searchParams.has("championship"),
+    }, error)
     return NextResponse.json(
       { ok: false, note: "WRC 官方积分榜暂时无法加载，请稍后重试。" },
       { status: 502, headers: { "Cache-Control": "no-store" } }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { logServerError } from "@/lib/server-log"
 
 /** Same-origin adapter: visitors never need to reach Jolpica themselves. */
 export async function GET() {
@@ -13,7 +14,8 @@ export async function GET() {
     return NextResponse.json({ ok: true, MRData: { RaceTable: { Races: [race] } } }, {
       headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" },
     })
-  } catch {
+  } catch (error) {
+    logServerError("api.f1_last_result.fetch_failed", {}, error)
     return NextResponse.json({ ok: false, note: "上一站赛果暂时无法加载，请稍后重试。" }, {
       status: 502, headers: { "Cache-Control": "no-store" },
     })
