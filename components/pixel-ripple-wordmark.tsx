@@ -3,10 +3,10 @@
 import { useEffect, useRef } from "react"
 import "./pixel-ripple-wordmark.css"
 
-type Pointer = { x: number; active: boolean }
+type Pointer = { x: number; y: number; active: boolean }
 const SERIES_PIXEL_COLORS = ["239, 68, 68", "59, 130, 246", "16, 185, 129"]
 
-/** Large racing wordmark with a cursor-driven pixel shear. */
+/** Large racing wordmark with a local fluid-pixel refraction field. */
 export function PixelRippleWordmark() {
   const rootRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLSpanElement>(null)
@@ -29,18 +29,17 @@ export function PixelRippleWordmark() {
     let dpr = 1
     let maskPixels: ImageData | null = null
     let frame = 0
-    let pointerTarget: Pointer = { x: -100, active: false }
-    let pointerCurrent = -100
-    let previousTargetX = -100
-    let direction = 1
+    let pointerTarget: Pointer = { x: -100, y: -100, active: false }
+    let pointerCurrent = { x: -100, y: -100 }
     let strength = 0
 
     const render = () => {
       frame = 0
       if (!maskPixels || width === 0 || height === 0) return
       ctx.clearRect(0, 0, width, height)
-      const cell = 4
-      pointerCurrent += (pointerTarget.x - pointerCurrent) * 0.2
+      const cell = 3.5
+      pointerCurrent.x += (pointerTarget.x - pointerCurrent.x) * 0.2
+      pointerCurrent.y += (pointerTarget.y - pointerCurrent.y) * 0.2
       strength += ((pointerTarget.active ? 1 : 0) - strength) * (pointerTarget.active ? 0.22 : 0.12)
 
       for (let y = 0; y < height; y += cell) {
@@ -50,19 +49,23 @@ export function PixelRippleWordmark() {
           const alpha = maskPixels.data[(sampleY * mask.width + sampleX) * 4 + 3]
           if (alpha < 56) continue
 
-          const distance = x - pointerCurrent
-          const shear = Math.exp(-(distance * distance) / (2 * 42 * 42)) * strength
-          const opacity = 0.12 + shear * 0.4
+          const vx = x - pointerCurrent.x
+          const vy = y - pointerCurrent.y
+          const influence = Math.exp(-((vx * vx) / (2 * 138 * 138) + (vy * vy) / (2 * 66 * 66))) * strength
+          const phase = vx * 0.036 + vy * 0.024
+          const fluidX = Math.sin(phase + y * 0.018) * influence * 15
+          const fluidY = Math.cos(phase * 0.8 - x * 0.012) * influence * 8
+          const opacity = 0.14 + influence * 0.4
           const colorIndex = Math.min(2, Math.floor((x / width) * SERIES_PIXEL_COLORS.length))
-          ctx.fillStyle = shear > 0.06
+          ctx.fillStyle = influence > 0.045
             ? `rgba(${SERIES_PIXEL_COLORS[colorIndex]}, ${opacity})`
             : `rgba(221, 228, 239, ${opacity})`
-          const bend = Math.sin((y / height) * Math.PI * 2) * shear * 1.5
-          ctx.fillRect(x + direction * shear * 8 + bend, y, cell + shear * 0.5, cell)
+          const block = cell + influence * 1.4
+          ctx.fillRect(x + fluidX, y + fluidY, block, block)
         }
       }
 
-      const pointerSettled = Math.abs(pointerTarget.x - pointerCurrent) < 0.5
+      const pointerSettled = Math.abs(pointerTarget.x - pointerCurrent.x) < 0.5 && Math.abs(pointerTarget.y - pointerCurrent.y) < 0.5
       const strengthSettled = pointerTarget.active ? Math.abs(strength - 1) < 0.015 : strength < 0.015
       if (!pointerSettled || !strengthSettled) frame = requestAnimationFrame(render)
     }
@@ -101,7 +104,7 @@ export function PixelRippleWordmark() {
         cursorX += maskCtx.measureText(glyph).width + letterSpacing
       }
       maskPixels = maskCtx.getImageData(0, 0, mask.width, mask.height)
-      pointerCurrent = -100
+      pointerCurrent = { x: -100, y: -100 }
       strength = 0
       render()
     }
@@ -112,9 +115,7 @@ export function PixelRippleWordmark() {
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top
       if (x < 0 || y < 0 || x > width || y > height) return
-      if (Math.abs(x - previousTargetX) > 4) direction = x > previousTargetX ? 1 : -1
-      previousTargetX = x
-      pointerTarget = { x, active: true }
+      pointerTarget = { x, y, active: true }
       if (!frame) frame = requestAnimationFrame(render)
     }
 
@@ -142,7 +143,8 @@ export function PixelRippleWordmark() {
   return <div ref={rootRef} className="pixel-ripple-wordmark" aria-label="赛道时刻">
     <span ref={textRef} className="pixel-ripple-wordmark__text" aria-hidden="true">赛道时刻</span>
     <canvas ref={canvasRef} className="pixel-ripple-wordmark__canvas" aria-hidden="true" />
-    <span className="pixel-ripple-wordmark__hint" aria-hidden="true">移动鼠标 · 扰动字形</span>
+    <span className="pixel-ripple-wordmark__legend" aria-hidden="true"><i className="f1">F1</i><i className="wrc">WRC</i><i className="fe">FE</i></span>
+    <span className="pixel-ripple-wordmark__hint" aria-hidden="true">移动鼠标 · 扰动像素</span>
     <span className="sr-only">赛道时刻</span>
   </div>
 }
