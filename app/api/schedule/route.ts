@@ -7,6 +7,7 @@ import { normalizeF1Metadata } from "@/lib/f1-metadata"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 import { addOfficialCalendarFallbacks } from "@/lib/official-calendar-fallback"
 import { logServerError, logServerWarn } from "@/lib/server-log"
+import { recordScheduleHealth, sendDatabaseAvailabilityAlert, sendScheduleIncidentAlert } from "@/lib/notification-mail"
 
 export const revalidate = 3600
 export const maxDuration = 300
@@ -20,6 +21,7 @@ export async function GET() {
     await initCrawlTables()
   } catch (error) {
     logServerError("api.schedule.database_init_failed", {}, error)
+    after(() => sendDatabaseAvailabilityAlert())
     throw error
   }
 
@@ -48,6 +50,12 @@ export async function GET() {
     return refreshSeries(name, await canCrawlToday(name))
   }))
   const [f1Result, feResult, wrcResult] = results
+
+  after(async () => {
+    const statuses = results.map(({ result }, index) => ({ series: series[index], ok: result.ok }))
+    await recordScheduleHealth(statuses)
+    if (statuses.every(status => !status.ok)) await sendScheduleIncidentAlert()
+  })
 
   results.forEach(({ result, fromCache }, index) => {
     if (!result.ok) logServerWarn("api.schedule.series_unavailable", {
