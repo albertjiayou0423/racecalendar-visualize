@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="180" viewBox="0 0 880 180" role="img" aria-labelledby="title desc">
+    <title id="title">赛道时刻</title><desc id="desc">赛车日历品牌字标，配以高速弯心路线与计时切线。</desc>
+    <g transform="translate(-7 5)">
+    <path d="M18 142H57C77 142 88 134 96 114L121 53C128 35 139 27 157 27H184" fill="none" stroke="#F4F4F2" stroke-width="12" stroke-linecap="butt" stroke-linejoin="bevel"/>
+    <path d="M18 158H58C86 158 103 146 114 119L138 61C143 49 149 43 163 43H184" fill="none" stroke="#999DA3" stroke-width="4" stroke-linecap="butt" stroke-linejoin="bevel" opacity=".52"/>
+    <path d="M105 51H162L147 73H95Z" fill="#EF3340"/>
+    <path d="M29 125H47" stroke="#EF3340" stroke-width="4"/>
+    <path d="M114 57H151" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity=".36"/>
+  </g>
+    <g transform="translate(232 0) skewX(-8)">
+      <text x="0" y="103" fill="#F4F4F2" font-family="Bahnschrift SemiCondensed, Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="57" font-weight="900" letter-spacing="2">赛道时刻</text>
+      <path d="M4 122H115" stroke="#EF3340" stroke-width="5"/>
+      <text x="4" y="151" fill="#999DA3" font-family="Bahnschrift SemiCondensed, Bahnschrift, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="4.2">RACE / CALENDAR</text>
+    </g>
+  </svg>

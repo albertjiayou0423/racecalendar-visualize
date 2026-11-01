@@ -1,6 +1,9 @@
 export const INSPECTABLE_TABLES = [
   "crawl_snapshots", "crawl_quota", "event_overrides", "service_health_log",
   "predictions", "ai_usage", "feedbacks", "push_subscriptions", "client_crawl_jobs",
+  "notification_health_daily", "notification_incidents", "notification_monthly_reports",
+  "notification_client_error_windows",
+  "notification_email_log",
 ] as const
 
 export function isInspectableTable(name: string): boolean {

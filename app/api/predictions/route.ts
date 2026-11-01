@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSqlOrFail, initDb, isDbAvailable, consumeAiQuotaSlot, AI_DAILY_LIMIT } from "@/lib/db"
 import { anonymousVoterCookie, resolveAnonymousVoterId } from "@/lib/anonymous-voter"
+import { logServerError, logServerWarn } from "@/lib/server-log"
 
 const NVIDIA_NIM_API_KEY = process.env.NVIDIA_NIM_API_KEY
 
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
       myVote: results.find((result: any) => result.is_mine)?.driver_code ?? null,
     }, voter)
   } catch (error) {
-    console.error("GET predictions error:", error)
+    logServerError("api.predictions.read_failed", {}, error)
     return voterResponse(
       { error: "Failed to fetch predictions" },
       voter,
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
     })
 
     if (!response.ok) {
-      console.error("NVIDIA NIM API error:", response.status, await response.text())
+      logServerWarn("api.predictions.ai_upstream_failed", { provider: "nvidia-nim", status: response.status })
       return NextResponse.json({
         eventId,
         predictions: generateDefaultPredictions(series),
@@ -188,7 +189,7 @@ export async function POST(request: Request) {
       quotaRemaining: quota.remaining,
     })
   } catch (error) {
-    console.error("Prediction API error:", error)
+    logServerError("api.predictions.generate_failed", {}, error)
     return NextResponse.json(
       { error: "Failed to generate predictions" },
       { status: 500 }
@@ -235,7 +236,7 @@ async function handleVote(eventId: string, driverCode: string, cookieHeader: str
       myVote: driverCode,
     }, voter)
   } catch (error) {
-    console.error("Vote error:", error)
+    logServerError("api.predictions.vote_failed", {}, error)
     return NextResponse.json(
       { error: "Failed to vote" },
       { status: 500 }

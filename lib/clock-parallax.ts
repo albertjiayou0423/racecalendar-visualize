@@ -9,8 +9,8 @@ export function clockTilt(beta: number, gamma: number, baseBeta: number, baseGam
   return {
     // The display counter-rotates against the device to reveal its depth.
     // Convert screen-relative sensor axes to the viewer-facing CSS plane once.
-    x: clamp((vertical * Math.cos(angle) - horizontal * Math.sin(angle)) * .22, 5),
-    y: clamp(-(horizontal * Math.cos(angle) + vertical * Math.sin(angle)) * .22, 6),
+    x: clamp((vertical * Math.cos(angle) - horizontal * Math.sin(angle)) * .32, 5),
+    y: clamp(-(horizontal * Math.cos(angle) + vertical * Math.sin(angle)) * .32, 6),
   }
 }
 

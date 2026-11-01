@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { logServerError, logServerWarn } from "@/lib/server-log"
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast"
 
@@ -58,7 +59,7 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries: n
       })
       if (!res.ok) {
         if (res.status >= 500 && i < retries) {
-          console.log(`Weather API ${url} returned ${res.status}, retrying...`)
+          logServerWarn("api.weather.upstream_retry", { service: "open-meteo", attempt: i + 1, status: res.status })
           await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
           continue
         }
@@ -66,7 +67,7 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries: n
       return res
     } catch (e) {
       if (i < retries) {
-        console.log(`Weather API error for ${url}, retrying...`, e)
+        logServerWarn("api.weather.upstream_retry", { service: "open-meteo", attempt: i + 1 }, e)
         await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)))
         continue
       }
@@ -90,7 +91,7 @@ async function fetchGeocode(city: string, country: string): Promise<{ lat: numbe
       name: result.name,
     }
   } catch (err) {
-    console.error("Geocode error:", err)
+    logServerWarn("api.weather.geocode_failed", { service: "open-meteo-geocoding" }, err)
     return null
   }
 }
@@ -178,7 +179,7 @@ export async function GET(request: NextRequest) {
     const res = await fetchWithRetry(`${OPEN_METEO_BASE}?${params.toString()}`, { next: { revalidate: 3600 } })
     
     if (!res.ok) {
-      console.error(`Open-Meteo API error: ${res.status}`)
+      logServerError("api.weather.upstream_failed", { service: "open-meteo", status: res.status })
       return NextResponse.json({ error: "Weather service unavailable" }, { status: 503 })
     }
 
@@ -211,7 +212,7 @@ export async function GET(request: NextRequest) {
       source: "Open-Meteo",
     })
   } catch (err) {
-    console.error("Weather API error:", err)
+    logServerError("api.weather.failed", {}, err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

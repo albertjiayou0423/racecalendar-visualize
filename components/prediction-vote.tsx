@@ -118,7 +118,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
     }
   }
 
-  if (!drivers.length) return <div className="mt-4 rounded-xl border border-border p-4 text-sm text-muted-foreground">
+  if (!drivers.length) return <div className="mt-4 text-sm text-muted-foreground">
     {rosterLoading ? "加载赛季预测候选…" : rosterError?.message || "当前赛季暂无可用的预测候选。"}
     {!rosterLoading && <button className="ml-2 underline" onClick={() => retryRoster()}>重试</button>}
   </div>
@@ -126,7 +126,7 @@ export function PredictionVote({ event }: PredictionVoteProps) {
   const selectedDriverInfo = drivers.find((d) => d.code === selectedDriver)
 
   return (
-    <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+    <div className="mt-4">
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Trophy className="size-4 text-primary" />
         <span>预测 {meta.label} 冠军</span>

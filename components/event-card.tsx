@@ -1,7 +1,7 @@
 "use client"
 import { eventSourceLabel } from "@/lib/f1-metadata"
 
-import { isTimeUnconfirmed } from "@/lib/session-time"
+import { isEstimatedWrcSession, isTimeUnconfirmed } from "@/lib/session-time"
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { ChevronDown, Clock, MapPin, Radio, Trophy, TriangleAlert, ExternalLink, Activity, Info, X, ArrowRight, Heart, Moon } from "lucide-react"
@@ -166,7 +166,9 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const next = nextResult?.session ?? firstSession(event)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions, event)
-  const hasTentative = event.tentative === true
+  const hasTentative = event.series === "WRC" && (event.sessions.length
+    ? event.sessions.some((session) => isEstimatedWrcSession(event, session))
+    : event.tentative === true)
 
   const isLiveNow = useMemo(() => event.sessions.some((s) => {
     if (isTimeUnconfirmed(event, s)) return false

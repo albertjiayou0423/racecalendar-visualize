@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { logServerError } from "@/lib/server-log"
 
 const API_BASE = "https://api.jolpi.ca/ergast/f1"
 const CACHE_SECONDS = 3600
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
     }, { headers: { "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=86400` } })
   } catch (error) {
     const timedOut = typeof error === "object" && error !== null && "name" in error && error.name === "TimeoutError"
-    console.error("Failed to fetch F1 standings:", error instanceof Error ? error.message : "unknown error")
+    logServerError("api.f1_standings.fetch_failed", { season, type }, error)
     return NextResponse.json({
       ok: false,
       note: timedOut ? "F1 积分榜请求超时，请稍后重试。" : "F1 积分榜暂时无法加载，请稍后重试。",

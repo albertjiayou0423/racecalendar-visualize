@@ -16,6 +16,11 @@ const LABELS: Record<string, string> = {
   service_health_log: "服务检查记录", predictions: "用户投票", ai_usage: "AI 用量",
   feedbacks: "用户反馈", push_subscriptions: "推送订阅",
   client_crawl_jobs: "客户端采集任务与补缺记录",
+  notification_health_daily: "邮件通知 · 每日健康采样",
+  notification_incidents: "邮件通知 · 故障去重状态",
+  notification_monthly_reports: "邮件通知 · 月报发送状态",
+  notification_client_error_windows: "邮件通知 · 浏览器故障计数",
+  notification_email_log: "邮件通知 · Resend 接受记录",
 }
 
 function pretty(value: string | null): string {

@@ -32,6 +32,23 @@ import Link from "next/link"
 
 const CACHE_KEY = "schedule-cache-v2"
 const LEGACY_CACHE_KEY = "schedule-cache"
+const CLIENT_FAILURE_REPORT_KEY = "schedule-load-failure-report-v1"
+
+function reportScheduleLoadFailure() {
+  try {
+    const lastReport = Number(sessionStorage.getItem(CLIENT_FAILURE_REPORT_KEY) ?? 0)
+    if (Date.now() - lastReport < 10 * 60 * 1000) return
+    sessionStorage.setItem(CLIENT_FAILURE_REPORT_KEY, String(Date.now()))
+    void fetch("/api/client-health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "schedule-load-failed" }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    // Storage may be disabled; reporting is best effort and must not affect the schedule UI.
+  }
+}
 
 function readScheduleCache() {
   try {
@@ -78,6 +95,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
     } catch {
       // 缓存读取失败
     }
+    reportScheduleLoadFailure()
     throw err
   }
 }
@@ -386,7 +404,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         data-filter-bar
         className={cn(
           "sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
-          filterStuck && isMobile && "py-2 gap-0"
+          filterStuck && isMobile && "py-2 gap-1"
         )}
       >
         {/* 搜索框 - 移动端吸顶时隐藏 */}
@@ -414,7 +432,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-selected={series === t.key}
                 onClick={() => setSeries(t.key)}
                 className={cn(
-                  "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+                  "min-h-11 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
                   series === t.key
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground",
@@ -433,7 +451,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="列表视图"
                 aria-pressed={view === "list"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex min-h-10 items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors sm:min-h-0",
                   view === "list"
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -448,7 +466,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="周视图"
                 aria-pressed={view === "week"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex min-h-10 items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors sm:min-h-0",
                   view === "week"
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -463,7 +481,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="月视图"
                 aria-pressed={view === "month"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex min-h-10 items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors sm:min-h-0",
                   view === "month"
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -476,11 +494,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             {data && !playground ? <NotificationManager events={allEvents} /> : null}
           </div>
         </div>
-        {/* 时间范围和高级筛选 - 移动端吸顶时隐藏 */}
-        <div className={cn("flex flex-col gap-2 transition-all", filterStuck && isMobile && "hidden")}>
+        {/* 移动端吸顶时保留时间范围，其他筛选仍可回到顶部访问 */}
+        <div className={cn("flex flex-col gap-2 transition-all")}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             {view === "list" ? (
-              <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2" role="tablist" aria-label="时间范围">
                 {TIME_TABS.map((t) => (
                   <button
                     key={t.key}
@@ -489,7 +507,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                     aria-selected={time === t.key}
                     onClick={() => setTime(t.key)}
                     className={cn(
-                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      "min-h-10 rounded-md px-3 py-1 text-xs font-medium transition-colors sm:min-h-0",
                       time === t.key
                         ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground hover:text-foreground",
@@ -500,7 +518,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 ))}
               </div>
             ) : null}
-            <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="赛季范围">
+            <div className={cn("flex flex-wrap items-center gap-1", filterStuck && isMobile && "hidden")} role="tablist" aria-label="赛季范围">
               {([
                 { key: "current-next" as const, label: "今明两年" },
                 { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
@@ -514,7 +532,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   aria-selected={season === tab.key}
                   onClick={() => setSeason(tab.key)}
                   className={cn(
-                    "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                    "min-h-10 rounded-md px-3 py-1 text-xs font-medium transition-colors sm:min-h-0",
                     season === tab.key
                       ? "bg-secondary text-secondary-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -526,18 +544,18 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             </div>
           </div>
           {season === "current-next" && (yearCounts.get(currentYear + 1) ?? 0) === 0 ? (
-            <p className="text-xs text-muted-foreground">
+            <p className={cn("text-xs text-muted-foreground", filterStuck && isMobile && "hidden")}>
               当前数据快照还未收录 {currentYear + 1} 年赛事。
             </p>
           ) : null}
 
           {/* 高级筛选 */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className={cn("flex flex-wrap items-center gap-2", filterStuck && isMobile && "hidden")}>
             <button
               type="button"
               data-guide="advanced-filters" onClick={() => setShowAdvancedFilters((v) => !v)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:min-h-0",
                 showAdvancedFilters || circuitType !== "all" || region !== "all"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -558,7 +576,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   <select
                     value={circuitType}
                     onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
-                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                    className="min-h-11 rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary sm:min-h-0"
                   >
                     <option value="all">全部赛道</option>
                     <option value="street">街道赛道</option>
@@ -572,7 +590,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                   <select
                     value={region}
                     onChange={(e) => setRegion(e.target.value as RegionFilter)}
-                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                    className="min-h-11 rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary sm:min-h-0"
                   >
                     <option value="all">全部地区</option>
                     <option value="europe">欧洲</option>
