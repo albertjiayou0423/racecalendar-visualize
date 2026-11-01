@@ -1,81 +1,98 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
+import { animate, motion, useMotionTemplate, useMotionValue } from "motion/react"
 
-const CURSOR_TARGETS = 'a, button, [role="button"], [role="link"], summary, select, input[type="button"], input[type="submit"]'
-const TEXT_TARGETS = 'input:not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]'
+const INTERACTIVE_SELECTOR = 'a, button, [role="button"], [role="link"], summary, select, input[type="button"], input[type="submit"]'
+const TEXT_SELECTOR = 'input:not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]'
+const SHAPE_TRANSITION = { type: "spring" as const, stiffness: 880, damping: 48, mass: 0.38 }
 
 export function AdaptiveCursor() {
+  const x = useMotionValue(-100)
+  const y = useMotionValue(-100)
+  const width = useMotionValue(22)
+  const height = useMotionValue(22)
+  const radius = useMotionValue(999)
+  const opacity = useMotionValue(0)
+  const activeTargetRef = useRef<Element | null>(null)
+  const transform = useMotionTemplate`translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
+
   useEffect(() => {
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)")
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
     if (!finePointer.matches || reducedMotion.matches) return
 
-    let cancelled = false
-    let cleanup: (() => void) | undefined
+    const root = document.documentElement
+    root.classList.add("has-adaptive-cursor")
 
-    void import("ipad-cursor").then(({ initCursor, updateCursor, disposeCursor }) => {
-      if (cancelled) return
+    const morphTo = (target: Element | null) => {
+      if (target === activeTargetRef.current) return
+      activeTargetRef.current = target
 
-      const root = document.documentElement
-      const addedAttributes = new Set<HTMLElement>()
-
-      const markTargets = (scope: ParentNode) => {
-        const candidates = [
-          ...(scope instanceof HTMLElement && scope.matches(`${CURSOR_TARGETS}, ${TEXT_TARGETS}`) ? [scope] : []),
-          ...scope.querySelectorAll<HTMLElement>(`${CURSOR_TARGETS}, ${TEXT_TARGETS}`),
-        ]
-        let changed = false
-        for (const element of candidates) {
-          if (element.hasAttribute("data-cursor")) continue
-          addedAttributes.add(element)
-          element.setAttribute("data-cursor", element.matches(TEXT_TARGETS) ? "text" : "block")
-          changed = true
-        }
-        return changed
+      const rect = target?.getBoundingClientRect()
+      const isLargeTarget = rect && (rect.width > 180 || rect.height > 64)
+      const isTextEntry = target instanceof HTMLElement && target.matches(TEXT_SELECTOR)
+      if (!target || !rect || isLargeTarget || isTextEntry) {
+        animate(width, 22, SHAPE_TRANSITION)
+        animate(height, 22, SHAPE_TRANSITION)
+        animate(radius, 999, SHAPE_TRANSITION)
+        return
       }
 
-      markTargets(document.body)
-      root.classList.add("has-ipad-cursor")
-      initCursor({ adsorptionStrength: 0 })
+      const targetStyle = window.getComputedStyle(target)
+      const controlRadius = Number.parseFloat(targetStyle.borderTopLeftRadius)
+      const nextRadius = Number.isFinite(controlRadius)
+        ? Math.min(controlRadius, rect.height / 2)
+        : Math.min(10, rect.height / 2)
 
-      const observer = new MutationObserver(records => {
-        let needsUpdate = false
-        for (const record of records) {
-          record.addedNodes.forEach(node => {
-            if (node instanceof HTMLElement && markTargets(node)) needsUpdate = true
-          })
-          record.removedNodes.forEach(node => {
-            if (node instanceof HTMLElement && (node.matches("[data-cursor]") || node.querySelector("[data-cursor]"))) {
-              needsUpdate = true
-            }
-          })
-        }
-        if (needsUpdate) updateCursor()
-      })
-      observer.observe(document.body, { childList: true, subtree: true })
+      // Keep the pointer where the user placed it; only its shape responds to the control.
+      animate(width, Math.max(30, rect.width + 8), SHAPE_TRANSITION)
+      animate(height, Math.max(28, rect.height + 8), SHAPE_TRANSITION)
+      animate(radius, nextRadius, SHAPE_TRANSITION)
+    }
 
-      const reveal = () => { root.dataset.cursorReady = "true" }
-      window.addEventListener("mousemove", reveal, { once: true, passive: true })
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return
+      x.set(event.clientX)
+      y.set(event.clientY)
+      opacity.set(1)
 
-      cleanup = () => {
-        observer.disconnect()
-        window.removeEventListener("mousemove", reveal)
-        disposeCursor()
-        for (const element of addedAttributes) {
-          if (!element.isConnected) continue
-          element.removeAttribute("data-cursor")
-        }
-        delete root.dataset.cursorReady
-        root.classList.remove("has-ipad-cursor")
+      const element = event.target instanceof Element ? event.target : null
+      const target = element?.closest(INTERACTIVE_SELECTOR) ?? null
+      const textEntry = element?.closest(TEXT_SELECTOR)
+      if (textEntry) {
+        morphTo(null)
+        opacity.set(0)
+      } else {
+        morphTo(target)
       }
-    })
+    }
+
+    const onPointerLeave = () => {
+      activeTargetRef.current = null
+      opacity.set(0)
+      animate(width, 22, SHAPE_TRANSITION)
+      animate(height, 22, SHAPE_TRANSITION)
+      animate(radius, 999, SHAPE_TRANSITION)
+    }
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true })
+    window.addEventListener("blur", onPointerLeave)
+    document.documentElement.addEventListener("pointerleave", onPointerLeave)
 
     return () => {
-      cancelled = true
-      cleanup?.()
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("blur", onPointerLeave)
+      document.documentElement.removeEventListener("pointerleave", onPointerLeave)
+      root.classList.remove("has-adaptive-cursor")
     }
-  }, [])
+  }, [height, opacity, radius, width, x, y])
 
-  return null
+  return (
+    <motion.div
+      className="adaptive-cursor"
+      style={{ transform, width, height, borderRadius: radius, opacity }}
+      aria-hidden="true"
+    />
+  )
 }
