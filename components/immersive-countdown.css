@@ -1,4 +1,5 @@
 .race-immersive{--accent:#ef4444;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;isolation:isolate;overflow:hidden;background:#060709;color:white}
+.race-immersive-overlay::before,.immersion-effect-full::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.62;background:radial-gradient(ellipse at 50% 50%,color-mix(in srgb,var(--accent) 12%,transparent),transparent 72%),linear-gradient(to right,color-mix(in srgb,var(--accent) 20%,transparent) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--accent) 20%,transparent) 1px,transparent 1px),linear-gradient(to right,color-mix(in srgb,var(--accent) 30%,transparent) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--accent) 30%,transparent) 1px,transparent 1px);background-size:100% 100%,56px 56px,56px 56px,224px 224px,224px 224px}
 .race-immersive-overlay{position:fixed;inset:0;z-index:10000;min-height:100dvh;padding:70px 16px 32px}
 .race-immersive-preview{min-height:480px;width:100%;border-radius:16px;padding:64px 16px 32px}
 .race-entry-wave{position:absolute;inset:0;z-index:30;pointer-events:none;background:var(--accent);color:var(--accent);animation:race-wave-rise var(--entry-duration,1000ms) cubic-bezier(.65,0,.25,1) both}
@@ -81,8 +82,9 @@
 .rally-clock-housing::before,.rally-clock-housing::after{content:'';position:absolute;bottom:5px;width:3px;height:3px;border-radius:50%;background:#596168}
 .rally-clock-housing::before{left:5px}.rally-clock-housing::after{right:5px}
 
-.rally-parallax{position:relative;width:100%;perspective:1000px;perspective-origin:50% 50%}
+.rally-parallax{position:relative;width:100%;perspective:1000px;perspective-origin:50% 50%;transform-style:preserve-3d}
 .rally-parallax-object{width:100%;transform-style:preserve-3d;transform:translate3d(0,0,0) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg));transition:transform 180ms ease-out}
+.rally-parallax-object{position:relative;z-index:1}
 .rally-inline{transform-style:preserve-3d}
 .rally-clock-face{transform:translateZ(3px);transform-style:preserve-3d}
 .rally-clock-face svg{transform:translateZ(2px)}
@@ -122,3 +124,28 @@
 .signal-case-top,.signal-case-bottom{left:0;right:0;height:var(--case-depth);background:#2d3a44;border:1px solid #42515d}
 .signal-case-top{top:0;transform-origin:center top;transform:rotateX(-90deg)}
 .signal-case-bottom{bottom:0;transform-origin:center bottom;transform:rotateX(90deg);background:#0c1319}
+
+/* Mobile landscape keeps the start hardware and countdown visible side by side. */
+@media (orientation:landscape) and (max-width:1000px) and (max-height:600px){
+  .race-immersive-overlay{padding:calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 16px)}
+  .race-immersive-overlay.has-start-stage>header{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:4vw;right:5vw;max-width:38vw;padding:0;text-align:left}
+  .race-immersive-overlay.has-start-stage>header h2{margin-top:4px;font-size:13px;line-height:1.35}
+  .race-immersive-overlay.has-start-stage>.race-stage{position:absolute;left:3vw;top:50%;width:39vw;min-height:0;margin:0;transform:translateY(-50%)}
+  .race-immersive-overlay.has-start-stage:not([data-rally-clock=true])>.race-stage .start-signal{width:min(38vw,340px)}
+  .race-immersive-overlay.has-start-stage>.race-countdown-panel{position:absolute;left:43vw;right:3vw;top:50%;width:auto;padding:0;transform:translateY(-50%);align-items:center}
+  .race-immersive-overlay.has-start-stage .race-clock{max-width:none}
+  .race-immersive-overlay[data-rally-clock=true]>.race-stage{left:50%;width:92vw;transform:translate(-50%,-50%)}
+  .race-immersive-overlay[data-rally-clock=true] .race-stage{min-height:0}
+  .race-immersive-overlay:not(.has-start-stage)>header{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:4vw;right:4vw;padding:0;text-align:left}
+  .race-immersive-overlay:not(.has-start-stage)>header h2{margin-top:4px;font-size:13px}
+  .race-immersive-overlay:not(.has-start-stage)>.race-countdown-panel{position:absolute;left:3vw;right:3vw;top:50%;width:auto;padding:0;transform:translateY(-50%)}
+  .race-immersive-overlay:not(.has-start-stage) .race-countdown-body{width:100%}
+  .race-immersive-overlay>.race-countdown-note{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 5px);margin:0;padding:0;font-size:9px}
+  .race-immersive-overlay.has-test-controls>.race-countdown-note{display:none}
+  .race-immersive-overlay>nav[aria-label="全屏测试控制"],main>nav[aria-label="全屏测试控制"]{top:auto;left:12px;right:12px;bottom:8px;align-items:flex-end}
+  .race-immersive-overlay>nav[aria-label="全屏测试控制"] details,main>nav[aria-label="全屏测试控制"] details{max-height:42dvh}
+  .immersion-effect-full{padding:48px 4vw 20px}
+  .immersion-effect-full .race-stage{width:min(72vw,820px);min-height:0;margin:0}
+  .immersion-effect-full[data-series=WRC] .race-stage{width:min(90vw,900px)}
+  .immersion-effect-full .start-signal{width:min(48vw,380px)}
+}

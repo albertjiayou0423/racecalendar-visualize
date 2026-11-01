@@ -122,7 +122,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   return (
     <div
       ref={containerRef}
-      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${entrance ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
+      className={`race-immersive ${preview ? 'race-immersive-preview' : 'race-immersive-overlay'} ${showSignals ? 'has-start-stage' : ''} ${children ? 'has-test-controls' : ''} ${entrance ? 'race-wave-entry' : ''} ${total <= 5 ? 'is-final' : ''} ${started ? 'is-started' : ''} ${launchBurst || (inspectFrame && previewFrameMs < impactDuration) ? 'has-impact' : ''} ${inspectFrame ? 'is-frame-inspection' : ''}`}
       style={{ '--accent': accentColor, '--impact-duration': `${impactDuration}ms`, '--entry-duration': `${IMMERSION_MOTION.entry}ms`, '--reveal-at': `${IMMERSION_MOTION.revealAt}ms`, '--reveal-duration': `${IMMERSION_MOTION.reveal}ms`, '--release-lag': `${releaseMatches ? release?.lag ?? 0 : 0}ms`, ...(inspectFrame ? { '--launch-frame': `${Math.min(impactDuration, previewFrameMs)}ms` } : {}) } as CSSProperties}
       data-series={series}
       data-rally-clock={series === 'WRC' && showSignals && Number.isFinite(targetMs) ? true : undefined}
@@ -149,7 +149,7 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
       </div>}
 
       {!(series === 'WRC' && showSignals && Number.isFinite(targetMs)) && <div
-        className={`relative z-10 flex w-full flex-col items-center px-4 text-center ${!showSignals ? 'my-12 sm:my-20' : ''}`}
+        className={`race-countdown-panel relative z-10 flex w-full flex-col items-center px-4 text-center ${!showSignals ? 'my-12 sm:my-20' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {!Number.isFinite(targetMs) ? <span className="text-white">时间待确认</span> : (
