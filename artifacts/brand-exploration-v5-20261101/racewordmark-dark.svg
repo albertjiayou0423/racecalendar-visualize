@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="180" viewBox="0 0 880 180" role="img" aria-labelledby="title desc">
     <title id="title">赛道时刻</title><desc id="desc">赛车日历品牌字标，配以高速弯心路线与计时切线。</desc>
-    <g transform="translate(0 0)">
+    <g transform="translate(-5 4)">
     <path d="M18 142H57C77 142 88 134 96 114L121 53C128 35 139 27 157 27H184" fill="none" stroke="#F4F4F2" stroke-width="12" stroke-linecap="butt" stroke-linejoin="bevel"/>
     <path d="M18 158H58C86 158 103 146 114 119L138 61C143 49 149 43 163 43H184" fill="none" stroke="#999DA3" stroke-width="4" stroke-linecap="butt" stroke-linejoin="bevel" opacity=".52"/>
     <path d="M114 49H187L168 76H102Z" fill="#EF3340"/>

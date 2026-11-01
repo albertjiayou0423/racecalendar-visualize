@@ -14,13 +14,13 @@ function markShape(ink, red, muted = ink) {
 }
 
 function mark(ink, red, muted = ink) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180" viewBox="0 0 200 180" role="img" aria-labelledby="title desc"><title id="title">赛道时刻竞速标志</title><desc id="desc">一条连续的高速弯心路线与红色计时分段切线。</desc>${markShape(ink, red, muted)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180" viewBox="0 0 200 180" role="img" aria-labelledby="title desc"><title id="title">赛道时刻竞速标志</title><desc id="desc">一条连续的高速弯心路线与红色计时分段切线。</desc><g transform="translate(-5 4)">${markShape(ink, red, muted)}</g></svg>`;
 }
 
 function logo(ink, muted, red) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="880" height="180" viewBox="0 0 880 180" role="img" aria-labelledby="title desc">
     <title id="title">赛道时刻</title><desc id="desc">赛车日历品牌字标，配以高速弯心路线与计时切线。</desc>
-    <g transform="translate(0 0)">${markShape(ink, red, muted)}</g>
+    <g transform="translate(-5 4)">${markShape(ink, red, muted)}</g>
     <g transform="translate(232 0) skewX(-8)">
       <text x="0" y="103" fill="${ink}" font-family="Bahnschrift SemiCondensed, Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="57" font-weight="900" letter-spacing="2">赛道时刻</text>
       <path d="M4 122H115" stroke="${red}" stroke-width="5"/>
