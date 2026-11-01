@@ -16,14 +16,19 @@
   will-change: transform;
 }
 
+.adaptive-cursor[data-type="text"] {
+  width: 3px;
+  height: var(--cursor-text-height, 18px);
+  border: 0;
+  border-radius: 999px;
+  background: rgb(240 246 255 / 62%);
+  box-shadow: 0 0 5px rgb(240 246 255 / 24%);
+}
+
 @media (hover: hover) and (pointer: fine) {
   html.has-fixed-cursor,
   html.has-fixed-cursor body,
   html.has-fixed-cursor body * { cursor: none !important; }
-
-  html.has-fixed-cursor input:not([type="button"]):not([type="submit"]),
-  html.has-fixed-cursor textarea,
-  html.has-fixed-cursor [contenteditable="true"] { cursor: text !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
