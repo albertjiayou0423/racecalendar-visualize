@@ -68,6 +68,9 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
   const totalSeconds =
     c.days * 86400 + c.hours * 3600 + c.minutes * 60 + c.seconds
   const stage = getCountdownStage(totalSeconds)
+  const showDays = c.days > 0
+  const showHours = showDays || c.hours > 0
+  const showMinutes = showHours || c.minutes > 0
 
   // 进入沉浸式模式
   const enterImmersive = useCallback(() => {
@@ -263,9 +266,9 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
               </span>
             ) : (
               <>
-                <TimeBlock value={c.days} unit="天" stage={stage} accentColor={accentColor} />
-                <TimeBlock value={c.hours} unit="时" stage={stage} accentColor={accentColor} />
-                <TimeBlock value={c.minutes} unit="分" stage={stage} accentColor={accentColor} />
+                {showDays && <TimeBlock value={c.days} unit="天" stage={stage} accentColor={accentColor} />}
+                {showHours && <TimeBlock value={c.hours} unit="时" stage={stage} accentColor={accentColor} />}
+                {showMinutes && <TimeBlock value={c.minutes} unit="分" stage={stage} accentColor={accentColor} />}
                 <TimeBlock value={c.seconds} unit="秒" stage={stage} accentColor={accentColor} />
               </>
             )}
