@@ -7,7 +7,7 @@ import { normalizeF1Metadata } from "@/lib/f1-metadata"
 import { CIRCUIT_IMAGES } from "@/lib/fetchers"
 import { addOfficialCalendarFallbacks } from "@/lib/official-calendar-fallback"
 import { logServerError, logServerWarn } from "@/lib/server-log"
-import { recordScheduleHealth, sendDatabaseAvailabilityAlert, sendScheduleIncidentAlert } from "@/lib/notification-mail"
+import { recordScheduleHealth, sendDatabaseAvailabilityAlert, sendMonthlyHealthReport, sendScheduleIncidentAlert } from "@/lib/notification-mail"
 
 export const revalidate = 3600
 export const maxDuration = 300
@@ -55,6 +55,11 @@ export async function GET() {
     const statuses = results.map(({ result }, index) => ({ series: series[index], ok: result.ok }))
     await recordScheduleHealth(statuses)
     if (statuses.every(status => !status.ok)) await sendScheduleIncidentAlert()
+    try {
+      await sendMonthlyHealthReport()
+    } catch (error) {
+      logServerError("notifications.monthly_report_failed", {}, error)
+    }
   })
 
   results.forEach(({ result, fromCache }, index) => {

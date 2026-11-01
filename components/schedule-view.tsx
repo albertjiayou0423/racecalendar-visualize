@@ -32,6 +32,23 @@ import Link from "next/link"
 
 const CACHE_KEY = "schedule-cache-v2"
 const LEGACY_CACHE_KEY = "schedule-cache"
+const CLIENT_FAILURE_REPORT_KEY = "schedule-load-failure-report-v1"
+
+function reportScheduleLoadFailure() {
+  try {
+    const lastReport = Number(sessionStorage.getItem(CLIENT_FAILURE_REPORT_KEY) ?? 0)
+    if (Date.now() - lastReport < 10 * 60 * 1000) return
+    sessionStorage.setItem(CLIENT_FAILURE_REPORT_KEY, String(Date.now()))
+    void fetch("/api/client-health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "schedule-load-failed" }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    // Storage may be disabled; reporting is best effort and must not affect the schedule UI.
+  }
+}
 
 function readScheduleCache() {
   try {
@@ -78,6 +95,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
     } catch {
       // 缓存读取失败
     }
+    reportScheduleLoadFailure()
     throw err
   }
 }

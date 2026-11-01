@@ -30,6 +30,21 @@ async function getNotificationSql() {
         sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `
+    await sql`
+      CREATE TABLE IF NOT EXISTS notification_client_error_windows (
+        window_start TIMESTAMPTZ NOT NULL,
+        kind TEXT NOT NULL,
+        report_count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (window_start, kind)
+      )
+    `
+    await sql`
+      CREATE TABLE IF NOT EXISTS notification_email_log (
+        id BIGSERIAL PRIMARY KEY,
+        category TEXT NOT NULL,
+        accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `
     tablesReady = true
   }
   return sql
@@ -58,7 +73,7 @@ function previousMonthRange(dateKey: string) {
   }
 }
 
-async function sendEmail(subject: string, text: string, html: string, idempotencyKey: string) {
+async function sendEmail(subject: string, text: string, html: string, idempotencyKey: string, category: string) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM_EMAIL
   const to = process.env.ALERT_MAIL_TO
@@ -77,6 +92,12 @@ async function sendEmail(subject: string, text: string, html: string, idempotenc
   if (!response.ok) {
     logServerError("notifications.email_send_failed", { provider: "resend", status: response.status })
     throw new Error(`Resend request failed with status ${response.status}`)
+  }
+  try {
+    const sql = await getNotificationSql()
+    await sql`INSERT INTO notification_email_log (category) VALUES (${category})`
+  } catch (error) {
+    logServerWarn("notifications.email_log_failed", { category }, error)
   }
 }
 
@@ -114,6 +135,7 @@ export async function sendScheduleIncidentAlert() {
       "F1、Formula E 和 WRC 的赛历数据目前都不可用，请检查 Vercel Runtime Logs 中的 api.schedule.series_unavailable。",
       "<p>F1、Formula E 和 WRC 的赛历数据目前都不可用。</p><p>请在 Vercel Runtime Logs 中搜索 <code>api.schedule.series_unavailable</code> 查看详情。</p>",
       `racecalendar-incident-${incidentKey}-${Math.floor(Date.now() / (6 * 60 * 60 * 1000))}`,
+      "schedule-incident",
     )
     logServerWarn("notifications.schedule_incident_email_sent", { dedupeHours: 6 })
   } catch (error) {
@@ -125,10 +147,11 @@ export async function sendDatabaseAvailabilityAlert() {
   try {
     const day = shanghaiDate()
     await sendEmail(
-      "赛道时刻：数据库健康检查失败",
-      "定时健康检查无法读取赛历数据库。请检查 Vercel Runtime Logs 中的 notifications.daily_health_check_failed。",
-      "<p>定时健康检查无法读取赛历数据库。</p><p>请在 Vercel Runtime Logs 中搜索 <code>notifications.daily_health_check_failed</code> 查看详情。</p>",
+      "赛道时刻：数据库初始化失败",
+      "赛历请求期间无法初始化数据库。请检查 Vercel Runtime Logs 中的 api.schedule.database_init_failed。",
+      "<p>赛历请求期间无法初始化数据库。</p><p>请在 Vercel Runtime Logs 中搜索 <code>api.schedule.database_init_failed</code> 查看详情。</p>",
       `racecalendar-database-alert-${day}`,
+      "database-incident",
     )
     logServerWarn("notifications.database_alert_email_sent", { day })
   } catch (error) {
@@ -136,10 +159,46 @@ export async function sendDatabaseAvailabilityAlert() {
   }
 }
 
+export async function recordClientScheduleFailure() {
+  try {
+    const sql = await getNotificationSql()
+    const windowStart = new Date(Math.floor(Date.now() / 600_000) * 600_000).toISOString()
+    const rows = await sql`
+      INSERT INTO notification_client_error_windows (window_start, kind, report_count)
+      VALUES (${windowStart}, 'schedule-load-failed', 1)
+      ON CONFLICT (window_start, kind) DO UPDATE SET
+        report_count = notification_client_error_windows.report_count + 1
+      RETURNING report_count
+    `
+    await sql`DELETE FROM notification_client_error_windows WHERE window_start < NOW() - INTERVAL '7 days'`
+    const reportCount = Number(rows[0]?.report_count ?? 0)
+    if (reportCount < 5) return
+
+    const incidentKey = "client-schedule-load-failures"
+    const claimed = await sql`
+      INSERT INTO notification_incidents (incident_key, last_sent_at)
+      VALUES (${incidentKey}, NOW())
+      ON CONFLICT (incident_key) DO UPDATE SET last_sent_at = NOW()
+      WHERE notification_incidents.last_sent_at < NOW() - INTERVAL '6 hours'
+      RETURNING incident_key
+    `
+    if (!claimed.length) return
+
+    await sendEmail(
+      "赛道时刻：近期出现赛历加载失败",
+      "最近 10 分钟内至少收到 5 次浏览器赛历加载失败报告。若这不是你预期的维护，请检查 api.schedule 与客户端网络错误日志。",
+      "<p>最近 10 分钟内至少收到 5 次浏览器赛历加载失败报告。</p><p>若这不是你预期的维护，请检查 Vercel Runtime Logs 中的 <code>api.schedule</code> 相关记录。</p>",
+      `racecalendar-client-schedule-alert-${Math.floor(Date.now() / (6 * 60 * 60 * 1000))}`,
+      "client-incident",
+    )
+    logServerWarn("notifications.client_schedule_incident_email_sent", { reportCount, dedupeHours: 6 })
+  } catch (error) {
+    logServerError("notifications.client_schedule_report_failed", {}, error)
+  }
+}
+
 export async function sendMonthlyHealthReport() {
   const today = shanghaiDate()
-  if (today.slice(-2) !== "01") return { sent: false, reason: "not-report-day" }
-
   const range = previousMonthRange(today)
   const sql = await getNotificationSql()
   const claimed = await sql`
@@ -171,11 +230,62 @@ export async function sendMonthlyHealthReport() {
       `${monthLabel}赛历服务摘要\n${lines}\n\n统计来自用户访问时的赛历可用性采样，不代表持续探测或完整站点运行时间。`,
       `<p>${monthLabel}赛历服务摘要</p><ul>${htmlRows}</ul><p>统计来自用户访问时的赛历可用性采样，不代表持续探测或完整站点运行时间。</p>`,
       `racecalendar-monthly-report-${range.key}`,
+      "monthly-report",
     )
     logServerInfo("notifications.monthly_report_sent", { month: range.key })
     return { sent: true, month: range.key }
   } catch (error) {
     await sql`DELETE FROM notification_monthly_reports WHERE month = ${range.key}`.catch(() => [])
     throw error
+  }
+}
+
+export async function sendAdminTestEmail() {
+  const sql = await getNotificationSql()
+  const claimed = await sql`
+    INSERT INTO notification_incidents (incident_key, last_sent_at)
+    VALUES ('admin-email-test', NOW())
+    ON CONFLICT (incident_key) DO UPDATE SET last_sent_at = NOW()
+    WHERE notification_incidents.last_sent_at < NOW() - INTERVAL '1 minute'
+    RETURNING incident_key
+  `
+  if (!claimed.length) throw new Error("测试邮件发送过于频繁，请一分钟后再试")
+
+  try {
+    await sendEmail(
+      "赛道时刻：邮件配置测试成功",
+      "这是一封由后台手动触发的测试邮件。Resend 已接受发送请求。",
+      "<p>这是一封由后台手动触发的测试邮件。</p><p>Resend 已接受发送请求。</p>",
+      `racecalendar-admin-email-test-${Math.floor(Date.now() / 60_000)}`,
+      "admin-test",
+    )
+    logServerInfo("notifications.admin_test_email_accepted")
+  } catch (error) {
+    await sql`DELETE FROM notification_incidents WHERE incident_key = 'admin-email-test'`.catch(() => [])
+    throw error
+  }
+}
+
+export async function getNotificationMonitorSnapshot() {
+  const sql = await getNotificationSql()
+  const [health, incidents, monthly, clientErrors, emails] = await Promise.all([
+    sql`SELECT day, series, check_count, failure_count FROM notification_health_daily WHERE day >= CURRENT_DATE - 30 ORDER BY day DESC, series ASC LIMIT 120`,
+    sql`SELECT incident_key, last_sent_at FROM notification_incidents WHERE incident_key <> 'admin-email-test' ORDER BY last_sent_at DESC LIMIT 20`,
+    sql`SELECT month, sent_at FROM notification_monthly_reports ORDER BY month DESC LIMIT 12`,
+    sql`SELECT kind, SUM(report_count)::int AS report_count, MAX(window_start) AS latest_at FROM notification_client_error_windows WHERE window_start >= NOW() - INTERVAL '24 hours' GROUP BY kind ORDER BY latest_at DESC`,
+    sql`SELECT category, accepted_at FROM notification_email_log ORDER BY accepted_at DESC LIMIT 20`,
+  ])
+  return {
+    config: {
+      apiKey: Boolean(process.env.RESEND_API_KEY),
+      from: Boolean(process.env.RESEND_FROM_EMAIL),
+      recipient: Boolean(process.env.ALERT_MAIL_TO),
+    },
+    health,
+    incidents,
+    monthly,
+    clientErrors,
+    emails,
+    fetchedAt: new Date().toISOString(),
   }
 }

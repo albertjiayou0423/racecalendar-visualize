@@ -1,11 +1,12 @@
 "use client"
 
 import { DatabaseInspector } from "@/components/database-inspector"
+import { AdminEmailMonitor } from "@/components/admin-email-monitor"
 
 import { useState, useEffect, useCallback } from "react"
 import {
   Activity, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Clock,
-  Database, Edit3, Eye, Lock, LogOut, MessageSquare, Play, RefreshCw, Save, Server,
+  Database, Edit3, Eye, Lock, LogOut, Mail, MessageSquare, Play, RefreshCw, Save, Server,
   Trash2, X, Zap
 } from "lucide-react"
 import {
@@ -47,7 +48,7 @@ interface Override {
   updatedAt: string
 }
 
-type TabId = "status" | "crawl" | "overrides" | "preview" | "feedback" | "database"
+type TabId = "status" | "crawl" | "overrides" | "preview" | "feedback" | "database" | "mail"
 
 // ─── 常量 ───────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ const TABS: { id: TabId; label: string; icon: typeof Server }[] = [
   { id: "overrides", label: "数据覆盖", icon: Database },
   { id: "preview", label: "数据预览", icon: Eye },
   { id: "database", label: "数据库检查", icon: Database },
+  { id: "mail", label: "邮件通知", icon: Mail },
   { id: "feedback", label: "用户建议", icon: MessageSquare },
 ]
 
@@ -565,6 +567,7 @@ export function AdminPanel() {
           />
         )}
         {activeTab === "database" && <DatabaseInspector onUnauthorized={handleLogout} />}
+        {activeTab === "mail" && <AdminEmailMonitor onUnauthorized={handleLogout} />}
         {activeTab === "feedback" && (
           <FeedbackTab
             feedbacks={feedbacks}
