@@ -8,11 +8,14 @@ import { BEIJING_TZ, SERIES_META, formatDate, formatDateTime, mainSession } from
 import { isTimeUnconfirmed } from "@/lib/session-time"
 import { downloadFile } from "@/lib/download"
 import { getTrackFlightRoute } from "@/lib/track-flight"
-import { createTrackFlightScene, disposeTrackFlightScene, renderTrackFlightFrame } from "@/lib/track-flight-scene"
+import { pointAtDistance, prepareTrackDrawing, smoothstep, type TrackDrawing } from "@/lib/track-flight-drawing"
 
 const WIDTH = 720
 const HEIGHT = 1280
 const DURATION_MS = 22_000
+const INTRO_DURATION_MS = 2_100
+const DRAW_DURATION_MS = 15_400
+const CAMERA_PULLBACK_MS = 2_500
 const FPS = 30
 
 const COLORS: Record<RaceEvent["series"], string> = {
@@ -36,11 +39,39 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, x: number, y: numb
   ctx.fillText(text, x, y)
 }
 
-function drawOverlay(canvas: HTMLCanvasElement, sceneCanvas: HTMLCanvasElement, event: RaceEvent, route: ReturnType<typeof getTrackFlightRoute>, metadata: { year: string; date: string; beijingTime: string; uncertain: boolean }, elapsed: number) {
+function drawOverlay(canvas: HTMLCanvasElement, event: RaceEvent, route: ReturnType<typeof getTrackFlightRoute>, track: TrackDrawing, metadata: { year: string; date: string; beijingTime: string; uncertain: boolean }, elapsed: number, drawingProgress: number) {
   const ctx = canvas.getContext("2d", { alpha: false })
   if (!ctx) return
   const accent = COLORS[event.series]
-  const reveal = clamp(elapsed / 900, 0, 1)
+  const drawProgress = clamp(drawingProgress, 0, 1)
+  const introProgress = smoothstep(elapsed / INTRO_DURATION_MS)
+  const drawingEndsAt = INTRO_DURATION_MS + DRAW_DURATION_MS
+  const cameraPullback = smoothstep((elapsed - drawingEndsAt) / CAMERA_PULLBACK_MS)
+  const reveal = smoothstep((elapsed - drawingEndsAt - CAMERA_PULLBACK_MS + 250) / 850)
+  const tip = pointAtDistance(track, track.length * drawProgress)
+  const tangentBefore = pointAtDistance(track, Math.max(0, track.length * drawProgress - 1.5))
+  const tangentAfter = pointAtDistance(track, Math.min(track.length, track.length * drawProgress + 1.5))
+  const dx = tangentAfter.x - tangentBefore.x
+  const dy = tangentAfter.y - tangentBefore.y
+  const tangentLength = Math.max(Math.hypot(dx, dy), 0.001)
+  const tangent = { x: dx / tangentLength, y: dy / tangentLength }
+  const followZoom = Math.max(track.fitScale * 2.15, 0.78)
+  const zoomIn = track.fitScale + (followZoom - track.fitScale) * introProgress
+  const zoom = zoomIn + (track.fitScale - zoomIn) * cameraPullback
+  const followCenter = { x: tip.x - tangent.x * 150, y: tip.y - tangent.y * 150 }
+  const zoomCenter = {
+    x: track.center.x + (followCenter.x - track.center.x) * introProgress,
+    y: track.center.y + (followCenter.y - track.center.y) * introProgress,
+  }
+  const cameraCenter = {
+    x: zoomCenter.x + (track.center.x - zoomCenter.x) * cameraPullback,
+    y: zoomCenter.y + (track.center.y - zoomCenter.y) * cameraPullback,
+  }
+  const viewCenterY = 520 + 100 * introProgress - 100 * cameraPullback
+  const toScreen = (point: { x: number; y: number }) => ({
+    x: WIDTH / 2 + (point.x - cameraCenter.x) * zoom,
+    y: viewCenterY - (point.y - cameraCenter.y) * zoom,
+  })
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT)
   const background = ctx.createLinearGradient(0, 0, 0, HEIGHT)
@@ -55,51 +86,111 @@ function drawOverlay(canvas: HTMLCanvasElement, sceneCanvas: HTMLCanvasElement, 
   ctx.fillStyle = accentWash
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-  ctx.save()
-  ctx.globalAlpha = 0.48
-  ctx.filter = "blur(16px)"
-  ctx.drawImage(sceneCanvas, 0, 0, WIDTH, HEIGHT)
-  ctx.restore()
-  ctx.drawImage(sceneCanvas, 0, 0, WIDTH, HEIGHT)
+  const visibleDistance = track.length * drawProgress
+  const start = track.points[0]
+  const startNext = track.points[1] ?? start
+  const startDx = startNext.x - start.x
+  const startDy = startNext.y - start.y
+  const startLength = Math.max(Math.hypot(startDx, startDy), 0.001)
+  const startSide = { x: -startDy / startLength * 25, y: startDx / startLength * 25 }
+  const startA = toScreen({ x: start.x - startSide.x, y: start.y - startSide.y })
+  const startB = toScreen({ x: start.x + startSide.x, y: start.y + startSide.y })
 
-  const topShade = ctx.createLinearGradient(0, 0, 0, 310)
-  topShade.addColorStop(0, "#070a0dcc")
-  topShade.addColorStop(1, "#070a0d00")
-  ctx.fillStyle = topShade
-  ctx.fillRect(0, 0, WIDTH, 310)
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
+  ctx.strokeStyle = "#f4f6f8"
+  ctx.lineWidth = 2
+  ctx.globalAlpha = 0.88
+  ctx.beginPath(); ctx.moveTo(startA.x, startA.y); ctx.lineTo(startB.x, startB.y); ctx.stroke()
 
-  const bottomShade = ctx.createLinearGradient(0, 900, 0, HEIGHT)
-  bottomShade.addColorStop(0, "#070a0d00")
-  bottomShade.addColorStop(1, "#070a0df2")
-  ctx.fillStyle = bottomShade
-  ctx.fillRect(0, 900, WIDTH, HEIGHT - 900)
+  if (drawProgress > 0) {
+    ctx.beginPath()
+    const firstScreen = toScreen(track.points[0])
+    ctx.moveTo(firstScreen.x, firstScreen.y)
+    for (let index = 1; index < track.points.length && track.distances[index] < visibleDistance; index++) {
+      const point = toScreen(track.points[index])
+      ctx.lineTo(point.x, point.y)
+    }
+    const tipScreen = toScreen(tip)
+    ctx.lineTo(tipScreen.x, tipScreen.y)
+    if (drawProgress >= 1 && track.closed) ctx.closePath()
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 5.5
+    ctx.shadowColor = accent
+    ctx.shadowBlur = 20
+    ctx.stroke()
+    ctx.shadowBlur = 0
 
-  ctx.globalAlpha = reveal
-  ctx.fillStyle = `${accent}e8`
-  ctx.beginPath(); ctx.roundRect(44, 48, 94, 42, 21); ctx.fill()
-  ctx.font = "700 22px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
-  ctx.fillStyle = "#ffffff"; ctx.fillText(event.series, 66, 77)
-  ctx.font = "600 18px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
-  ctx.fillStyle = "#e1e6e9"; ctx.fillText(`${metadata.year}  /  ROUND ${String(event.round).padStart(2, "0")}`, 158, 76)
-  ctx.textAlign = "right"; ctx.fillStyle = "#ffffffb8"; ctx.fillText("AERIAL CAMERA", 676, 76); ctx.textAlign = "left"
+    if (drawProgress < 1 && elapsed >= INTRO_DURATION_MS && reveal === 0) {
+      ctx.beginPath()
+      ctx.arc(tipScreen.x, tipScreen.y, 5.5, 0, Math.PI * 2)
+      ctx.fillStyle = "#ffffff"
+      ctx.shadowColor = accent
+      ctx.shadowBlur = 18
+      ctx.fill()
+      ctx.shadowBlur = 0
+    }
+  }
 
-  fitText(ctx, event.name, 44, 166, 632, 44, "#ffffff", 760)
-  ctx.font = "400 20px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
-  ctx.fillStyle = "#edf1f2"; ctx.fillText(`${event.locality} · ${event.country}`, 46, 207)
-  ctx.font = "500 15px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
-  ctx.fillStyle = "#ffffffc7"; ctx.fillText(route.sourceLabel, 46, 246)
+  const titleMorph = smoothstep((elapsed - 650) / 1_400)
+  const titleOpacity = 1 - smoothstep((elapsed - 750) / 1_250)
+  if (titleOpacity > 0) {
+    const startScreen = toScreen(track.points[0] ?? { x: 0, y: 0 })
+    const titleX = WIDTH / 2 + (startScreen.x - WIDTH / 2) * titleMorph
+    const titleY = 500 + (startScreen.y - 500) * titleMorph
+    ctx.save()
+    ctx.globalAlpha = titleOpacity
+    ctx.filter = `blur(${titleMorph * 10}px)`
+    ctx.translate(titleX, titleY)
+    ctx.scale(1 - titleMorph * 0.94, 1 - titleMorph * 0.94)
+    ctx.textAlign = "center"
+    ctx.fillStyle = accent
+    ctx.font = "700 17px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    ctx.fillText(`${event.series}  /  ROUND ${String(event.round).padStart(2, "0")}`, 0, -40)
+    fitText(ctx, event.name, 0, 12, WIDTH - 80, 46, "#ffffff", 760)
+    ctx.font = "400 18px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    ctx.fillStyle = "#dce2e5"
+    ctx.fillText(`${event.locality} · ${event.country}`, 0, 50)
+    ctx.restore()
+    ctx.filter = "none"
+    ctx.textAlign = "left"
+  }
 
-  ctx.font = "500 13px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#ffffffb0"
-  ctx.fillText("无人机前视 · 路线几何仅作视觉参考", 46, 1190)
-  ctx.textAlign = "right"; ctx.fillText("赛道时刻", 674, 1190); ctx.textAlign = "left"
+  const penReveal = smoothstep((elapsed - 650) / 650)
+  const penExit = smoothstep((elapsed - INTRO_DURATION_MS + 100) / 260)
+  const penOpacity = penReveal * (1 - penExit)
+  if (penOpacity > 0 && reveal === 0) {
+    const pen = toScreen(track.points[0] ?? { x: 0, y: 0 })
+    ctx.globalAlpha = penOpacity
+    ctx.beginPath()
+    ctx.arc(pen.x, pen.y, 3.2, 0, Math.PI * 2)
+    ctx.fillStyle = "#ffffff"
+    ctx.shadowColor = accent
+    ctx.shadowBlur = 16
+    ctx.fill()
+    ctx.shadowBlur = 0
+  }
 
-  const closing = clamp((elapsed - DURATION_MS + 2800) / 1800, 0, 1)
-  if (closing > 0) {
-    ctx.globalAlpha = closing * 0.96
-    ctx.fillStyle = "#070a0d"
-    ctx.fillRect(0, 1128, WIDTH, 152)
-    ctx.textAlign = "center"; ctx.font = "600 17px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#ffffff"
-    ctx.fillText("下一站，现场见", WIDTH / 2, 1214); ctx.textAlign = "left"
+  if (reveal > 0) {
+    ctx.globalAlpha = reveal
+    ctx.fillStyle = `${accent}e8`
+    ctx.beginPath(); ctx.roundRect(44, 894, 88, 38, 19); ctx.fill()
+    ctx.font = "700 20px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    ctx.fillStyle = "#ffffff"; ctx.fillText(event.series, 63, 920)
+    ctx.font = "600 15px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    ctx.fillStyle = "#ffffffb8"; ctx.fillText(`${metadata.year}  /  ROUND ${String(event.round).padStart(2, "0")}`, 148, 919)
+    ctx.textAlign = "right"; ctx.fillText("ROUTE COMPLETE", 676, 919); ctx.textAlign = "left"
+    fitText(ctx, event.name, 44, 988, 632, 44, "#ffffff", 760)
+    ctx.font = "400 19px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    ctx.fillStyle = "#dce2e5"; ctx.fillText(`${event.locality} · ${event.country}`, 46, 1028)
+    ctx.font = "500 15px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    ctx.fillStyle = "#ffffffb8"; ctx.fillText(`当地时间 · ${metadata.date}`, 46, 1074)
+    ctx.fillStyle = metadata.uncertain ? "#ffffffb8" : "#ffffff"
+    fitText(ctx, `北京时间 · ${metadata.beijingTime}`, 46, 1110, 620, 15, metadata.uncertain ? "#ffffffb8" : "#ffffff", 500)
+    ctx.font = "500 13px Geist, 'PingFang SC', 'Microsoft YaHei', sans-serif"; ctx.fillStyle = "#ffffff88"
+    ctx.fillText(`${route.sourceLabel} · 仅作视觉参考`, 46, 1184)
+    ctx.textAlign = "right"; ctx.fillText("赛道时刻", 674, 1184); ctx.textAlign = "left"
   }
   ctx.globalAlpha = 1
 }
@@ -115,11 +206,47 @@ function chooseMimeType() {
   ].find(type => MediaRecorder.isTypeSupported(type)) ?? ""
 }
 
+function addAmbientScore(context: AudioContext, destination: MediaStreamAudioDestinationNode) {
+  const now = context.currentTime
+  const filter = context.createBiquadFilter()
+  filter.type = "lowpass"
+  filter.frequency.setValueAtTime(420, now)
+  filter.frequency.linearRampToValueAtTime(1_650, now + DURATION_MS / 1000)
+  filter.Q.value = 0.35
+
+  const master = context.createGain()
+  master.gain.setValueAtTime(0.002, now)
+  master.gain.linearRampToValueAtTime(0.075, now + DURATION_MS / 1000)
+  filter.connect(master)
+  master.connect(destination)
+
+  const tones: Array<{ start: number; end: number; gain: number }> = [
+    { start: 110, end: 110, gain: 0.24 },
+    { start: 164.81, end: 164.81, gain: 0.15 },
+    { start: 220, end: 220, gain: 0.08 },
+    { start: 261.63, end: 329.63, gain: 0.075 },
+    { start: 392, end: 523.25, gain: 0.018 },
+  ]
+  for (const tone of tones) {
+    const oscillator = context.createOscillator()
+    const level = context.createGain()
+    oscillator.type = "sine"
+    oscillator.frequency.setValueAtTime(tone.start, now)
+    oscillator.frequency.linearRampToValueAtTime(tone.end, now + DURATION_MS / 1000)
+    level.gain.value = tone.gain
+    oscillator.connect(level)
+    level.connect(filter)
+    oscillator.start(now)
+  }
+}
+
 export function TrackFlightShare({ event }: { event: RaceEvent }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
   const recordStartRef = useRef(0)
+  const previewStartRef = useRef(0)
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
   const visibleRef = useRef(true)
   const [recording, setRecording] = useState(false)
@@ -128,6 +255,7 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
   const [videoType, setVideoType] = useState("")
   const [error, setError] = useState<string | null>(null)
   const route = useMemo(() => getTrackFlightRoute(event), [event])
+  const track = useMemo(() => prepareTrackDrawing(route), [route])
   const main = mainSession(event)
   const metadata = useMemo(() => {
     const uncertain = !main || isTimeUnconfirmed(event, main)
@@ -147,26 +275,20 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
     if (!ctx) { setError("当前浏览器无法创建视频画布。"); return }
     const observer = new IntersectionObserver(([entry]) => { visibleRef.current = entry.isIntersecting }, { threshold: 0.05 })
     observer.observe(canvas)
-    let flight: ReturnType<typeof createTrackFlightScene>
-    try {
-      flight = createTrackFlightScene(route, event.series)
-    } catch (cause) {
-      setError(cause instanceof Error ? `3D 画面初始化失败：${cause.message}` : "当前设备无法启动 3D 画面，请更新浏览器后重试。")
-      observer.disconnect()
-      return
-    }
     const playhead = { value: 0 }
     const timeline = gsap.timeline({ repeat: -1, onRepeat: () => { playhead.value = 0 } })
-    timeline.to(playhead, { value: 1, duration: DURATION_MS / 1000, ease: "sine.inOut" })
+    timeline
+      .to(playhead, { value: 0, duration: INTRO_DURATION_MS / 1000, ease: "none" })
+      .to(playhead, { value: 1, duration: DRAW_DURATION_MS / 1000, ease: "power1.inOut" })
+      .to(playhead, { value: 1, duration: (DURATION_MS - INTRO_DURATION_MS - DRAW_DURATION_MS) / 1000, ease: "none" })
     timelineRef.current = timeline
     let frame = 0
-    const previewStarted = performance.now()
+    previewStartRef.current = performance.now()
     const tick = (now: number) => {
       const isRecording = recorderRef.current?.state === "recording"
       if (visibleRef.current || isRecording) {
-        const elapsed = isRecording ? now - recordStartRef.current : (now - previewStarted) % DURATION_MS
-        const rendered = renderTrackFlightFrame(flight, playhead.value)
-        drawOverlay(canvas, rendered.canvas, event, route, metadata, elapsed)
+        const elapsed = isRecording ? now - recordStartRef.current : (now - previewStartRef.current) % DURATION_MS
+        drawOverlay(canvas, event, route, track, metadata, elapsed, playhead.value)
         if (isRecording) {
           const nextProgress = Math.min(100, Math.floor(elapsed / DURATION_MS * 100))
           setProgress(current => current === nextProgress ? current : nextProgress)
@@ -183,13 +305,14 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
       if (timelineRef.current === timeline) timelineRef.current = null
       if (recorderRef.current?.state === "recording") recorderRef.current.stop()
       streamRef.current?.getTracks().forEach(track => track.stop())
-      disposeTrackFlightScene(flight)
+      void audioContextRef.current?.close()
+      audioContextRef.current = null
     }
-  }, [event, metadata, route])
+  }, [event, metadata, route, track])
 
   useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl) }, [videoUrl])
 
-  const record = useCallback(() => {
+  const record = useCallback(async () => {
     const canvas = canvasRef.current
     if (!canvas || typeof canvas.captureStream !== "function" || typeof MediaRecorder === "undefined") {
       setError("此浏览器暂不支持视频录制，可使用赛事分享卡片。")
@@ -200,21 +323,37 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
       setError("此浏览器没有可用的视频编码格式。请更新浏览器后重试。")
       return
     }
+    if (typeof window.AudioContext !== "function") {
+      setError("此浏览器不支持氛围音乐合成，无法生成带音乐的视频。")
+      return
+    }
     setError(null)
     setProgress(0)
     setVideoUrl(null)
+    let videoStream: MediaStream | null = null
+    let recordingStream: MediaStream | null = null
     try {
-      timelineRef.current?.repeat(0).restart()
-      const stream = canvas.captureStream(FPS)
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 })
+      videoStream = canvas.captureStream(FPS)
+      const audioContext = new window.AudioContext()
+      audioContextRef.current = audioContext
+      await audioContext.resume()
+      const destination = audioContext.createMediaStreamDestination()
+      addAmbientScore(audioContext, destination)
+      const audioTracks = destination.stream.getAudioTracks()
+      recordingStream = new MediaStream([...videoStream.getVideoTracks(), ...audioTracks])
+      const recorder = new MediaRecorder(recordingStream, { mimeType, videoBitsPerSecond: 5_000_000 })
       const chunks: BlobPart[] = []
       recorderRef.current = recorder
-      streamRef.current = stream
+      streamRef.current = recordingStream
       recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data) }
       recorder.onerror = () => {
         setError("录制中断，请关闭其他占用较多资源的页面后重试。")
         setRecording(false)
-        stream.getTracks().forEach(track => track.stop())
+        recordingStream?.getTracks().forEach(track => track.stop())
+        videoStream?.getTracks().forEach(track => track.stop())
+        void audioContextRef.current?.close()
+        audioContextRef.current = null
+        previewStartRef.current = performance.now()
         timelineRef.current?.repeat(-1).restart()
       }
       recorder.onstop = () => {
@@ -226,13 +365,25 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
           setProgress(100)
         }
         setRecording(false)
-        stream.getTracks().forEach(track => track.stop())
+        recordingStream?.getTracks().forEach(track => track.stop())
+        videoStream?.getTracks().forEach(track => track.stop())
+        void audioContextRef.current?.close()
+        audioContextRef.current = null
+        previewStartRef.current = performance.now()
+        timelineRef.current?.repeat(-1).restart()
       }
+      timelineRef.current?.repeat(0).restart()
       recordStartRef.current = performance.now()
+      previewStartRef.current = recordStartRef.current
       setRecording(true)
       recorder.start(250)
     } catch (cause) {
       setRecording(false)
+      recordingStream?.getTracks().forEach(track => track.stop())
+      videoStream?.getTracks().forEach(track => track.stop())
+      void audioContextRef.current?.close()
+      audioContextRef.current = null
+      previewStartRef.current = performance.now()
       timelineRef.current?.repeat(-1).restart()
       setError(cause instanceof Error ? cause.message : "无法开始录制，请重试。")
     }
@@ -260,7 +411,7 @@ export function TrackFlightShare({ event }: { event: RaceEvent }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 id={`track-flight-title-${event.id}`} className="text-sm font-medium">赛道飞行短片</h3>
-          <p className="mt-1 text-xs text-muted-foreground">22 秒竖屏无人机前视镜头，只显示赛道线；可下载或分享。</p>
+          <p className="mt-1 text-xs text-muted-foreground">22 秒竖屏描线短片：赛事标题化作笔尖，镜头跟随赛道线，氛围音乐渐强后显示赛事信息。</p>
         </div>
         {!videoUrl && (
           <button type="button" onClick={record} disabled={recording} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60">
