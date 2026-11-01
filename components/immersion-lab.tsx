@@ -135,7 +135,7 @@ export function ImmersionLabCase({ id, fullscreen = false, basePath = "/playgrou
 
   return <article className="border-t border-border py-7" aria-label={item.name}>
     <div className="mb-4"><h2 className="text-base font-medium">{item.name}</h2><p className="mt-1 text-xs leading-6 text-muted-foreground">{item.description}</p></div>
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="immersion-case-layout grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <section className="min-w-0" aria-label={`${item.name}预览`}>{visual}</section>
       <section aria-label={`${item.name}参数`}>{controls}</section>
     </div>
@@ -143,7 +143,7 @@ export function ImmersionLabCase({ id, fullscreen = false, basePath = "/playgrou
 }
 
 export function ImmersionLab({basePath = "/playground"}:{basePath?:string} = {}) {
-  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+  return <main className="immersion-lab-page mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <Link className="text-xs text-muted-foreground hover:text-foreground" href={basePath}>返回组件 Playground</Link>
     <h1 className="mt-5 text-2xl font-semibold">沉浸与仪式感测试</h1>
     <TiltDiagnostics />
