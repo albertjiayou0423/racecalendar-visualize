@@ -8,7 +8,7 @@ import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { EditionEntry } from "@/app/new/components/edition-entry"
-import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
+import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, CalendarClock, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 import {
@@ -26,6 +26,7 @@ import { NextRacePreview } from "@/components/next-race-preview"
 import { CountdownAutoEntry } from "@/components/countdown-auto-entry"
 import { MonthView } from "@/components/month-view"
 import { WeekView } from "@/components/week-view"
+import { WeekendView } from "@/components/weekend-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -103,7 +104,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
 type SeasonFilter = "current-next" | "all" | number
-type ViewMode = "list" | "week" | "month"
+type ViewMode = "list" | "week" | "month" | "weekend"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -275,7 +276,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // 全局键盘快捷键：/ 聚焦搜索 · j/k 列表焦点 · 1/2/3 切换视图
+  // 全局键盘快捷键：/ 聚焦搜索 · j/k 列表焦点 · 1–4 切换视图
   useEffect(() => {
     const moveListFocus = (dir: 1 | -1) => {
       const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-event-card]"))
@@ -313,6 +314,9 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       } else if (e.key === "3") {
         e.preventDefault()
         setView("month")
+      } else if (e.key === "4") {
+        e.preventDefault()
+        setView("weekend")
       }
     }
     window.addEventListener("keydown", handleKeydown)
@@ -489,6 +493,21 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               >
                 <LayoutGrid className="size-3.5" />
                 月历
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("weekend")}
+                aria-label="比赛周末视图"
+                aria-pressed={view === "weekend"}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  view === "weekend"
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CalendarClock className="size-3.5" />
+                周末
               </button>
             </div>
             {data && !playground ? <NotificationManager events={allEvents} /> : null}
@@ -679,6 +698,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           <MonthView events={filtered} now={now} />
         ) : null}
 
+        {/* 比赛周末：按赛事聚合该站跨日场次 */}
+        {!isLoading && !error && view === "weekend" ? (
+          <WeekendView events={filtered} now={now} />
+        ) : null}
+
         {/* 列表 */}
         {!isLoading && !error && view === "list" ? (
           <section className="flex flex-col gap-3" aria-label="赛程列表">
@@ -769,7 +793,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.3.3 · 赛程更新
+            v2.3.4 · 比赛周末视图
           </Link>
           {!playground && <UsageGuideButton />}
           {!playground && <EditionEntry />}

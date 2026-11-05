@@ -11,6 +11,15 @@ type ChangelogEntry = {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: "v2.3.4",
+    date: "2026-11-05",
+    items: [
+      { type: "feat", text: "新增比赛周末视图，按赛事分站汇总 F1、FE 和 WRC 的跨日场次，统一以北京时间排列并附已确认场次的当地时间" },
+      { type: "ui", text: "旧版与新版首页均可在列表、周、月历之间切换到比赛周末视图；支持前后切站及进入赛事详情" },
+      { type: "fix", text: "沉浸倒计时的移动端震动不再受系统减少动态效果设置影响；Android Chrome 自动进入前若尚无用户操作，会在首次触屏操作时补发触感反馈" },
+    ],
+  },
+  {
     version: "v2.3.3",
     date: "2026-10-31",
     items: [

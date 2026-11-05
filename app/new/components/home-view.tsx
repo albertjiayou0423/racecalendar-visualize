@@ -10,6 +10,7 @@ import { SimpleNextSession } from "./next-session"
 import { SimpleSourceStatus } from "./source-status"
 import { SimpleFilters } from "./filters"
 import { SimpleCalendar } from "./calendar"
+import { WeekendView } from "@/components/weekend-view"
 import { SimpleEventCard } from "./event-card"
 import { SimpleFooter, SimpleReminder } from "./footer"
 import { SimpleLastResult } from "./event-extras"
@@ -29,7 +30,7 @@ export function SimpleHomeView({ serverTime }: { serverTime: number }) {
   const seen = useRef(new Set<string>())
   const events = data?.events ?? []
   const filtered = filterEvents(events, filters, favorites.ids, now)
-  const visible = view !== "list" && selected ? dayEvents(filtered, selected) : filtered
+  const visible = (view === "week" || view === "month") && selected ? dayEvents(filtered, selected) : filtered
   const upcoming = nextStart(filtered, now)
 
   useEffect(() => {
@@ -63,8 +64,8 @@ export function SimpleHomeView({ serverTime }: { serverTime: number }) {
       } else if (event.key.toLowerCase() === "f" && upcoming) {
         event.preventDefault()
         setActive(upcoming)
-      } else if (["1", "2", "3"].includes(event.key)) {
-        setView((["list", "week", "month"] as const)[Number(event.key) - 1])
+      } else if (["1", "2", "3", "4"].includes(event.key)) {
+        setView(event.key === "4" ? "weekend" : (["list", "week", "month"] as const)[Number(event.key) - 1])
       }
     }
     window.addEventListener("keydown", shortcut)
@@ -76,24 +77,25 @@ export function SimpleHomeView({ serverTime }: { serverTime: number }) {
     <SimpleNextSession start={upcoming} now={now} onStart={setActive} />
     <SimpleSourceStatus data={data} error={!!error} refreshing={isValidating} onRefresh={() => mutate()} />
     <SimpleReminder events={events} />
-    <SimpleFilters value={filters} noResults={!!data && !filtered.length} onChange={setFilters} view={view} onView={setView} />
+    <SimpleFilters value={filters} noResults={!!data && !filtered.length} onChange={setFilters} view={view} onView={nextView => { setView(nextView); if (nextView === "weekend") setSelected(null) }} />
     <SeriesRelay series={filters.series} />
     <DataState loading={isLoading && !data} error={!data ? error : undefined} retry={() => mutate()}>
-      {view !== "list" && <SimpleCalendar events={filtered} view={view} anchor={anchor} selected={selected} now={now} onAnchor={setAnchor} onSelect={setSelected} />}
-      {data && <p className="s-list-count" role="status">{view !== "list" && selected ? selected + " · " : ""}{visible.length} 场赛事</p>}
+      {(view === "week" || view === "month") && <SimpleCalendar events={filtered} view={view} anchor={anchor} selected={selected} now={now} onAnchor={setAnchor} onSelect={setSelected} />}
+      {view === "weekend" && <WeekendView events={filtered} now={now} variant="simple" />}
+      {data && view !== "weekend" && <p className="s-list-count" role="status">{view !== "list" && selected ? selected + " · " : ""}{visible.length} 场赛事</p>}
       {data && visible.length === 0 && <EmptyState
-        title={selected && view !== "list" ? "这一天没有赛事" : "暂无符合条件的赛事"}
-        description={selected && view !== "list" ? "选择其他日期，或查看全部赛程。" : "可以调整筛选，或刷新赛历后再试。"}
+        title={selected && (view === "week" || view === "month") ? "这一天没有赛事" : "暂无符合条件的赛事"}
+        description={selected && (view === "week" || view === "month") ? "选择其他日期，或查看全部赛程。" : "可以调整筛选，或刷新赛历后再试。"}
         action={<div className="s-inline">
-          {selected && <button type="button" className="s-link" onClick={() => setSelected(null)}>取消选日</button>}
+          {selected && (view === "week" || view === "month") && <button type="button" className="s-link" onClick={() => setSelected(null)}>取消选日</button>}
           <button type="button" className="s-link" onClick={() => { setFilters(DEFAULT_FILTERS); setSelected(null) }}>清除筛选</button>
         </div>}
       />}
-      {visible.map(event => <SimpleEventCard key={event.id} event={event} now={now} favorite={favorites.ids.includes(event.id)} onFavorite={() => favorites.toggle(event.id)} onStart={setActive} />)}
+      {view !== "weekend" && visible.map(event => <SimpleEventCard key={event.id} event={event} now={now} favorite={favorites.ids.includes(event.id)} onFavorite={() => favorites.toggle(event.id)} onStart={setActive} />)}
     </DataState>
     {!favorites.persisted && <p className="s-note" role="status">浏览器未允许保存，收藏仅在本次访问有效。</p>}
     {filters.series === "F1" && <SimpleLastResult />}
-    <p className="s-shortcuts">/ 搜索 · F 沉浸倒计时 · 1 列表 · 2 周 · 3 月</p>
+    <p className="s-shortcuts">/ 搜索 · F 沉浸倒计时 · 1 列表 · 2 周 · 3 月 · 4 周末</p>
     {data && visible.length > 0 && <RaceFarewell />}
     <SimpleFooter />
     <SimpleImmersionHost selection={active} onClose={() => setActive(null)} />

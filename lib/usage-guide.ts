@@ -23,7 +23,7 @@ export function getGuideSteps(pathname: string): GuideStep[] {
   if (pathname === "/") return [
     step('#search-input', "搜索赛事", "输入赛事名称、国家或城市，快速找到你想看的比赛。"),
     step('[aria-label="赛事系列"]', "选择赛事系列", "点击全部、F1、WRC 或 FE，筛选对应系列的赛程。"),
-    step('[data-guide="views"]', "切换赛历视图", "列表逐场查看，周视图安排一周观赛，月历查看整月赛事分布。"),
+    step('[data-guide="views"]', "切换赛历视图", "列表逐场查看，周视图安排一周观赛，月历查看整月分布；比赛周末视图按单站赛事汇总跨日场次。"),
     step('[aria-label="时间范围"]', "选择时间范围", "查看即将开始、全部或已结束的赛事。这个选项在列表视图中显示。"),
     step('[data-guide="advanced-filters"]', "高级筛选", "展开后可以按赛道类型和地区进一步筛选比赛。"),
     ...CARD_GUIDE_STEPS,
