@@ -8,7 +8,7 @@ import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { EditionEntry } from "@/app/new/components/edition-entry"
-import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, CalendarClock, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
+import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, CalendarClock, Code, Hash, ImageIcon, ArrowUp, Activity } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 import {
@@ -789,6 +789,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         >
           <Hash className="size-3.5" />
           赛道数据库
+        </Link>
+        <Link prefetch={!playground}
+          href="/status"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <Activity className="size-3.5" />
+          服务状态
         </Link>
         <Link prefetch={!playground}
             href="/about"
