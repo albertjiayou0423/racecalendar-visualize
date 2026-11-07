@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { usePlayground } from "./playground-context"
-import { Bell, BellOff, Check, Settings } from "lucide-react"
+import { Bell, BellOff, Check, Settings, X } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
 import { firstSession, formatTime, SERIES_META } from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
@@ -41,7 +41,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
   const timersRef = useRef<Map<string, number>>(new Map())
-  const panelRef = useRef<HTMLDivElement>(null)
+  const settingsDialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
     if (playground) return
@@ -62,16 +62,15 @@ export function NotificationManager({ events }: NotificationManagerProps) {
     }
   }, [])
 
-  // 点击外部关闭设置面板
   useEffect(() => {
-    if (!showSettings) return
-    const handleClick = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setShowSettings(false)
-      }
+    const dialog = settingsDialogRef.current
+    if (!dialog) return
+
+    if (showSettings && !dialog.open) {
+      dialog.showModal()
+    } else if (!showSettings && dialog.open) {
+      dialog.close()
     }
-    document.addEventListener("click", handleClick)
-    return () => document.removeEventListener("click", handleClick)
   }, [showSettings])
 
   useEffect(() => {
@@ -181,7 +180,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
   if (typeof window === "undefined" || !("Notification" in window)) return null
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div>
       <div className="flex items-center gap-1">
         <button
           onClick={toggleNotifications}
@@ -205,54 +204,84 @@ export function NotificationManager({ events }: NotificationManagerProps) {
             </>
           )}
         </button>
-        {enabled ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowSettings((v) => !v)
-            }}
-            className="inline-flex items-center justify-center rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-            aria-label="通知设置"
-          >
-            <Settings className="size-3.5" />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => setShowSettings(true)}
+          className="inline-flex items-center justify-center rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:border-primary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="打开设置"
+          title="设置"
+        >
+          <Settings className="size-3.5" />
+        </button>
       </div>
 
-      {showSettings ? (
-        <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-border bg-card p-3 shadow-lg">
-          <div className="mb-2 text-xs font-medium text-foreground">提醒时间</div>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={settings.remind60}
-                onChange={(e) => updateSettings("remind60", e.target.checked)}
-                className="size-4 rounded border-border"
-              />
-              赛前 1 小时
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={settings.remind15}
-                onChange={(e) => updateSettings("remind15", e.target.checked)}
-                className="size-4 rounded border-border"
-              />
-              赛前 15 分钟
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={settings.remind5}
-                onChange={(e) => updateSettings("remind5", e.target.checked)}
-                className="size-4 rounded border-border"
-              />
-              赛前 5 分钟
-            </label>
+      <dialog
+        ref={settingsDialogRef}
+        aria-labelledby="racecalendar-settings-title"
+        aria-describedby="racecalendar-settings-description"
+        onClose={() => setShowSettings(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) event.currentTarget.close()
+        }}
+        className="fixed inset-0 m-auto max-h-[85dvh] w-[min(calc(100vw_-_2rem),28rem)] max-w-none overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/65 backdrop:backdrop-blur-sm"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+          <div>
+            <h2 id="racecalendar-settings-title" className="text-base font-semibold">设置</h2>
+            <p id="racecalendar-settings-description" className="mt-1 text-xs text-muted-foreground">
+              管理赛前通知和提醒时间
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => settingsDialogRef.current?.close()}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="关闭设置"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
         </div>
-      ) : null}
+
+        <div className="space-y-5 p-5 sm:p-6">
+          <section aria-labelledby="notification-preferences-title" className="space-y-3">
+            <div>
+              <h3 id="notification-preferences-title" className="text-sm font-medium">比赛提醒</h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {permission === "denied"
+                  ? "浏览器通知权限已关闭，请在浏览器的网站设置中允许通知。"
+                  : enabled
+                    ? "通知已开启；提醒会在此设备的浏览器中触发。"
+                    : "开启上方的通知按钮后，将按选定时间提醒即将开始的赛事。"}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border bg-background/50 p-4">
+              <div className="mb-3 text-xs font-medium text-muted-foreground">提醒时间</div>
+              <div className="flex flex-col gap-3">
+                {([
+                  ["remind60", "赛前 1 小时"],
+                  ["remind15", "赛前 15 分钟"],
+                  ["remind5", "赛前 5 分钟"],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="flex min-h-8 items-center justify-between gap-3 text-sm">
+                    <span>{label}</span>
+                    <input
+                      type="checkbox"
+                      checked={settings[key]}
+                      onChange={(event) => updateSettings(key, event.target.checked)}
+                      className="size-4 accent-primary"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            提醒计划保存在当前浏览器中；浏览器关闭后是否送达取决于设备和浏览器能力。
+          </p>
+        </div>
+      </dialog>
     </div>
   )
 }

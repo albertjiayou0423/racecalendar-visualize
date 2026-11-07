@@ -455,10 +455,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="列表视图"
                 aria-pressed={view === "list"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "list"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <List className="size-3.5" />
@@ -470,10 +470,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="周视图"
                 aria-pressed={view === "week"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "week"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <CalendarRange className="size-3.5" />
@@ -485,10 +485,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="月视图"
                 aria-pressed={view === "month"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "month"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <LayoutGrid className="size-3.5" />
@@ -500,10 +500,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="比赛周末视图"
                 aria-pressed={view === "weekend"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "weekend"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <CalendarClock className="size-3.5" />
