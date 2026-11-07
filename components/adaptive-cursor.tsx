@@ -21,6 +21,34 @@ export function AdaptiveCursor() {
     const root = document.documentElement
     root.classList.add("has-fixed-cursor")
 
+    // A native modal dialog is painted in the browser's top layer, above every
+    // document z-index. Promote the cursor after a dialog opens so it remains
+    // visible over the usage guide and any future native modal overlays.
+    const syncTopLayer = () => {
+      const cursor = cursorRef.current
+      if (!cursor || typeof cursor.showPopover !== "function") return
+      const topLayerOverlay =
+        document.querySelector("dialog[open]") !== null || document.fullscreenElement !== null
+      try {
+        const alreadyPromoted = cursor.matches(":popover-open")
+        if (topLayerOverlay && alreadyPromoted) cursor.hidePopover()
+        if (!alreadyPromoted || topLayerOverlay) cursor.showPopover()
+      } catch {
+        // Keep the high-z-index fallback on browsers without top-layer popovers.
+      }
+    }
+    const dialogObserver = new MutationObserver(syncTopLayer)
+    const observeDialogs = () => {
+      document.querySelectorAll("dialog").forEach((dialog) => {
+        dialogObserver.observe(dialog, { attributes: true, attributeFilter: ["open"] })
+      })
+      syncTopLayer()
+    }
+    const bodyObserver = new MutationObserver(observeDialogs)
+    bodyObserver.observe(document.body, { childList: true })
+    observeDialogs()
+    document.addEventListener("fullscreenchange", syncTopLayer)
+
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === "touch") return
       x.set(event.clientX)
@@ -55,9 +83,17 @@ export function AdaptiveCursor() {
       window.removeEventListener("pointermove", onPointerMove)
       window.removeEventListener("blur", onPointerLeave)
       document.documentElement.removeEventListener("pointerleave", onPointerLeave)
+      document.removeEventListener("fullscreenchange", syncTopLayer)
+      bodyObserver.disconnect()
+      dialogObserver.disconnect()
+      try {
+        if (cursorRef.current?.matches(":popover-open")) cursorRef.current.hidePopover()
+      } catch {
+        // The element may already have left the top layer during unmount.
+      }
       root.classList.remove("has-fixed-cursor")
     }
   }, [opacity, x, y])
 
-  return <motion.div ref={cursorRef} className="adaptive-cursor" data-type="dot" style={{ transform, opacity }} aria-hidden="true" />
+  return <motion.div ref={cursorRef} popover="manual" className="adaptive-cursor" data-type="dot" style={{ transform, opacity }} aria-hidden="true" />
 }
