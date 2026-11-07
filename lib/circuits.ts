@@ -17,6 +17,8 @@ export interface CircuitDetail {
   turns?: number
   /** 比赛圈数（典型） */
   laps?: number
+  /** 该场拉力赛的赛段数（适用于 WRC 拉力，不等同于弯道数） */
+  stages?: number
   /** 首次使用年份 */
   firstUsed?: number
   /** 单圈纪录 */
@@ -108,8 +110,7 @@ export const CIRCUIT_DATABASE: Record<string, CircuitDetail> = {
     country: "摩纳哥",
     type: "rally",
     length: 324.44,
-    turns: 17,
-    laps: 17,
+    stages: 17,
     firstUsed: 1911,
     designer: "Traditional Rally",
     difficulty: 5,
@@ -179,19 +180,18 @@ export function buildCircuitDatabase(events: import("./types").RaceEvent[]): Cir
   const entries = new Map<string, CircuitDetail>(Object.entries(CIRCUIT_DATABASE))
   const eventGroups = new Map<string, import("./types").RaceEvent[]>()
   for (const event of events) {
-    const name = event.circuit?.trim() || event.name?.trim()
+    const name = event.series === "WRC" ? event.name?.trim() : event.circuit?.trim() || event.name?.trim()
     if (!name) continue
-    const groupKey = normalizeKey(`${name} ${event.locality} ${event.country}`)
+    const groupKey = normalizeKey(`${name} ${event.country}`)
     eventGroups.set(groupKey, [...(eventGroups.get(groupKey) ?? []), event])
   }
 
   for (const [groupKey, group] of eventGroups) {
     const event = group[0]
-    const nameEn = event.circuit?.trim() || event.name.trim()
+    const nameEn = event.series === "WRC" ? event.name.trim() : event.circuit?.trim() || event.name.trim()
     const known = [...entries.values()].find(item => {
-      const knownName = normalizeKey(item.nameEn)
-      const knownCity = normalizeKey(`${item.city} ${item.country}`)
-      return groupKey.includes(knownName) || knownName.includes(groupKey) || (knownCity && groupKey.includes(knownCity))
+      const aliases = [item.name, item.nameEn, item.id].map(normalizeKey).filter(Boolean)
+      return aliases.some(alias => groupKey.includes(alias) || alias.includes(groupKey))
     })
     const series = [...new Set(group.map(item => item.series))]
     const seasons = [...new Set(group.flatMap(item => {
@@ -201,7 +201,7 @@ export function buildCircuitDatabase(events: import("./types").RaceEvent[]): Cir
     const circuitId = known?.id ?? `calendar-${groupKey.replace(/\s+/g, "-").slice(0, 72) || `${event.series.toLowerCase()}-${event.round}`}`
     const base = known ?? {
       id: circuitId,
-      name: event.circuit?.trim() || event.name,
+      name: event.series === "WRC" ? event.name : event.circuit?.trim() || event.name,
       nameEn,
       city: event.locality || "",
       country: event.country || "",

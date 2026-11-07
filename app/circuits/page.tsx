@@ -177,11 +177,11 @@ export default function CircuitsPage() {
 
               {c.series?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{c.series.map(series => <span key={series} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{SERIES_LABELS[series]}</span>)}{c.seasons?.length ? <span className="px-1 py-0.5 text-[10px] text-muted-foreground">赛历覆盖 {c.seasons[0]}{c.seasons.length > 1 ? `–${c.seasons[c.seasons.length - 1]}` : ""}</span> : null}</div> : null}
 
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className={`mt-3 grid grid-cols-2 gap-2 ${c.type === "rally" ? "sm:grid-cols-4" : "sm:grid-cols-5"}`}>
                 <div className="rounded-lg bg-secondary/40 px-2 py-1.5">
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Hash className="size-2.5" />
-                    长度
+                    {c.type === "rally" ? "赛事路段总长" : "长度"}
                   </div>
                   <div className="mt-0.5 text-sm font-medium tabular-nums">
                     {c.length ? `${c.type === "rally" ? c.length.toFixed(0) : c.length.toFixed(3)} km` : "暂无数据"}
@@ -190,10 +190,10 @@ export default function CircuitsPage() {
                 <div className="rounded-lg bg-secondary/40 px-2 py-1.5">
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <TrendingUp className="size-2.5" />
-                    弯道
+                    {c.type === "rally" ? "赛段数" : "弯道"}
                   </div>
                   <div className="mt-0.5 text-sm font-medium tabular-nums">
-                    {c.turns ? `${c.turns} 个` : "暂无数据"}
+                    {c.type === "rally" ? (c.stages ? `${c.stages} 个` : "暂无数据") : c.turns ? `${c.turns} 个` : "暂无数据"}
                   </div>
                 </div>
                 <div className="rounded-lg bg-secondary/40 px-2 py-1.5">
@@ -205,13 +205,13 @@ export default function CircuitsPage() {
                     {c.firstUsed ?? "暂无数据"}
                   </div>
                 </div>
-                <div className="rounded-lg bg-secondary/40 px-2 py-1.5">
+                {c.type !== "rally" && <div className="rounded-lg bg-secondary/40 px-2 py-1.5">
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Calendar className="size-2.5" />
                     圈数 / 天数
                   </div>
                   <div className="mt-0.5 text-sm font-medium tabular-nums">{c.laps ?? "暂无数据"}</div>
-                </div>
+                </div>}
                 <div className="rounded-lg bg-secondary/40 px-2 py-1.5">
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     难度
