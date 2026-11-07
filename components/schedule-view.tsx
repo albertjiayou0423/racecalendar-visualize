@@ -759,7 +759,9 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         <FeedbackButton />
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2">
+      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
+
+      <div className="flex flex-wrap justify-start gap-2">
         <Link prefetch={!playground}
           href="/standings"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
@@ -806,7 +808,6 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </Link>
       </div>
 
-      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
       <footer className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         <p>
           时间说明：F1 与 Formula E 场次时间来自官方公开接口并换算为北京时间（UTC+8）；WRC

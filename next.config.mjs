@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+import { withSentryConfig } from '@sentry/nextjs/config'
+
 const nextConfig = {
   async headers() {
     return [...["/api/admin/:path*", "/api/feedback", "/admin"].map(source => ({
@@ -17,4 +19,10 @@ const nextConfig = {
   ],
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  org: 'huo-sai',
+  project: 'racecalendar',
+  silent: !process.env.CI,
+  disableLogger: true,
+  sourcemaps: { disable: true },
+})
