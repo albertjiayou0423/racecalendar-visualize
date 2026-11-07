@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 }
 
 const STATUS_PAGE_URL = "https://racecalendar-huosai.openstatus.dev/"
-const EMBED_URL = `${STATUS_PAGE_URL}?embed=all&theme=dark`
+const EMBED_URL = `${STATUS_PAGE_URL}?embed=banner,components&theme=dark`
 
 export default function StatusPage() {
   return (

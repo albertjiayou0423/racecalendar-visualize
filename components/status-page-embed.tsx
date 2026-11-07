@@ -25,7 +25,7 @@ export function StatusPageEmbed({ src }: StatusPageEmbedProps) {
       <iframe
         src={src}
         title="赛道时刻服务状态"
-        className="h-[min(82svh,980px)] min-h-[820px] w-full border-0 bg-background sm:min-h-[720px]"
+        className="h-[280px] w-full border-0 bg-background sm:h-[300px]"
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
       />
