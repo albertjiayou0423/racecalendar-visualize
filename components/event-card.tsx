@@ -253,7 +253,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           {/* 名称与地点 */}
           <div className="min-w-0 flex-1" onMouseLeave={() => setShowClientInfo(false)}>
             <h3 className="flex items-center gap-2 text-balance text-base font-semibold leading-tight">
-              <span className="truncate">{event.name}</span>
+              <span className="truncate" title={event.originalName ? `原名：${event.originalName}` : undefined}>{event.name}</span>
               {event.clientData && <button type="button" aria-label="查看客户端补充数据来源" aria-expanded={showClientInfo} onMouseEnter={() => setShowClientInfo(true)} onClick={() => setShowClientInfo(value => !value)} title={`客户端自动补缺，尚未经服务端独立核验。上传时间：${new Date(event.clientData.uploadedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}；场次：${event.clientData.sessions.join("、")}；来源：${event.clientData.sourceUrl}`} className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-[11px] font-serif text-muted-foreground hover:border-primary hover:text-primary">i</button>}
               {isLiveNow && (
                 <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-500">
@@ -511,7 +511,8 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           {/* 模态框内容 */}
           <div
             ref={detailRef}
-            className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
+            data-modal-panel
+            className="relative z-10 max-h-[min(85dvh,48rem)] w-full max-w-lg touch-pan-y overscroll-contain overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -527,7 +528,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                   {meta.label}
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold leading-tight">{event.name}</h3>
+                  <h3 className="text-sm font-semibold leading-tight" title={event.originalName ? `原名：${event.originalName}` : undefined}>{event.name}</h3>
                   <p className="text-xs text-muted-foreground">
                     {event.circuit} · {event.locality}，{event.country}
                   </p>

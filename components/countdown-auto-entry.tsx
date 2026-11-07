@@ -5,12 +5,14 @@ import type { RaceEvent } from '@/lib/types'
 import { countdownCandidate, countdownKey } from '@/lib/countdown-entry'
 import { ImmersiveCountdown } from './immersive-countdown'
 import { WrcCountdownSequence } from './wrc-countdown-sequence'
+import { useAppPreferences } from '@/lib/app-preferences'
 export function CountdownAutoEntry({ events, now }: { events: RaceEvent[]; now: number }) {
   const pathname = usePathname()
+  const { preferences, hydrated } = useAppPreferences()
   const seen = useRef(new Set<string>())
   const [active, setActive] = useState<ReturnType<typeof countdownCandidate>>()
   useEffect(() => {
-    if (pathname !== '/' || active || document.visibilityState !== 'visible' || document.querySelector('[aria-modal="true"]')) return
+    if (!hydrated || !preferences.autoImmersiveCountdown || pathname !== '/' || active || document.visibilityState !== 'visible' || document.querySelector('[aria-modal="true"]')) return
     const candidate = countdownCandidate(events, now)
     if (!candidate) return
     const key = countdownKey(candidate.event, candidate.session.utc)
@@ -19,7 +21,7 @@ export function CountdownAutoEntry({ events, now }: { events: RaceEvent[]; now: 
     seen.current.add(key)
     try { sessionStorage.setItem(key, '1') } catch { /* In-memory guard remains. */ }
     setActive(candidate)
-  }, [events, now, pathname, active])
+  }, [events, now, pathname, active, preferences.autoImmersiveCountdown, hydrated])
   if (!active || pathname !== '/') return null
   if (active.event.series === 'WRC') return <WrcCountdownSequence entrance event={active.event} session={active.session} onClose={() => setActive(undefined)} />
   return <ImmersiveCountdown entrance targetTime={active.session.utc} timeZone={active.event.tz} series={active.event.series} isRace={!!active.session.isMain} title={`${active.event.name} · ${active.session.name}`} onClose={() => setActive(undefined)} />

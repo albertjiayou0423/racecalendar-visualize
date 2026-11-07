@@ -23,6 +23,8 @@ export interface Broadcaster {
 }
 
 export interface RaceEvent {
+  /** Original provider name when the client applies a display-only translation. */
+  originalName?: string
   clientData?: { uploadedAt: string; sourceUrl: string; sessions: string[] }
   id: string
   series: Series

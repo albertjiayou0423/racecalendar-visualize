@@ -10,15 +10,15 @@ export interface CircuitDetail {
   city: string
   country: string
   /** 赛道类型 */
-  type: "street" | "permanent" | "hybrid" | "rally"
+  type: "street" | "permanent" | "hybrid" | "rally" | "unknown"
   /** 长度（km） */
-  length: number
+  length?: number
   /** 弯道数 */
-  turns: number
+  turns?: number
   /** 比赛圈数（典型） */
-  laps: number
+  laps?: number
   /** 首次使用年份 */
-  firstUsed: number
+  firstUsed?: number
   /** 单圈纪录 */
   lapRecord?: {
     time: string
@@ -32,9 +32,16 @@ export interface CircuitDetail {
   /** 当前合同时长到期 */
   contractUntil?: number
   /** 难度等级 1-5 */
-  difficulty: 1 | 2 | 3 | 4 | 5
+  difficulty?: 1 | 2 | 3 | 4 | 5
   /** 描述 */
-  description: string
+  description?: string
+  /** Current and historical series represented in the public schedule. */
+  series?: ("F1" | "WRC" | "FE")[]
+  seasons?: number[]
+  lat?: number
+  lon?: number
+  /** Record was inferred from the schedule, so unavailable engineering data is intentionally omitted. */
+  scheduleDerived?: boolean
   /** Wikipedia URL */
   wikipediaUrl?: string
 }
@@ -148,4 +155,76 @@ export function findCircuitDetail(circuitName: string): CircuitDetail | null {
 
 export function getAllCircuits(): CircuitDetail[] {
   return Object.values(CIRCUIT_DATABASE)
+}
+
+function normalizeKey(value: string) {
+  return value.normalize("NFKD").toLowerCase().replace(/[^a-z0-9\p{Script=Han}]+/gu, " ").trim()
+}
+
+function scheduleLength(value?: string): number | undefined {
+  if (!value) return undefined
+  const match = value.match(/(\d+(?:\.\d+)?)\s*km/i)
+  const length = match ? Number(match[1]) : NaN
+  return Number.isFinite(length) && length > 0 && length < 1000 ? length : undefined
+}
+
+function scheduleLaps(value?: string): number | undefined {
+  if (!value) return undefined
+  const laps = Number(value.match(/\d+/)?.[0])
+  return Number.isInteger(laps) && laps > 0 && laps < 200 ? laps : undefined
+}
+
+/** Merge the curated reference entries with all venues present in the live schedule. */
+export function buildCircuitDatabase(events: import("./types").RaceEvent[]): CircuitDetail[] {
+  const entries = new Map<string, CircuitDetail>(Object.entries(CIRCUIT_DATABASE))
+  const eventGroups = new Map<string, import("./types").RaceEvent[]>()
+  for (const event of events) {
+    const name = event.circuit?.trim() || event.name?.trim()
+    if (!name) continue
+    const groupKey = normalizeKey(`${name} ${event.locality} ${event.country}`)
+    eventGroups.set(groupKey, [...(eventGroups.get(groupKey) ?? []), event])
+  }
+
+  for (const [groupKey, group] of eventGroups) {
+    const event = group[0]
+    const nameEn = event.circuit?.trim() || event.name.trim()
+    const known = [...entries.values()].find(item => {
+      const knownName = normalizeKey(item.nameEn)
+      const knownCity = normalizeKey(`${item.city} ${item.country}`)
+      return groupKey.includes(knownName) || knownName.includes(groupKey) || (knownCity && groupKey.includes(knownCity))
+    })
+    const series = [...new Set(group.map(item => item.series))]
+    const seasons = [...new Set(group.flatMap(item => {
+      const year = Number(item.id.match(/(?:f1|fe|wrc)-(\d{4})-/i)?.[1] ?? item.sessions[0]?.utc.slice(0, 4))
+      return Number.isInteger(year) ? [year] : []
+    }))].sort((a, b) => a - b)
+    const circuitId = known?.id ?? `calendar-${groupKey.replace(/\s+/g, "-").slice(0, 72) || `${event.series.toLowerCase()}-${event.round}`}`
+    const base = known ?? {
+      id: circuitId,
+      name: event.circuit?.trim() || event.name,
+      nameEn,
+      city: event.locality || "",
+      country: event.country || "",
+      type: event.circuitType ?? (event.series === "WRC" ? "rally" : "unknown"),
+      length: scheduleLength(event.circuitInfo?.length),
+      laps: scheduleLaps(event.circuitInfo?.laps),
+      firstUsed: undefined,
+      difficulty: undefined,
+      description: "来自赛事日历的地点记录。赛道长度、弯道数等资料尚未可靠收录。",
+      scheduleDerived: true,
+      lat: Number.isFinite(event.lat) ? event.lat : undefined,
+      lon: Number.isFinite(event.lon) ? event.lon : undefined,
+    } satisfies CircuitDetail
+    entries.set(circuitId, {
+      ...base,
+      series: [...new Set([...(base.series ?? []), ...series])],
+      seasons: [...new Set([...(base.seasons ?? []), ...seasons])].sort((a, b) => a - b),
+      length: base.length ?? scheduleLength(event.circuitInfo?.length),
+      laps: base.laps ?? scheduleLaps(event.circuitInfo?.laps),
+      lat: base.lat ?? (Number.isFinite(event.lat) ? event.lat : undefined),
+      lon: base.lon ?? (Number.isFinite(event.lon) ? event.lon : undefined),
+      scheduleDerived: base.scheduleDerived ?? false,
+    })
+  }
+  return [...entries.values()].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"))
 }

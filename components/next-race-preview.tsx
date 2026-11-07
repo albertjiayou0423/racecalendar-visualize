@@ -197,7 +197,7 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
         </button>
       </div>
 
-      <h2 className="mt-3 flex items-center gap-2 text-pretty text-xl font-bold leading-tight sm:text-2xl">
+      <h2 title={event.originalName ? `原名：${event.originalName}` : undefined} className="mt-3 flex items-center gap-2 text-pretty text-xl font-bold leading-tight sm:text-2xl">
         {event.name}
         {live && (
           <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
@@ -347,7 +347,8 @@ export function NextRacePreview({ event, now }: NextRacePreviewProps) {
           aria-label="键盘快捷键帮助"
         >
           <div
-            className="w-full max-w-xs rounded-2xl border border-border bg-card p-6 shadow-xl"
+            data-modal-panel
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-xs touch-pan-y overscroll-contain overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-4 text-lg font-bold">键盘快捷键</h3>

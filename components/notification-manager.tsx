@@ -7,6 +7,7 @@ import type { RaceEvent } from "@/lib/types"
 import { firstSession, formatTime, SERIES_META } from "@/lib/format"
 import { BEIJING_TZ } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { useAppPreferences, type HomeViewMode } from "@/lib/app-preferences"
 
 interface NotificationManagerProps {
   events: RaceEvent[]
@@ -36,12 +37,19 @@ type ScheduledNotification = {
 
 export function NotificationManager({ events }: NotificationManagerProps) {
   const playground = usePlayground()
+  const { preferences, updatePreferences } = useAppPreferences()
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [enabled, setEnabled] = useState(false)
+  const [supportsNotifications, setSupportsNotifications] = useState(false)
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<"display" | "experience" | "notifications">("display")
   const timersRef = useRef<Map<string, number>>(new Map())
   const settingsDialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    setSupportsNotifications(typeof window !== "undefined" && "Notification" in window)
+  }, [])
 
   useEffect(() => {
     if (playground) return
@@ -67,7 +75,16 @@ export function NotificationManager({ events }: NotificationManagerProps) {
     if (!dialog) return
 
     if (showSettings && !dialog.open) {
+      const previousHtmlOverflow = document.documentElement.style.overflow
+      const previousBodyOverflow = document.body.style.overflow
+      document.documentElement.style.overflow = "hidden"
+      document.body.style.overflow = "hidden"
       dialog.showModal()
+      return () => {
+        if (dialog.open) dialog.close()
+        document.documentElement.style.overflow = previousHtmlOverflow
+        document.body.style.overflow = previousBodyOverflow
+      }
     } else if (!showSettings && dialog.open) {
       dialog.close()
     }
@@ -177,12 +194,10 @@ export function NotificationManager({ events }: NotificationManagerProps) {
     if (!playground) localStorage.setItem(SETTINGS_KEY, JSON.stringify(next))
   }
 
-  if (typeof window === "undefined" || !("Notification" in window)) return null
-
   return (
     <div>
       <div className="flex items-center gap-1">
-        <button
+        {supportsNotifications && <button
           onClick={toggleNotifications}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs transition-colors sm:gap-2 sm:px-4",
@@ -203,7 +218,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
               <span className="hidden sm:inline">开启比赛提醒</span>
             </>
           )}
-        </button>
+        </button>}
         <button
           type="button"
           onClick={() => setShowSettings(true)}
@@ -223,13 +238,15 @@ export function NotificationManager({ events }: NotificationManagerProps) {
         onClick={(event) => {
           if (event.target === event.currentTarget) event.currentTarget.close()
         }}
-        className="fixed inset-0 m-auto max-h-[85dvh] w-[min(calc(100vw_-_2rem),28rem)] max-w-none overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/65 backdrop:backdrop-blur-sm"
+        onWheelCapture={(event) => event.stopPropagation()}
+        onTouchMoveCapture={(event) => event.stopPropagation()}
+        className="fixed inset-0 m-auto max-h-[85dvh] w-[min(calc(100vw_-_2rem),32rem)] max-w-none touch-pan-y overscroll-contain overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/65 backdrop:backdrop-blur-sm"
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
           <div>
             <h2 id="racecalendar-settings-title" className="text-base font-semibold">设置</h2>
             <p id="racecalendar-settings-description" className="mt-1 text-xs text-muted-foreground">
-              管理赛前通知和提醒时间
+              管理赛历显示、沉浸体验与比赛提醒
             </p>
           </div>
           <button
@@ -243,11 +260,113 @@ export function NotificationManager({ events }: NotificationManagerProps) {
         </div>
 
         <div className="space-y-5 p-5 sm:p-6">
+          <div role="tablist" aria-label="设置类别" className="flex gap-1 rounded-xl bg-background p-1">
+            {([
+              ["display", "显示"],
+              ["experience", "体验"],
+              ["notifications", "提醒"],
+            ] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === tab}
+                onClick={() => setSettingsTab(tab)}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm transition-colors",
+                  settingsTab === tab ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {settingsTab === "display" && (
+            <div className="space-y-5">
+              <section className="space-y-3" aria-labelledby="home-clock-title">
+                <div>
+                  <h3 id="home-clock-title" className="text-sm font-medium">主页时钟</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">点击首页右上角时钟，也可以随时在这两种时间之间切换。</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ["user", "用户当地时间", "按此设备的时区显示"],
+                    ["event", "赛事当地时间", "按下一场赛事的举办地显示"],
+                  ] as const).map(([mode, title, description]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={preferences.homeClockMode === mode}
+                      onClick={() => updatePreferences({ homeClockMode: mode })}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition-colors",
+                        preferences.homeClockMode === mode ? "border-primary/60 bg-primary/5" : "border-border hover:border-primary/40",
+                      )}
+                    >
+                      <span className="block text-sm font-medium">{title}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-3" aria-labelledby="default-view-title">
+                <div>
+                  <h3 id="default-view-title" className="text-sm font-medium">默认日历视图</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">选择后立即应用，并作为以后打开首页时的默认视图。</p>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {([
+                    ["list", "列表"], ["week", "周"], ["month", "月历"], ["weekend", "周末"],
+                  ] as const satisfies readonly (readonly [HomeViewMode, string])[]).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={preferences.defaultHomeView === mode}
+                      onClick={() => updatePreferences({ defaultHomeView: mode })}
+                      className={cn(
+                        "rounded-lg border px-2 py-2 text-xs transition-colors",
+                        preferences.defaultHomeView === mode ? "border-primary/60 bg-primary/5 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {settingsTab === "experience" && (
+            <section aria-labelledby="immersive-preference-title" className="space-y-3">
+              <div>
+                <h3 id="immersive-preference-title" className="text-sm font-medium">沉浸式体验</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">控制首页是否在正式场次开始前自动进入全屏倒计时。</p>
+              </div>
+              <label className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
+                <span>
+                  <span className="block text-sm font-medium">自动进入沉浸式倒计时</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">仅对已确认时间的场次生效，在开始前两分钟触发；关闭后仍可手动进入。</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={preferences.autoImmersiveCountdown}
+                  onChange={(event) => updatePreferences({ autoImmersiveCountdown: event.target.checked })}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+              </label>
+            </section>
+          )}
+
+          {settingsTab === "notifications" && (
           <section aria-labelledby="notification-preferences-title" className="space-y-3">
             <div>
               <h3 id="notification-preferences-title" className="text-sm font-medium">比赛提醒</h3>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {permission === "denied"
+                {!supportsNotifications
+                  ? "当前浏览器不支持网页通知；其他设置仍可正常使用。"
+                  : permission === "denied"
                   ? "浏览器通知权限已关闭，请在浏览器的网站设置中允许通知。"
                   : enabled
                     ? "通知已开启；提醒会在此设备的浏览器中触发。"
@@ -276,10 +395,9 @@ export function NotificationManager({ events }: NotificationManagerProps) {
               </div>
             </div>
           </section>
+          )}
 
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            提醒计划保存在当前浏览器中；浏览器关闭后是否送达取决于设备和浏览器能力。
-          </p>
+          {settingsTab === "notifications" && <p className="text-[11px] leading-relaxed text-muted-foreground">提醒计划保存在当前浏览器中；浏览器关闭后是否送达取决于设备和浏览器能力。</p>}
         </div>
       </dialog>
     </div>

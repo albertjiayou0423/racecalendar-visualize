@@ -6,7 +6,7 @@ import Link from "@/components/edition-link"
 import { ArrowLeft, Trophy, Calendar, Flag, Car, LoaderCircle, TriangleAlert, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type SeriesType = "F1" | "FE"
+type SeriesType = "F1" | "FE" | "WRC"
 
 interface F1Result {
   position: string
@@ -46,8 +46,28 @@ interface FeRace {
   country: string
 }
 
+interface WrcResultEntry {
+  position: string
+  driver: string
+  coDriver?: string
+  car?: string
+  time?: string
+  gap?: string
+}
+
+interface WrcRally {
+  id: string
+  round: number
+  name: string
+  dateStart: string
+  location: string
+  country: string
+  results: WrcResultEntry[]
+  resultsAvailable: boolean
+}
+
 type ResultsResponse = { season: string; ok: boolean; note?: string } & (
-  { series: "F1"; races?: F1Race[] } | { series: "FE"; races?: FeRace[]; results?: Record<string, FeResult[]> }
+  { series: "F1"; races?: F1Race[] } | { series: "FE"; races?: FeRace[]; results?: Record<string, FeResult[]> } | { series: "WRC"; rallies?: WrcRally[] }
 )
 
 export default function ResultsPage() {
@@ -91,7 +111,7 @@ export default function ResultsPage() {
   }
 
   const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 10 }, (_, i) => String(currentYear - i))
+  const years = Array.from({ length: (series === "WRC" ? currentYear - 2018 : 10) + 1 }, (_, i) => String(currentYear - i))
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:py-10">
@@ -105,14 +125,14 @@ export default function ResultsPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">历史赛果</h1>
-          <p className="mt-1 text-sm text-muted-foreground">查询各赛季大奖赛完整成绩</p>
+          <p className="mt-1 text-sm text-muted-foreground">查询各系列赛季的正式比赛成绩</p>
         </div>
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div data-guide="results-series" className="flex gap-2 rounded-lg border border-border bg-card p-1">
           <button
-            onClick={() => setSeries("F1")}
+            onClick={() => { setSeries("F1"); if (Number(season) < currentYear - 9) setSeason(String(currentYear)) }}
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               series === "F1" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
@@ -122,7 +142,7 @@ export default function ResultsPage() {
             F1
           </button>
           <button
-            onClick={() => setSeries("FE")}
+            onClick={() => { setSeries("FE"); if (Number(season) < Math.max(2015, currentYear - 9)) setSeason(String(currentYear)) }}
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               series === "FE" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
@@ -130,6 +150,16 @@ export default function ResultsPage() {
           >
             <Flag className="size-4" />
             FE
+          </button>
+          <button
+            onClick={() => { setSeries("WRC"); if (Number(season) < 2018) setSeason(String(currentYear)) }}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+              series === "WRC" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Car className="size-4" />
+            WRC
           </button>
         </div>
 
@@ -160,15 +190,46 @@ export default function ResultsPage() {
         </div>
       ) : data.series === "F1" ? (
         <F1ResultsList races={data.races || []} expandedRaces={expandedRaces} onToggle={toggleRace} />
-      ) : (
+      ) : data.series === "FE" ? (
         <FeResultsList key={season} season={season} races={data.races || []} results={data.results || {}} expandedRaces={expandedRaces} onToggle={toggleRace} />
+      ) : (
+        <WrcResultsList rallies={data.rallies || []} expandedRaces={expandedRaces} onToggle={toggleRace} />
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
-        数据来源：{series === "F1" ? "Jolpica F1 API（Ergast 兼容）" : "Formula E 官网公开赛果"}
+        数据来源：{series === "F1" ? "Jolpica F1 API（Ergast 兼容）" : series === "FE" ? "Formula E 官网公开赛果" : "第三方 Blacktop Data WRC API（2018 年起）"}
       </footer>
     </div>
   )
+}
+
+function WrcResultsList({ rallies, expandedRaces, onToggle }: {
+  rallies: WrcRally[]
+  expandedRaces: Set<string>
+  onToggle: (id: string) => void
+}) {
+  if (!rallies.length) return <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">该赛季暂无 WRC 赛果数据</div>
+  return <div className="flex flex-col gap-3">
+    {rallies.map(rally => {
+      const expanded = expandedRaces.has(rally.id)
+      const winner = rally.results[0]
+      return <section key={rally.id} className="overflow-hidden rounded-xl border border-border bg-card">
+        <button onClick={() => onToggle(rally.id)} aria-expanded={expanded} className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-secondary/30">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold">{rally.round || "—"}</span>
+            <span className="min-w-0"><span className="block truncate font-medium">{rally.name}</span><span className="block truncate text-xs text-muted-foreground">{rally.dateStart} · {[rally.location, rally.country].filter(Boolean).join(", ")}</span></span>
+          </div>
+          <span className="flex shrink-0 items-center gap-3">
+            {winner && <span className="hidden text-right sm:block"><span className="block text-xs text-muted-foreground">冠军</span><span className="text-sm font-medium">{winner.driver}</span></span>}
+            {expanded ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+          </span>
+        </button>
+        {expanded && <div className="border-t border-border px-4 py-3">
+          {rally.results.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="pb-2 pr-2">名次</th><th className="pb-2 pr-2">车手 / 领航员</th><th className="hidden pb-2 pr-2 sm:table-cell">赛车</th><th className="pb-2 pr-2 text-right">总成绩</th><th className="hidden pb-2 text-right sm:table-cell">差距</th></tr></thead><tbody>{rally.results.map((result, index) => <tr key={`${result.position}-${result.driver}-${index}`} className="border-b border-border/50 last:border-0"><td className="py-2 pr-2 font-mono font-medium">{result.position}</td><td className="py-2 pr-2"><div className="font-medium">{result.driver}</div>{result.coDriver && <div className="text-xs text-muted-foreground">{result.coDriver}</div>}{result.car && <div className="text-xs text-muted-foreground sm:hidden">{result.car}</div>}</td><td className="hidden py-2 pr-2 text-muted-foreground sm:table-cell">{result.car || "—"}</td><td className="py-2 pr-2 text-right font-mono">{result.time || "—"}</td><td className="hidden py-2 text-right font-mono text-muted-foreground sm:table-cell">{result.gap || "—"}</td></tr>)}</tbody></table></div> : <p className="text-sm text-muted-foreground">官方尚未提供该站最终排名。</p>}
+        </div>}
+      </section>
+    })}
+  </div>
 }
 
 function F1ResultsList({

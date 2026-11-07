@@ -154,3 +154,9 @@
     opacity: 1;
   }
 }
+
+dialog:not(.race-immersive),
+[data-modal-panel] {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}

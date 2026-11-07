@@ -2,7 +2,7 @@
 
 import { MotionLoader, MotionInput } from "@/components/interface-motion"
 
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
@@ -29,11 +29,13 @@ import { WeekView } from "@/components/week-view"
 import { WeekendView } from "@/components/weekend-view"
 import { NotificationManager } from "@/components/notification-manager"
 import { cn } from "@/lib/utils"
+import { useAppPreferences, updateAppPreferences, type HomeClockMode } from "@/lib/app-preferences"
 import Link from "next/link"
 
 const CACHE_KEY = "schedule-cache-v2"
 const LEGACY_CACHE_KEY = "schedule-cache"
 const CLIENT_FAILURE_REPORT_KEY = "schedule-load-failure-report-v1"
+const EVENT_NAME_TRANSLATION_CACHE_KEY = "event-name-translations-v1"
 
 function reportScheduleLoadFailure() {
   try {
@@ -159,16 +161,29 @@ function useNow(serverTime: number) {
   return now
 }
 
-function BeijingClock({ now }: { now: number }) {
+function BeijingClock({ now, event }: { now: number; event?: RaceEvent }) {
+  const { preferences, hydrated } = useAppPreferences()
+  const mode: HomeClockMode = preferences.homeClockMode === "event" && event ? "event" : "user"
+  const userTimeZone = hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone || BEIJING_TZ : BEIJING_TZ
+  const timeZone = mode === "event" && event ? event.tz : userTimeZone
+  const label = !hydrated ? "北京时间" : mode === "event" && event ? `赛事当地 · ${event.locality}` : "用户当地时间"
+  const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "event" ? "user" : "event" })
   const iso = new Date(now).toISOString()
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+    <button
+      type="button"
+      onClick={toggleClock}
+      disabled={!event}
+      aria-label={`当前显示${label}，点击切换${mode === "event" ? "用户当地时间" : "下一场赛事当地时间"}`}
+      title={`点击切换到${mode === "event" ? "用户当地时间" : "下一场赛事当地时间"}`}
+      className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50 disabled:cursor-default disabled:hover:border-border"
+    >
       <Clock className="size-4 text-primary" aria-hidden />
       <div className="leading-tight">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">北京时间</div>
-        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, BEIJING_TZ)}</div>
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}</div>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -191,6 +206,7 @@ function SourceBar({ data }: { data: ScheduleResponse }) {
 
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const playground = usePlayground()
+  const { preferences } = useAppPreferences()
   const liveNow = useNow(serverTime)
   const now = playground?.now ?? liveNow
   const [cachedSchedule, setCachedSchedule] = useState<ScheduleResponse | undefined>()
@@ -209,6 +225,56 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const error = playground ? playground.scenario === "error" : request.error
   const requestLoading = playground ? playground.scenario === "loading" : request.isLoading
   const isLoading = requestLoading && !data
+  const [eventNameTranslations, setEventNameTranslations] = useState<Record<string, string>>({})
+  const requestedTranslations = useRef(new Set<string>())
+  useEffect(() => {
+    if (!data || playground) return
+    let cached: Record<string, string> = {}
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(EVENT_NAME_TRANSLATION_CACHE_KEY) ?? "{}")
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) cached = parsed as Record<string, string>
+    } catch { /* Ignore invalid or unavailable local cache. */ }
+    if (Object.keys(cached).length) setEventNameTranslations(previous => {
+      const hasNewValue = Object.entries(cached).some(([name, value]) => previous[name] !== value)
+      return hasNewValue ? { ...cached, ...previous } : previous
+    })
+
+    const known = new Set([...Object.keys(cached), ...Object.keys(eventNameTranslations)])
+    const names = [...new Set(data.events.map(event => event.name.trim()))]
+      .filter(name => name && !/\p{Script=Han}/u.test(name) && !known.has(name) && !requestedTranslations.current.has(name))
+    if (!names.length) return
+    names.forEach(name => requestedTranslations.current.add(name))
+
+    void (async () => {
+      for (let start = 0; start < names.length; start += 25) {
+        const batch = names.slice(start, start + 25)
+        try {
+          const response = await fetch("/api/event-name-translations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ names: batch }),
+          })
+          if (!response.ok) break
+          const result = await response.json() as { translations?: Record<string, string> }
+          const valid = Object.fromEntries(Object.entries(result.translations ?? {}).filter(([source, translated]) =>
+            batch.includes(source) && typeof translated === "string" && /\p{Script=Han}/u.test(translated),
+          ))
+          if (!Object.keys(valid).length) continue
+          setEventNameTranslations(previous => {
+            const next = { ...previous, ...valid }
+            try {
+              const stored = JSON.parse(localStorage.getItem(EVENT_NAME_TRANSLATION_CACHE_KEY) ?? "{}") as Record<string, string>
+              localStorage.setItem(EVENT_NAME_TRANSLATION_CACHE_KEY, JSON.stringify({ ...stored, ...valid }))
+            } catch { /* Keep translated names usable for this page if storage is unavailable. */ }
+            return next
+          })
+        } catch {
+          // Keep provider names visible if the free translation service is unavailable or out of quota.
+          break
+        }
+      }
+    })()
+  }, [data, eventNameTranslations, playground])
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [season, setSeason] = useState<SeasonFilter>("current-next")
@@ -224,6 +290,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     return () => window.removeEventListener("racecalendar:guide-card", prepare)
   }, [])
   const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    setView(preferences.defaultHomeView)
+  }, [preferences.defaultHomeView])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -323,7 +393,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     return () => window.removeEventListener("keydown", handleKeydown)
   }, [])
 
-  const allEvents = data?.events ?? []
+  const rawEvents = data?.events ?? []
+  const allEvents = useMemo(() => rawEvents.map(event => {
+    const translated = eventNameTranslations[event.name]
+    return translated && translated !== event.name
+      ? { ...event, originalName: event.name, name: translated }
+      : event
+  }), [rawEvents, eventNameTranslations])
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
   const currentYear = Number(new Intl.DateTimeFormat("en-US", { timeZone: BEIJING_TZ, year: "numeric" }).format(new Date(now)))
   const yearCounts = useMemo(() => {
@@ -349,6 +425,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       const query = search.toLowerCase()
       list = list.filter((e) =>
         e.name.toLowerCase().includes(query) ||
+        e.originalName?.toLowerCase().includes(query) ||
         e.country.toLowerCase().includes(query) ||
         e.locality.toLowerCase().includes(query) ||
         e.circuit.toLowerCase().includes(query)
@@ -391,7 +468,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <BeijingClock now={now} />
+          <BeijingClock now={now} event={nextUp} />
         </div>
         {data ? <SourceBar data={data} /> : null}
         {isOffline ? (
