@@ -175,17 +175,33 @@ function scheduleLaps(value?: string): number | undefined {
   return Number.isInteger(laps) && laps > 0 && laps < 200 ? laps : undefined
 }
 
+function wrcVenueKey(event: import("./types").RaceEvent): string {
+  const venue = event.circuit?.split(/\s*[·•]\s*/)[0]?.replace(/\s*\([^)]*\)/g, "").trim()
+  return normalizeKey(venue || "")
+}
+
 /** Merge the curated reference entries with all venues present in the live schedule. */
 export function buildCircuitDatabase(events: import("./types").RaceEvent[]): CircuitDetail[] {
   const entries = new Map<string, CircuitDetail>(Object.entries(CIRCUIT_DATABASE))
   const eventGroups = new Map<string, import("./types").RaceEvent[]>()
   for (const event of events) {
-    const name = event.series === "WRC"
-      ? event.locality?.trim() || event.name?.trim()
-      : event.circuit?.trim() || event.name?.trim()
+    const name = event.series === "WRC" ? wrcVenueKey(event) || normalizeKey(event.name) : event.circuit?.trim() || event.name?.trim()
     if (!name) continue
-    const groupKey = normalizeKey(`${name} ${event.country}`)
-    eventGroups.set(groupKey, [...(eventGroups.get(groupKey) ?? []), event])
+    const groupKey = normalizeKey(`${name} ${event.countryCode || event.country}`)
+    const eventNameKey = normalizeKey(event.name)
+    const venueKey = event.series === "WRC" ? wrcVenueKey(event) : ""
+    const matchingGroup = event.series === "WRC"
+      ? [...eventGroups.entries()].find(([, group]) => {
+          const representative = group[0]
+          if (representative.series !== "WRC") return false
+          const sameCountry = event.countryCode && representative.countryCode
+            ? event.countryCode === representative.countryCode
+            : normalizeKey(event.country) === normalizeKey(representative.country)
+          return eventNameKey === normalizeKey(representative.name) || Boolean(sameCountry && venueKey && venueKey === wrcVenueKey(representative))
+        })
+      : undefined
+    const targetKey = matchingGroup?.[0] ?? groupKey
+    eventGroups.set(targetKey, [...(eventGroups.get(targetKey) ?? []), event])
   }
 
   for (const [groupKey, group] of eventGroups) {
