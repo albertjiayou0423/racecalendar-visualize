@@ -68,15 +68,15 @@ F1 起跑状态由独立 `/api/f1-start` 获取，使用无账号 SignalR Core �
 
 每场官网行程按以下次序尝试：
 
-0. 先读取赛事官网页面，发现 itinerary URL（无法发现时使用标准路径），读取并解析行程 HTML / 预渲染缓存。成功获得有效场次就直接返回，不调用 feed 回退。页面访问失败或没有可用赛段时间，才进入以下回退链路；feed 为最高优先级。
-
-1. 并行尝试四种 itinerary slug，请求官方 feed 的 `event-details` / `inlineContent`。解析 FAQ 中的日期和赛段时间。
-2. 全部失败时读取 mainSubPage 补充信息用于日志，然后进入旧链路。
-3. 获取赛事首页 HTML：直接请求 → `_escaped_fragment_=` 页面 → PhantomJsCloud 渲染服务。
-4. 提取 HTML 的 `rb3-prerender-data-cache`，从 pageTabs 发现 itinerary slug；发现失败时再尝试常见 slug。
-5. 请求发现的 itinerary Feed API。
-6. 仍失败则请求 itinerary 的 `_escaped_fragment_=` 页面，解析预渲染 JSON 或 HTML。
-7. 仍失败且首页存在预渲染缓存时，尝试 itinerary / results 页面，直接请求或 PhantomJsCloud 渲染，再解析 JSON 或 HTML。
+0. 优先并行尝试多种 itinerary slug（包括爱沙尼亚站使用的 `itinerary-wrc-rally-estonia-YYYY` 别名），请求官方 feed 的 `event-details` / `inlineContent`，解析 FAQ 中按天分组的日期和赛段时间。支持英文月份、末尾带句点的 `DD.MM.` 日期，并用日期文本中的星期校正相差一天的明显官网录入错误。葡萄牙站曾因末尾句点未匹配而把全站行程回退到首日；修正后按官方 `UTC+1` 日期和时间恢复。
+1. Feed 不可用时才读取赛事官网页面，发现 itinerary URL（无法发现时使用标准路径），解析 HTML / 预渲染缓存。若解析到 12 场以上却全部落在同一天，拒绝这份疑似被页面结构压扁的行程，再进入旧链路。
+2. 2026 巴拉圭站官方 organizer 时间表列有 Shakedown（11:00）及 SS3 Yerbateras 1（10:49，当地时间）；WRC FAQ feed 未提供 Shakedown 时间且漏了 SS3。在确认官方 Feed 的 SS2、SS4 均属于 8 月 28 日时补入这两个已核实场次。
+3. Feed 与直接页面均失败时读取 mainSubPage 补充信息用于日志，然后进入旧链路。
+4. 获取赛事首页 HTML：直接请求 → `_escaped_fragment_=` 页面 → PhantomJsCloud 渲染服务。
+5. 提取 HTML 的 `rb3-prerender-data-cache`，从 pageTabs 发现 itinerary slug；发现失败时再尝试常见 slug。
+6. 请求发现的 itinerary Feed API。
+7. 仍失败则请求 itinerary 的 `_escaped_fragment_=` 页面，解析预渲染 JSON 或 HTML。
+8. 仍失败且首页存在预渲染缓存时，尝试 itinerary / results 页面，直接请求或 PhantomJsCloud 渲染，再解析 JSON 或 HTML。
 
 官网明确声明 UTC/GMT 偏移时按声明转换，否则使用赛事 IANA 时区。Power Stage 标为主场次，成功合并同步赛事 tz。
 
