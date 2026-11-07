@@ -180,18 +180,21 @@ export function buildCircuitDatabase(events: import("./types").RaceEvent[]): Cir
   const entries = new Map<string, CircuitDetail>(Object.entries(CIRCUIT_DATABASE))
   const eventGroups = new Map<string, import("./types").RaceEvent[]>()
   for (const event of events) {
-    const name = event.series === "WRC" ? event.name?.trim() : event.circuit?.trim() || event.name?.trim()
+    const name = event.series === "WRC"
+      ? event.locality?.trim() || event.name?.trim()
+      : event.circuit?.trim() || event.name?.trim()
     if (!name) continue
     const groupKey = normalizeKey(`${name} ${event.country}`)
     eventGroups.set(groupKey, [...(eventGroups.get(groupKey) ?? []), event])
   }
 
   for (const [groupKey, group] of eventGroups) {
-    const event = group[0]
+    const event = group.reduce((best, current) => current.name.trim().length > best.name.trim().length ? current : best)
     const nameEn = event.series === "WRC" ? event.name.trim() : event.circuit?.trim() || event.name.trim()
     const known = [...entries.values()].find(item => {
       const aliases = [item.name, item.nameEn, item.id].map(normalizeKey).filter(Boolean)
-      return aliases.some(alias => groupKey.includes(alias) || alias.includes(groupKey))
+      const eventNames = group.map(item => normalizeKey(item.series === "WRC" ? item.name : item.circuit || item.name))
+      return aliases.some(alias => eventNames.some(name => name.includes(alias) || alias.includes(name)))
     })
     const series = [...new Set(group.map(item => item.series))]
     const seasons = [...new Set(group.flatMap(item => {
