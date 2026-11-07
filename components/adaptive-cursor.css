@@ -48,3 +48,15 @@
 @media (prefers-reduced-motion: reduce) {
   .adaptive-cursor { display: none; }
 }
+
+/* Cross-origin iframe content cannot send pointer movement to the host page.
+   Restore the native pointer while the user interacts with embedded status UI. */
+html.cursor-native-over-embed,
+html.cursor-native-over-embed body,
+html.cursor-native-over-embed body * {
+  cursor: auto !important;
+}
+
+html.cursor-native-over-embed .adaptive-cursor {
+  opacity: 0 !important;
+}
