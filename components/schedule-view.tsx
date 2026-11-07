@@ -457,7 +457,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "list"
-                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    ? "rounded bg-secondary text-secondary-foreground"
                     : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -472,7 +472,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "week"
-                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    ? "rounded bg-secondary text-secondary-foreground"
                     : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -487,7 +487,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "month"
-                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    ? "rounded bg-secondary text-secondary-foreground"
                     : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -502,7 +502,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "weekend"
-                    ? "rounded-lg bg-secondary text-secondary-foreground"
+                    ? "rounded bg-secondary text-secondary-foreground"
                     : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
