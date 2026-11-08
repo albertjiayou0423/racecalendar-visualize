@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Activity, ArrowLeft, ExternalLink } from "lucide-react"
+import { ArrowLeft, ExternalLink } from "lucide-react"
+import { ApiMonitorStatus } from "@/components/api-monitor-status"
 import { StatusPageEmbed } from "@/components/status-page-embed"
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 
 const STATUS_PAGE_URL = "https://racecalendar-huosai.openstatus.dev/"
 const EMBED_URL = `${STATUS_PAGE_URL}?embed=banner,components&theme=dark`
+const EVENT_HISTORY_EMBED_URL = `${STATUS_PAGE_URL}events?embed&theme=dark`
 
 export default function StatusPage() {
   return (
@@ -39,16 +41,50 @@ export default function StatusPage() {
         </a>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-5 sm:py-6">
-        <p className="text-sm text-muted-foreground">官方网站的可用性与历史记录</p>
-        <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-          <Activity className="size-3.5" aria-hidden="true" />
-          OpenStatus 实时监控
-        </div>
+      <div className="pt-5 sm:pt-6">
+        <ApiMonitorStatus />
       </div>
 
-      <section aria-label="赛道时刻服务状态" className="overflow-hidden rounded-2xl border border-border/80 bg-card/30 shadow-[0_18px_60px_-40px_rgb(0_0_0/0.8)]">
-        <StatusPageEmbed src={EMBED_URL} />
+      <section aria-label="网站可用性与维护记录" className="mt-10 border-t border-border/70 pt-6">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">网站可用性与维护记录</h2>
+            <p className="mt-1 text-xs text-muted-foreground">网站访问状态、维护安排与公开更新</p>
+          </div>
+          <a
+            href={STATUS_PAGE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ExternalLink className="size-3" />
+            在 OpenStatus 查看
+          </a>
+        </div>
+        <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站当前状态" heightClassName="h-[300px] w-full sm:h-[340px]" />
+      </section>
+
+      <section aria-label="OpenStatus 事件历史" className="mt-8 border-t border-border/70 pt-6">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">事件历史</h2>
+            <p className="mt-1 text-xs text-muted-foreground">OpenStatus 维护公告与服务事件记录</p>
+          </div>
+          <a
+            href={`${STATUS_PAGE_URL}events`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ExternalLink className="size-3" />
+            查看全部事件
+          </a>
+        </div>
+        <StatusPageEmbed
+          src={EVENT_HISTORY_EMBED_URL}
+          title="赛道时刻 OpenStatus 事件历史"
+          heightClassName="h-[440px] w-full sm:h-[500px]"
+        />
       </section>
     </main>
   )

@@ -4,9 +4,11 @@ import { useEffect } from "react"
 
 type StatusPageEmbedProps = {
   src: string
+  title?: string
+  heightClassName?: string
 }
 
-export function StatusPageEmbed({ src }: StatusPageEmbedProps) {
+export function StatusPageEmbed({ src, title = "赛道时刻服务状态", heightClassName = "h-[320px] w-full sm:h-[360px]" }: StatusPageEmbedProps) {
   const setNativeCursor = (enabled: boolean) => {
     document.documentElement.classList.toggle("cursor-native-over-embed", enabled)
   }
@@ -24,8 +26,8 @@ export function StatusPageEmbed({ src }: StatusPageEmbedProps) {
     >
       <iframe
         src={src}
-        title="赛道时刻服务状态"
-        className="h-[280px] w-full border-0 bg-background sm:h-[300px]"
+        title={title}
+        className={`${heightClassName} border-0 bg-background`}
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
       />
