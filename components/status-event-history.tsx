@@ -45,7 +45,7 @@ export function StatusEventHistory({ src, externalUrl }: StatusEventHistoryProps
           <StatusPageEmbed
             src={src}
             title="赛道时刻维护与事件历史"
-            heightClassName="h-[920px] w-full sm:h-[800px]"
+            heightClassName="h-[440px] w-full sm:h-[500px]"
           />
         </div>
       )}

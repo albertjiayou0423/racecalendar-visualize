@@ -29,7 +29,6 @@ export default function StatusPage() {
       <section aria-label="公开网站状态" className="pt-2">
         <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站状态" heightClassName="h-[300px] w-full sm:h-[310px]" />
       </section>
-
       <div className="mt-8">
         <ApiMonitorStatus />
       </div>

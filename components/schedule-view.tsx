@@ -224,12 +224,12 @@ function BeijingClock({ now }: { now: number }) {
       onClick={toggleClock}
       aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
       title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
-      className="flex w-fit max-w-full shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50 max-[359px]:gap-1 max-[359px]:px-2 sm:w-full"
+      className="flex w-fit max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/70 bg-transparent px-2.5 py-1.5 text-left transition-colors hover:border-border hover:bg-muted/40"
     >
-      <Clock className="size-4 text-primary max-[359px]:size-3.5" aria-hidden />
+      <Clock className="size-3.5 text-muted-foreground" aria-hidden />
       <div key={mode} className="clock-flip min-w-0 leading-tight">
-        <span className="block text-[10px] uppercase tracking-wide text-muted-foreground max-[359px]:text-[9px]">{zoneLabel}</span>
-        <span className="block whitespace-nowrap font-mono text-sm font-semibold tabular-nums max-[359px]:text-xs">{formatHomeClock(now, timeZone)}</span>
+        <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">{zoneLabel}</span>
+        <span className="block whitespace-nowrap font-mono text-[13px] font-semibold tabular-nums">{formatHomeClock(now, timeZone)}</span>
       </div>
     </button>
   )
@@ -492,13 +492,13 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
       <header className="flex flex-col gap-3">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 max-[359px]:gap-x-1 sm:grid-cols-[minmax(0,1fr)_15.75rem]">
-          <h1 className="min-w-0 whitespace-nowrap text-3xl font-bold tracking-tight min-[360px]:text-4xl">赛道时刻</h1>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 max-[359px]:gap-x-2">
+          <h1 className="min-w-0 whitespace-nowrap text-[28px] font-bold leading-[1.1] tracking-[-0.035em] sm:text-[30px]">赛道时刻</h1>
           <div className="justify-self-end">
             <BeijingClock now={now} />
           </div>
-          <div className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 sm:col-span-1 sm:col-start-1">
-            <p className="text-sm text-muted-foreground">WRC · F1 · Formula E 赛程与发车时间</p>
+          <div className="col-span-full flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:col-span-1 sm:col-start-1">
+            <p className="whitespace-nowrap text-xs leading-5 text-muted-foreground">F1 · WRC · Formula E 赛程</p>
             <OpenStatusBadge />
           </div>
         </div>
