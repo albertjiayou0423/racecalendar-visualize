@@ -425,7 +425,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                             </div>
                             <div className="hidden sm:flex mt-0.5 justify-end">
                               <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                                {isTimeUnconfirmed(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)}`}
+                                {isTimeUnconfirmed(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)} · ${offsetLabel(s.utc, event.tz)}`}
                               </span>
                             </div>
                           </li>

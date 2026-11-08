@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ArrowLeft, Clock3, Share2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, countdown, formatDateTime } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, countdown, formatDateTime, offsetLabel } from "@/lib/format"
 import { TogetherShareButton } from "@/components/together-share-button"
 
 const ImmersiveCountdown = dynamic(() => import("@/components/immersive-countdown").then((module) => module.ImmersiveCountdown), { ssr: false })
@@ -69,7 +69,7 @@ export default function TogetherRoom({ id, utc, sessionName, fromNew }: { id: st
               <p className="mt-5 font-mono text-[clamp(2rem,10vw,4.5rem)] font-semibold leading-none tracking-tight tabular-nums" aria-live="off">
                 {Number.isFinite(targetMs) && targetMs <= now ? "开赛时间已到" : `${remaining.days > 0 ? `${remaining.days}天 ` : ""}${String(remaining.hours).padStart(2, "0")}:${String(remaining.minutes).padStart(2, "0")}:${String(remaining.seconds).padStart(2, "0")}`}
               </p>
-              <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 size={13} aria-hidden />北京时间 {formatDateTime(session.utc, BEIJING_TZ)} · 当地 {formatDateTime(session.utc, event.tz)}</p>
+              <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 size={13} aria-hidden />北京时间 {formatDateTime(session.utc, BEIJING_TZ)} · 当地 {formatDateTime(session.utc, event.tz)} · {offsetLabel(session.utc, event.tz)}</p>
               <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
                 <button type="button" onClick={() => setImmersive(true)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ backgroundColor: meta.color }}><Share2 size={15} aria-hidden />进入沉浸倒计时</button>
                 <TogetherShareButton event={event} session={session} />

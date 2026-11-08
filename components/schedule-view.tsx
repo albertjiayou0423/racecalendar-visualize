@@ -18,6 +18,7 @@ import {
     formatTime,
     isPast,
     mainSession,
+    offsetLabel,
   } from "@/lib/format"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
@@ -166,7 +167,7 @@ function BeijingClock({ now, event }: { now: number; event?: RaceEvent }) {
   const mode: HomeClockMode = preferences.homeClockMode === "event" && event ? "event" : "user"
   const userTimeZone = hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone || BEIJING_TZ : BEIJING_TZ
   const timeZone = mode === "event" && event ? event.tz : userTimeZone
-  const label = !hydrated ? "北京时间" : mode === "event" && event ? `赛事当地 · ${event.locality}` : "用户当地时间"
+  const label = !hydrated ? "北京时间" : mode === "event" && event ? `赛事当地 · ${event.locality}（${offsetLabel(new Date(now).toISOString(), event.tz)}）` : "用户当地时间"
   const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "event" ? "user" : "event" })
   const iso = new Date(now).toISOString()
   return (
@@ -179,7 +180,7 @@ function BeijingClock({ now, event }: { now: number; event?: RaceEvent }) {
       className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50 disabled:cursor-default disabled:hover:border-border"
     >
       <Clock className="size-4 text-primary" aria-hidden />
-      <div className="leading-tight">
+      <div key={mode} className="clock-flip leading-tight">
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
         <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}</div>
       </div>

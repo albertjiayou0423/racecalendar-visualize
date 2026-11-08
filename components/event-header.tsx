@@ -7,7 +7,7 @@ import { isTimeUnconfirmed } from "@/lib/session-time"
 
 import { Bell, Calendar, Clock, MapPin } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, countdown, formatDate, formatDateTime, isLive, isPast, mainSession } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, countdown, formatDate, formatDateTime, isLive, isPast, mainSession, offsetLabel } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface EventHeaderProps {
@@ -92,6 +92,7 @@ export function EventHeader({ event, now, onSetNotification }: EventHeaderProps)
                 <div>
                   <div className="text-xs text-muted-foreground">当地时间</div>
                   <div className="text-lg font-bold font-mono tabular-nums">{formatDateTime(main.utc, event.tz)}</div>
+                  <div className="text-xs text-muted-foreground">{offsetLabel(main.utc, event.tz)}</div>
                 </div>
               </>
             )}

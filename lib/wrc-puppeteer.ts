@@ -1099,7 +1099,6 @@ const WRC_RALLIES: WrcRally[] = [
   { year: 2026, round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-27" },
   { year: 2026, round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", startDate: "2026-09-10" },
   { year: 2026, round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-01" },
-  { year: 2026, round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-11" },
 ]
 
 // 国家到时区映射（用于动态赛历）
@@ -1224,7 +1223,11 @@ async function fetchWrcCalendar(year: number = new Date().getFullYear()): Promis
   const parsed = eventDetails.flatMap(result => result.status === "fulfilled" && result.value ? [result.value] : [])
   const rounds = new Map<number, number>()
   for (const event of parsed) rounds.set(event.round, (rounds.get(event.round) || 0) + 1)
-  const valid = parsed.filter(event => rounds.get(event.round) === 1)
+  // Rally Saudi Arabia remains an event in the regional MERC calendar, but the FIA/WRC
+  // Promoter removed it from the 2026 WRC season. The WRC event-series feed can still
+  // contain the original entry, so keep that cancelled round out of the WRC schedule.
+  const valid = parsed.filter(event => rounds.get(event.round) === 1
+    && !(year === 2026 && /saudi-arabia/.test(event.eventSlug)))
   valid.sort((a, b) => a.round - b.round)
 
   if (valid.length === 0) {

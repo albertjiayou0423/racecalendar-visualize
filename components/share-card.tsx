@@ -7,7 +7,7 @@ import { useRef, useState, useEffect } from "react"
 import { toPng } from "html-to-image"
 import { Download, ImageIcon, RotateCcw, Copy, Check } from "lucide-react"
 import type { RaceEvent } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, countdown, formatDate, formatDateTime, mainSession, isPast, isLive } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, countdown, formatDate, formatDateTime, mainSession, isPast, isLive, offsetLabel } from "@/lib/format"
 
 interface ShareCardProps {
   event: RaceEvent
@@ -174,7 +174,7 @@ export function ShareCard({ event, now }: ShareCardProps) {
               <div>
                 <div className="mb-1 text-xs text-white/40">当地时间</div>
                 <div className="font-mono text-lg font-bold tabular-nums">
-                  {isTimeUnconfirmed(event, main) ? `${formatDate(main.utc, event.tz)} · 时间待确认` : formatDateTime(main.utc, event.tz)}
+                  {isTimeUnconfirmed(event, main) ? `${formatDate(main.utc, event.tz)} · 时间待确认` : `${formatDateTime(main.utc, event.tz)} · ${offsetLabel(main.utc, event.tz)}`}
                 </div>
               </div>
             </div>

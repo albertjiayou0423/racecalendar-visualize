@@ -3,7 +3,7 @@ import { zonedWallTimeToUtc } from "./tz"
 
 /**
  * 2026 FIA 世界拉力锦标赛（WRC）赛历。
- * 数据来源：FIA / WRC Promoter 官方公布的 2026 赛历（经维基百科整理）。
+ * 数据来源：FIA / WRC Promoter 官方公布的 WRC 赛历；2026 沙特站取消后从 WRC 日历移除。
  * 这里维护本地基础赛历，运行时另行获取官网日历与行程并回退到此列表；
  * 各比赛日的赛段具体开始时间为按惯例估计值（tentative），最终以官方 itinerary 为准。
  */
@@ -49,7 +49,6 @@ const RALLIES: WrcRallyDef[] = [
   { round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", start: [2026, 8, 27], finish: [2026, 8, 30], lat: -27.3370, lon: -55.8670, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Paraguay", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "WRC新站点，南美高速砂石路" }] },
   { round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", start: [2026, 9, 10], finish: [2026, 9, 13], lat: -36.8270, lon: -73.0500, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Chile", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "太平洋沿岸山地赛段" }] },
   { round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", start: [2026, 10, 1], finish: [2026, 10, 4], lat: 40.5580, lon: 8.3190, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Italia_Sardegna", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "地中海岛屿高温砂石赛" }] },
-  { round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", start: [2026, 11, 11], finish: [2026, 11, 14], lat: 21.5433, lon: 39.1728, wikipediaUrl: "https://en.wikipedia.org/wiki/Rally_Saudi_Arabia", extraInfo: [{ label: "路面类型", value: "砂石" }, { label: "特色", value: "沙漠拉力，全新站点" }] },
 ]
 
 export function buildWrcLiveTimingUrl(eventSlug: string): string {

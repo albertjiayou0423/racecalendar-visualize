@@ -197,7 +197,7 @@ export default function ResultsPage() {
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
-        数据来源：{series === "F1" ? "Jolpica F1 API（Ergast 兼容）" : series === "FE" ? "Formula E 官网公开赛果" : "第三方 Blacktop Data WRC API（2018 年起）"}
+        数据来源：{series === "F1" ? "Jolpica F1 API（Ergast 兼容）" : series === "FE" ? "Formula E 官网公开赛果" : "WRC 官网公开赛果（第三方备用）"}
       </footer>
     </div>
   )
