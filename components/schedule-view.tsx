@@ -454,6 +454,21 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             <BeijingClock now={now} />
           </div>
         </div>
+        <a
+          href="https://racecalendar-huosai.openstatus.dev"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="查看赛道时刻服务状态"
+          className="inline-flex w-fit items-center transition-opacity hover:opacity-80 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <img
+            src="https://racecalendar-huosai.openstatus.dev/badge/v2?theme=dark&size=sm"
+            alt="赛道时刻服务状态"
+            className="block h-5 w-auto"
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
