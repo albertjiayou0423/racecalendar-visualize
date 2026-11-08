@@ -1,0 +1,63 @@
+name: Vercel deployment notifications
+
+on:
+  deployment_status:
+
+permissions: {}
+
+jobs:
+  notify:
+    if: >-
+      github.event.deployment_status.state == 'success' ||
+      github.event.deployment_status.state == 'failure' ||
+      github.event.deployment_status.state == 'error'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send deployment status to ntfy
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          DEPLOYMENT_STATE: ${{ github.event.deployment_status.state }}
+          DEPLOYMENT_ENVIRONMENT: ${{ github.event.deployment.environment }}
+          DEPLOYMENT_REF: ${{ github.event.deployment.ref }}
+          DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -eu
+
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "::warning::Configure the NTFY_TOPIC repository Actions secret to enable ntfy notifications."
+            exit 0
+          fi
+
+          case "$NTFY_TOPIC" in
+            *[!A-Za-z0-9_-]*|'')
+              echo "::error::NTFY_TOPIC must contain only letters, numbers, underscores, and hyphens."
+              exit 1
+              ;;
+          esac
+
+          case "$DEPLOYMENT_STATE" in
+            success) title="Vercel 部署成功"; priority="default" ;;
+            failure|error) title="Vercel 部署失败"; priority="high" ;;
+            *) exit 0 ;;
+          esac
+
+          short_sha="${DEPLOYMENT_SHA:0:7}"
+          body="项目：${PROJECT_NAME}
+          状态：${DEPLOYMENT_STATE}
+          环境：${DEPLOYMENT_ENVIRONMENT:-未知}
+          分支：${DEPLOYMENT_REF:-未知}
+          提交：${short_sha:-未知}"
+
+          if [ -n "$DEPLOYMENT_URL" ]; then
+            body="$body
+          部署地址：https://${DEPLOYMENT_URL#https://}"
+          fi
+
+          curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+            -H "Title: ${title}" \
+            -H "Priority: ${priority}" \
+            -H "Tags: checkered_flag" \
+            --data-binary "$body" \
+            "https://ntfy.sh/${NTFY_TOPIC}"
