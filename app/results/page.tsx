@@ -193,7 +193,10 @@ export default function ResultsPage() {
       ) : data.series === "FE" ? (
         <FeResultsList key={season} season={season} races={data.races || []} results={data.results || {}} expandedRaces={expandedRaces} onToggle={toggleRace} />
       ) : (
-        <WrcResultsList rallies={data.rallies || []} expandedRaces={expandedRaces} onToggle={toggleRace} />
+        <>
+          {data.note && <div role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-muted-foreground">{data.note}</div>}
+          <WrcResultsList rallies={data.rallies || []} expandedRaces={expandedRaces} onToggle={toggleRace} />
+        </>
       )}
 
       <footer className="pt-2 text-center text-[11px] text-muted-foreground">
@@ -225,7 +228,7 @@ function WrcResultsList({ rallies, expandedRaces, onToggle }: {
           </span>
         </button>
         {expanded && <div className="border-t border-border px-4 py-3">
-          {rally.results.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="pb-2 pr-2">名次</th><th className="pb-2 pr-2">车手 / 领航员</th><th className="hidden pb-2 pr-2 sm:table-cell">赛车</th><th className="pb-2 pr-2 text-right">总成绩</th><th className="hidden pb-2 text-right sm:table-cell">差距</th></tr></thead><tbody>{rally.results.map((result, index) => <tr key={`${result.position}-${result.driver}-${index}`} className="border-b border-border/50 last:border-0"><td className="py-2 pr-2 font-mono font-medium">{result.position}</td><td className="py-2 pr-2"><div className="font-medium">{result.driver}</div>{result.coDriver && <div className="text-xs text-muted-foreground">{result.coDriver}</div>}{result.car && <div className="text-xs text-muted-foreground sm:hidden">{result.car}</div>}</td><td className="hidden py-2 pr-2 text-muted-foreground sm:table-cell">{result.car || "—"}</td><td className="py-2 pr-2 text-right font-mono">{result.time || "—"}</td><td className="hidden py-2 text-right font-mono text-muted-foreground sm:table-cell">{result.gap || "—"}</td></tr>)}</tbody></table></div> : <p className="text-sm text-muted-foreground">官方尚未提供该站最终排名。</p>}
+          {rally.results.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="pb-2 pr-2">名次</th><th className="pb-2 pr-2">车手 / 领航员</th><th className="hidden pb-2 pr-2 sm:table-cell">赛车</th><th className="pb-2 pr-2 text-right">总成绩</th><th className="hidden pb-2 text-right sm:table-cell">差距</th></tr></thead><tbody>{rally.results.map((result, index) => <tr key={`${result.position}-${result.driver}-${index}`} className="border-b border-border/50 last:border-0"><td className="py-2 pr-2 font-mono font-medium">{result.position}</td><td className="py-2 pr-2"><div className="font-medium">{result.driver}</div>{result.coDriver && <div className="text-xs text-muted-foreground">{result.coDriver}</div>}{result.car && <div className="text-xs text-muted-foreground sm:hidden">{result.car}</div>}</td><td className="hidden py-2 pr-2 text-muted-foreground sm:table-cell">{result.car || "—"}</td><td className="py-2 pr-2 text-right font-mono">{result.time || "—"}</td><td className="hidden py-2 text-right font-mono text-muted-foreground sm:table-cell">{result.gap || "—"}</td></tr>)}</tbody></table></div> : <p className="text-sm text-muted-foreground">该站成绩数据暂时无法取得。</p>}
         </div>}
       </section>
     })}

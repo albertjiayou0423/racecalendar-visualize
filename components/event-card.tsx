@@ -308,6 +308,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 <div className="font-mono text-sm font-semibold tabular-nums">
                   {isTimeUnconfirmed(event, next) ? `${formatDate(next.utc, event.tz)} · 时间待确认` : formatDateTime(next.utc, BEIJING_TZ)}
                 </div>
+                {!isTimeUnconfirmed(event, next) && (
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    当地 {formatDateTime(next.utc, event.tz)} · {offsetLabel(next.utc, event.tz)}
+                  </div>
+                )}
               </div>
             ) : (
               <span className="text-sm text-muted-foreground">赛程待定</span>

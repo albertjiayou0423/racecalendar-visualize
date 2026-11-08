@@ -15,7 +15,10 @@ export async function GET(request: NextRequest) {
     if (series === "F1") return NextResponse.json({ series, season, races: await fetchJolpicaResults(season), ok: true })
     if (series === "WRC") {
       const rallies = await fetchWrcSeasonResults(year)
-      return NextResponse.json({ series, season, rallies, ok: true }, {
+      const note = rallies.length > 0 && rallies.every(rally => !rally.resultsAvailable)
+        ? "赛程目录已加载，但暂时无法取得各站最终排名，请稍后重试。"
+        : undefined
+      return NextResponse.json({ series, season, rallies, ok: true, ...(note ? { note } : {}) }, {
         headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
       })
     }

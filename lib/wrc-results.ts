@@ -178,13 +178,14 @@ async function fetchRallyResults(rally: JsonRecord): Promise<WrcResultEntry[]> {
   let payload: unknown = rally
   let rows = resultRows(payload)
   let normalized = (rows ?? []).map(normalizeResult).filter((item): item is WrcResultEntry => !!item)
+  if (!process.env.OCBLACKTOP_API_KEY) return normalized
   if (!normalized.length && id) {
     try {
       payload = await api(`/v1/wrc/rallies/${encodeURIComponent(id)}`, 60 * 60 * 24 * 30)
       rows = resultRows(payload)
       normalized = (rows ?? []).map(normalizeResult).filter((item): item is WrcResultEntry => !!item)
-    } catch {
-      // Try the explicit classification route below.
+    } catch (error) {
+      console.warn(`WRC backup rally data unavailable for ${rally.name}:`, error)
     }
   }
   if (!normalized.length && id) {
@@ -192,8 +193,8 @@ async function fetchRallyResults(rally: JsonRecord): Promise<WrcResultEntry[]> {
       const classification = await api(`/v1/wrc/rallies/${encodeURIComponent(id)}/classification`, 60 * 60 * 24 * 30)
       rows = resultRows(classification)
       normalized = (rows ?? []).map(normalizeResult).filter((item): item is WrcResultEntry => !!item)
-    } catch {
-      // Some rallies do not have a published final classification yet.
+    } catch (error) {
+      console.warn(`WRC backup classification unavailable for ${rally.name}:`, error)
     }
   }
   return normalized
@@ -272,6 +273,10 @@ export async function fetchWrcSeasonResults(year: number): Promise<WrcRallyResul
       resultsAvailable: results.length > 0,
     }
   })
+
+  if (entries.length && entries.every(rally => !rally.resultsAvailable) && !process.env.OCBLACKTOP_API_KEY) {
+    console.warn("WRC season results unavailable: official results endpoint failed and OCBLACKTOP_API_KEY is not configured")
+  }
 
   return entries.sort((a, b) => a.round - b.round || a.dateStart.localeCompare(b.dateStart))
 }

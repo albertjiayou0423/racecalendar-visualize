@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-export type HomeClockMode = "user" | "event"
+export type HomeClockMode = "user" | "utc"
 export type HomeViewMode = "list" | "week" | "month" | "weekend"
 
 export type AppPreferences = {
@@ -22,8 +22,10 @@ export function readAppPreferences(): AppPreferences {
   if (typeof window === "undefined") return DEFAULT_PREFERENCES
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<AppPreferences>
+    const savedClockMode = (saved as Record<string, unknown>).homeClockMode
     return {
-      homeClockMode: saved.homeClockMode === "event" ? "event" : "user",
+      // Migrate the earlier event-local clock choice to the new site-wide UTC mode.
+      homeClockMode: savedClockMode === "utc" || savedClockMode === "event" ? "utc" : "user",
       defaultHomeView: ["list", "week", "month", "weekend"].includes(saved.defaultHomeView ?? "")
         ? saved.defaultHomeView as HomeViewMode
         : "list",

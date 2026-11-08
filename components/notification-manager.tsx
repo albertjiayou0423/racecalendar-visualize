@@ -292,7 +292,7 @@ export function NotificationManager({ events }: NotificationManagerProps) {
                 <div className="grid grid-cols-2 gap-2">
                   {([
                     ["user", "用户当地时间", "按此设备的时区显示"],
-                    ["event", "赛事当地时间", "按下一场赛事的举办地显示"],
+                    ["utc", "UTC 时间", "全站统一使用 UTC；赛事时间另标各自偏移"],
                   ] as const).map(([mode, title, description]) => (
                     <button
                       key={mode}

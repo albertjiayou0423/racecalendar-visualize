@@ -18,7 +18,6 @@ import {
     formatTime,
     isPast,
     mainSession,
-    offsetLabel,
   } from "@/lib/format"
 import { EventCard } from "@/components/event-card"
 import { FeedbackButton } from "@/components/feedback-button"
@@ -162,27 +161,26 @@ function useNow(serverTime: number) {
   return now
 }
 
-function BeijingClock({ now, event }: { now: number; event?: RaceEvent }) {
+function BeijingClock({ now }: { now: number }) {
   const { preferences, hydrated } = useAppPreferences()
-  const mode: HomeClockMode = preferences.homeClockMode === "event" && event ? "event" : "user"
+  const mode: HomeClockMode = preferences.homeClockMode
   const userTimeZone = hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone || BEIJING_TZ : BEIJING_TZ
-  const timeZone = mode === "event" && event ? event.tz : userTimeZone
-  const label = !hydrated ? "北京时间" : mode === "event" && event ? `赛事当地 · ${event.locality}（${offsetLabel(new Date(now).toISOString(), event.tz)}）` : "用户当地时间"
-  const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "event" ? "user" : "event" })
+  const timeZone = mode === "utc" ? "UTC" : userTimeZone
+  const label = !hydrated ? "北京时间" : mode === "utc" ? "UTC 世界标准时间 · UTC+00:00" : "用户当地时间"
+  const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "utc" ? "user" : "utc" })
   const iso = new Date(now).toISOString()
   return (
     <button
       type="button"
       onClick={toggleClock}
-      disabled={!event}
-      aria-label={`当前显示${label}，点击切换${mode === "event" ? "用户当地时间" : "下一场赛事当地时间"}`}
-      title={`点击切换到${mode === "event" ? "用户当地时间" : "下一场赛事当地时间"}`}
-      className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50 disabled:cursor-default disabled:hover:border-border"
+      aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
+      title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
+      className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
     >
       <Clock className="size-4 text-primary" aria-hidden />
-      <div key={mode} className="clock-flip leading-tight">
+      <div key={mode} className="clock-flip min-w-0 leading-tight">
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}</div>
+        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}{mode === "utc" ? " UTC" : ""}</div>
       </div>
     </button>
   )
@@ -469,7 +467,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <BeijingClock now={now} event={nextUp} />
+          <BeijingClock now={now} />
         </div>
         {data ? <SourceBar data={data} /> : null}
         {isOffline ? (

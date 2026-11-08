@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, Clock3, MapPin, Trophy } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, formatTime } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, formatTime, offsetLabel } from "@/lib/format"
 import { isTimeUnconfirmed } from "@/lib/session-time"
 import { cn } from "@/lib/utils"
 import "./weekend-view.css"
@@ -105,7 +105,7 @@ export function WeekendView({ events, now, variant = "default" }: { events: Race
             return <li key={session.utc + "-" + session.name + "-" + sessionIndex} className={"weekend-session" + (session.isMain ? " is-main" : "") + (started ? " is-live" : "")} style={{ "--weekend-accent": meta.color } as React.CSSProperties}>
               <div className="weekend-session-time">
                 <strong>{pending ? "待确认" : beijing}</strong>
-                {!pending && <small>{local && local !== beijing ? "当地 " + local : "北京时间"}</small>}
+                {!pending && <small>{local && local !== beijing ? `当地 ${local} · ${offsetLabel(session.utc, weekend.event.tz)}` : `北京时间 · 当地 ${offsetLabel(session.utc, weekend.event.tz)}`}</small>}
               </div>
               <div className="weekend-session-name">
                 <span>{session.name}</span>
