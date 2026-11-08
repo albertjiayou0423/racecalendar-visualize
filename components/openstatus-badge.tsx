@@ -1,6 +1,8 @@
 "use client"
 
 import useSWR from "swr"
+import Link from "next/link"
+import { Info } from "lucide-react"
 
 const STATUS_URL = "https://api.openstatus.dev/public/status/racecalendar-huosai"
 
@@ -37,16 +39,15 @@ export function OpenStatusBadge() {
   const label = status?.label ?? "服务状态"
 
   return (
-    <a
-      href="https://racecalendar-huosai.openstatus.dev"
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      href="/status"
       aria-label={`查看赛道时刻服务状态：${label}`}
       title={`查看服务状态${status ? `：${label}` : ""}`}
       className="inline-flex min-h-7 w-fit items-center gap-1.5 rounded-full border border-border/70 px-2.5 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <span aria-hidden className={`size-1.5 rounded-full ${status?.color ?? "bg-muted-foreground/50"}`} />
       <span>{label}</span>
-    </a>
+      <Info aria-hidden="true" className="size-3 shrink-0 opacity-70" />
+    </Link>
   )
 }

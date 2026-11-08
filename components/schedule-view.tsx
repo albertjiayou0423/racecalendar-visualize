@@ -443,19 +443,17 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:py-10">
       {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
-      <header className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_15.75rem]">
-          <div className="min-w-0">
-            <h1 className="text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
-            </p>
-          </div>
-          <div className="justify-self-end sm:w-full">
+      <header className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 items-center gap-x-3 gap-y-1 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,13.5rem)] sm:grid-cols-[minmax(0,1fr)_15.75rem]">
+          <h1 className="min-w-0 text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
+          <div className="justify-self-end">
             <BeijingClock now={now} />
           </div>
+          <div className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 sm:col-span-1 sm:col-start-1">
+            <p className="text-sm text-muted-foreground">WRC · F1 · Formula E 赛程与发车时间</p>
+            <OpenStatusBadge />
+          </div>
         </div>
-        <OpenStatusBadge />
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
@@ -576,8 +574,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           </div>
         </div>
         {/* 移动端吸顶时保留时间范围，其他筛选仍可回到顶部访问 */}
-        <div className={cn("flex flex-col gap-2 transition-all")}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 transition-all">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {view === "list" ? (
               <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
                 {TIME_TABS.map((t) => (
@@ -599,29 +597,51 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 ))}
               </div>
             ) : null}
-            <div className={cn("flex flex-wrap items-center gap-1", filterStuck && isMobile && "hidden")} role="tablist" aria-label="赛季范围">
-              {([
-                { key: "current-next" as const, label: "今明两年" },
-                { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
-                { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
-                { key: "all" as const, label: "全部年份" },
-              ]).map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={season === tab.key}
-                  onClick={() => setSeason(tab.key)}
-                  className={cn(
-                    "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                    season === tab.key
-                      ? "bg-secondary text-secondary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className={cn("ml-auto flex flex-wrap items-center gap-1", filterStuck && isMobile && "hidden")}>
+              <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="赛季范围">
+                {([
+                  { key: "current-next" as const, label: "今明两年" },
+                  { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
+                  { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
+                  { key: "all" as const, label: "全部年份" },
+                ]).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={season === tab.key}
+                    onClick={() => setSeason(tab.key)}
+                    className={cn(
+                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      season === tab.key
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                data-guide="advanced-filters"
+                onClick={() => setShowAdvancedFilters((value) => !value)}
+                aria-expanded={showAdvancedFilters}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  showAdvancedFilters || circuitType !== "all" || region !== "all"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Filter className="size-3.5" />
+                高级筛选
+                {(circuitType !== "all" || region !== "all") ? (
+                  <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                    {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
+                  </span>
+                ) : null}
+              </button>
             </div>
           </div>
           {season === "current-next" && (yearCounts.get(currentYear + 1) ?? 0) === 0 ? (
@@ -631,72 +651,52 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           ) : null}
 
           {/* 高级筛选 */}
-          <div className={cn("flex flex-wrap items-center gap-2", filterStuck && isMobile && "hidden")}>
-            <button
-              type="button"
-              data-guide="advanced-filters" onClick={() => setShowAdvancedFilters((v) => !v)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                showAdvancedFilters || circuitType !== "all" || region !== "all"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Filter className="size-3.5" />
-              高级筛选
-              {(circuitType !== "all" || region !== "all") ? (
-                <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                  {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
-                </span>
+          {showAdvancedFilters && !(filterStuck && isMobile) ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <Building2 className="size-3 text-muted-foreground" />
+                <select
+                  value={circuitType}
+                  onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
+                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="all">全部赛道</option>
+                  <option value="street">街道赛道</option>
+                  <option value="permanent">专用赛道</option>
+                  <option value="hybrid">混合赛道</option>
+                  <option value="rally">拉力赛</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Globe className="size-3 text-muted-foreground" />
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value as RegionFilter)}
+                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="all">全部地区</option>
+                  <option value="europe">欧洲</option>
+                  <option value="asia">亚洲</option>
+                  <option value="americas">美洲</option>
+                  <option value="middle-east">中东</option>
+                  <option value="africa">非洲</option>
+                  <option value="oceania">大洋洲</option>
+                </select>
+              </div>
+              {circuitType !== "all" || region !== "all" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCircuitType("all")
+                    setRegion("all")
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  清除筛选
+                </button>
               ) : null}
-            </button>
-            {showAdvancedFilters ? (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <Building2 className="size-3 text-muted-foreground" />
-                  <select
-                    value={circuitType}
-                    onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
-                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
-                  >
-                    <option value="all">全部赛道</option>
-                    <option value="street">街道赛道</option>
-                    <option value="permanent">专用赛道</option>
-                    <option value="hybrid">混合赛道</option>
-                    <option value="rally">拉力赛</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Globe className="size-3 text-muted-foreground" />
-                  <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value as RegionFilter)}
-                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
-                  >
-                    <option value="all">全部地区</option>
-                    <option value="europe">欧洲</option>
-                    <option value="asia">亚洲</option>
-                    <option value="americas">美洲</option>
-                    <option value="middle-east">中东</option>
-                    <option value="africa">非洲</option>
-                    <option value="oceania">大洋洲</option>
-                  </select>
-                </div>
-                {circuitType !== "all" || region !== "all" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCircuitType("all")
-                      setRegion("all")
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    清除筛选
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
