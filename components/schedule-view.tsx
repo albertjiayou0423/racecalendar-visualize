@@ -2,13 +2,13 @@
 
 import { MotionLoader, MotionInput } from "@/components/interface-motion"
 
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import { SeriesRelay, RaceFarewell } from "./ritual-motion"
 import { usePlayground } from "./playground-context"
 import { UsageGuideButton } from "@/components/usage-guide"
 import { EditionEntry } from "@/app/new/components/edition-entry"
-import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, Code, Hash, ImageIcon, ArrowUp } from "lucide-react"
+import { CalendarDays, Clock, Flag, LayoutGrid, List, Search, TriangleAlert, Sparkles, Trophy, Inbox, WifiOff, Filter, Building2, Globe, CalendarRange, CalendarClock, Code, Hash, ImageIcon, ArrowUp, Activity } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
 import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromClientCache } from "@/lib/client-schedule-cache"
 import {
@@ -26,13 +26,17 @@ import { NextRacePreview } from "@/components/next-race-preview"
 import { CountdownAutoEntry } from "@/components/countdown-auto-entry"
 import { MonthView } from "@/components/month-view"
 import { WeekView } from "@/components/week-view"
+import { WeekendView } from "@/components/weekend-view"
 import { NotificationManager } from "@/components/notification-manager"
+import { OpenStatusBadge } from "@/components/openstatus-badge"
 import { cn } from "@/lib/utils"
+import { useAppPreferences, updateAppPreferences, type HomeClockMode } from "@/lib/app-preferences"
 import Link from "next/link"
 
 const CACHE_KEY = "schedule-cache-v2"
 const LEGACY_CACHE_KEY = "schedule-cache"
 const CLIENT_FAILURE_REPORT_KEY = "schedule-load-failure-report-v1"
+const EVENT_NAME_TRANSLATION_CACHE_KEY = "event-name-translations-v1"
 
 function reportScheduleLoadFailure() {
   try {
@@ -103,7 +107,7 @@ const fetcher = async (url: string): Promise<ScheduleResponse> => {
 type SeriesFilter = "ALL" | Series
 type TimeFilter = "upcoming" | "all" | "past"
 type SeasonFilter = "current-next" | "all" | number
-type ViewMode = "list" | "week" | "month"
+type ViewMode = "list" | "week" | "month" | "weekend"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
@@ -159,37 +163,33 @@ function useNow(serverTime: number) {
 }
 
 function BeijingClock({ now }: { now: number }) {
+  const { preferences, hydrated } = useAppPreferences()
+  const mode: HomeClockMode = preferences.homeClockMode
+  const userTimeZone = hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone || BEIJING_TZ : BEIJING_TZ
+  const timeZone = mode === "utc" ? "UTC" : userTimeZone
+  const label = !hydrated ? "北京时间" : mode === "utc" ? "UTC 世界标准时间 · UTC+00:00" : "用户当地时间"
+  const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "utc" ? "user" : "utc" })
   const iso = new Date(now).toISOString()
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+    <button
+      type="button"
+      onClick={toggleClock}
+      aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
+      title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
+      className="flex w-full max-w-[15.75rem] shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
+    >
       <Clock className="size-4 text-primary" aria-hidden />
-      <div className="leading-tight">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">北京时间</div>
-        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, BEIJING_TZ)}</div>
+      <div key={mode} className="clock-flip min-w-0 leading-tight">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}{mode === "utc" ? " UTC" : ""}</div>
       </div>
-    </div>
-  )
-}
-
-function SourceBar({ data }: { data: ScheduleResponse }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-      <span className="font-medium text-foreground">数据来源：</span>
-      {data.sources.map((s) => (
-        <span key={s.series} className="flex items-center gap-1.5" title={s.note || s.label} aria-label={`${SERIES_META[s.series].label}：${s.note || s.label}`}>
-          <span
-            className={cn("size-1.5 rounded-full", s.cached ? "bg-amber-400" : s.ok ? "bg-emerald-400" : "bg-destructive")}
-            aria-hidden
-          />
-          {SERIES_META[s.series].label} · {s.label}{s.cached ? " · 本机缓存" : ""}
-        </span>
-      ))}
-    </div>
+    </button>
   )
 }
 
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const playground = usePlayground()
+  const { preferences } = useAppPreferences()
   const liveNow = useNow(serverTime)
   const now = playground?.now ?? liveNow
   const [cachedSchedule, setCachedSchedule] = useState<ScheduleResponse | undefined>()
@@ -208,6 +208,56 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const error = playground ? playground.scenario === "error" : request.error
   const requestLoading = playground ? playground.scenario === "loading" : request.isLoading
   const isLoading = requestLoading && !data
+  const [eventNameTranslations, setEventNameTranslations] = useState<Record<string, string>>({})
+  const requestedTranslations = useRef(new Set<string>())
+  useEffect(() => {
+    if (!data || playground) return
+    let cached: Record<string, string> = {}
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(EVENT_NAME_TRANSLATION_CACHE_KEY) ?? "{}")
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) cached = parsed as Record<string, string>
+    } catch { /* Ignore invalid or unavailable local cache. */ }
+    if (Object.keys(cached).length) setEventNameTranslations(previous => {
+      const hasNewValue = Object.entries(cached).some(([name, value]) => previous[name] !== value)
+      return hasNewValue ? { ...cached, ...previous } : previous
+    })
+
+    const known = new Set([...Object.keys(cached), ...Object.keys(eventNameTranslations)])
+    const names = [...new Set(data.events.map(event => event.name.trim()))]
+      .filter(name => name && !/\p{Script=Han}/u.test(name) && !known.has(name) && !requestedTranslations.current.has(name))
+    if (!names.length) return
+    names.forEach(name => requestedTranslations.current.add(name))
+
+    void (async () => {
+      for (let start = 0; start < names.length; start += 25) {
+        const batch = names.slice(start, start + 25)
+        try {
+          const response = await fetch("/api/event-name-translations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ names: batch }),
+          })
+          if (!response.ok) break
+          const result = await response.json() as { translations?: Record<string, string> }
+          const valid = Object.fromEntries(Object.entries(result.translations ?? {}).filter(([source, translated]) =>
+            batch.includes(source) && typeof translated === "string" && /\p{Script=Han}/u.test(translated),
+          ))
+          if (!Object.keys(valid).length) continue
+          setEventNameTranslations(previous => {
+            const next = { ...previous, ...valid }
+            try {
+              const stored = JSON.parse(localStorage.getItem(EVENT_NAME_TRANSLATION_CACHE_KEY) ?? "{}") as Record<string, string>
+              localStorage.setItem(EVENT_NAME_TRANSLATION_CACHE_KEY, JSON.stringify({ ...stored, ...valid }))
+            } catch { /* Keep translated names usable for this page if storage is unavailable. */ }
+            return next
+          })
+        } catch {
+          // Keep provider names visible if the free translation service is unavailable or out of quota.
+          break
+        }
+      }
+    })()
+  }, [data, eventNameTranslations, playground])
   const [series, setSeries] = useState<SeriesFilter>("ALL")
   const [time, setTime] = useState<TimeFilter>("upcoming")
   const [season, setSeason] = useState<SeasonFilter>("current-next")
@@ -223,6 +273,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     return () => window.removeEventListener("racecalendar:guide-card", prepare)
   }, [])
   const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    setView(preferences.defaultHomeView)
+  }, [preferences.defaultHomeView])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -275,7 +329,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // 全局键盘快捷键：/ 聚焦搜索 · j/k 列表焦点 · 1/2/3 切换视图
+  // 全局键盘快捷键：/ 聚焦搜索 · j/k 列表焦点 · 1–4 切换视图
   useEffect(() => {
     const moveListFocus = (dir: 1 | -1) => {
       const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-event-card]"))
@@ -313,13 +367,22 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       } else if (e.key === "3") {
         e.preventDefault()
         setView("month")
+      } else if (e.key === "4") {
+        e.preventDefault()
+        setView("weekend")
       }
     }
     window.addEventListener("keydown", handleKeydown)
     return () => window.removeEventListener("keydown", handleKeydown)
   }, [])
 
-  const allEvents = data?.events ?? []
+  const rawEvents = data?.events ?? []
+  const allEvents = useMemo(() => rawEvents.map(event => {
+    const translated = eventNameTranslations[event.name]
+    return translated && translated !== event.name
+      ? { ...event, originalName: event.name, name: translated }
+      : event
+  }), [rawEvents, eventNameTranslations])
   const isOffline = data ? ("offline" in data && (data as { offline?: boolean }).offline) : false
   const currentYear = Number(new Intl.DateTimeFormat("en-US", { timeZone: BEIJING_TZ, year: "numeric" }).format(new Date(now)))
   const yearCounts = useMemo(() => {
@@ -345,6 +408,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       const query = search.toLowerCase()
       list = list.filter((e) =>
         e.name.toLowerCase().includes(query) ||
+        e.originalName?.toLowerCase().includes(query) ||
         e.country.toLowerCase().includes(query) ||
         e.locality.toLowerCase().includes(query) ||
         e.circuit.toLowerCase().includes(query)
@@ -380,16 +444,18 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
       <header className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_15.75rem]">
+          <div className="min-w-0">
             <h1 className="text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <BeijingClock now={now} />
+          <div className="justify-self-end sm:w-full">
+            <BeijingClock now={now} />
+          </div>
         </div>
-        {data ? <SourceBar data={data} /> : null}
+        <OpenStatusBadge />
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
@@ -451,10 +517,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="列表视图"
                 aria-pressed={view === "list"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "list"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-[4.3px] bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <List className="size-3.5" />
@@ -466,10 +532,10 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="周视图"
                 aria-pressed={view === "week"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "week"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-[4.3px] bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <CalendarRange className="size-3.5" />
@@ -481,14 +547,29 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 aria-label="月视图"
                 aria-pressed={view === "month"}
                 className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
                   view === "month"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "rounded-[4.3px] bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
                 )}
               >
                 <LayoutGrid className="size-3.5" />
                 月历
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("weekend")}
+                aria-label="比赛周末视图"
+                aria-pressed={view === "weekend"}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 text-xs font-medium transition-colors",
+                  view === "weekend"
+                    ? "rounded-[4.3px] bg-secondary text-secondary-foreground"
+                    : "rounded text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CalendarClock className="size-3.5" />
+                周末
               </button>
             </div>
             {data && !playground ? <NotificationManager events={allEvents} /> : null}
@@ -679,6 +760,11 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           <MonthView events={filtered} now={now} />
         ) : null}
 
+        {/* 比赛周末：按赛事聚合该站跨日场次 */}
+        {!isLoading && !error && view === "weekend" ? (
+          <WeekendView events={filtered} now={now} />
+        ) : null}
+
         {/* 列表 */}
         {!isLoading && !error && view === "list" ? (
           <section className="flex flex-col gap-3" aria-label="赛程列表">
@@ -735,7 +821,9 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         <FeedbackButton />
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2">
+      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
+
+      <div className="flex flex-wrap justify-start gap-2">
         <Link prefetch={!playground}
           href="/standings"
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
@@ -765,11 +853,18 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           赛道数据库
         </Link>
         <Link prefetch={!playground}
+          href="/status"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        >
+          <Activity className="size-3.5" />
+          服务状态
+        </Link>
+        <Link prefetch={!playground}
             href="/about"
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             <Sparkles className="size-3.5" />
-            v2.3.3 · 赛程更新
+            v2.3.4 · 比赛周末视图
           </Link>
           {!playground && <UsageGuideButton />}
           {!playground && <EditionEntry />}
@@ -791,7 +886,6 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
         </p>
       </footer>
 
-      {data && !isLoading && filtered.length > 0 && <RaceFarewell />}
       {/* 回到顶部 */}
       {showBackToTop ? (
         <button

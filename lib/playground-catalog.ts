@@ -38,6 +38,7 @@ export function componentCatalog(now: number): CatalogEntry[] {
   for (const [name, file] of [["EventCard", "event-card"], ["EventHeader", "event-header"], ["NextRacePreview", "next-race-preview"], ["NextSessionPill", "next-session-pill"], ["SessionTimeline", "session-timeline"], ["ShareCard", "share-card"]]) {
     add(name, file, "event 的所有字段可在右侧展开编辑；now 为判断状态的时间戳。", { event, now }, { event: wrc, now }, { event: long, now: now + 86400000 }, name === "EventHeader" ? ["onSetNotification"] : undefined)
   }
+  add("TrackFlightShare", "track-flight-share", "真实赛事数据的 9:16 航拍动画预览；生成视频需要用户主动开始录制。", { event }, { event: wrc }, { event: long })
   for (const [name, file] of [["DeepInfo", "deep-info"], ["Highlights", "highlights"], ["WatchInfo", "watch-info"], ["AIPrediction", "ai-prediction"], ["PredictionVote", "prediction-vote"]]) {
     add(name, file, "直接接收 RaceEvent；外部请求在预览中被阻止，显示组件自身的失败或空状态。", { event }, { event: wrc }, { event: { ...event, highlights: {}, extraInfo: [], broadcaster: undefined, broadcasters: [], lastYearWinner: undefined, lastYearFastestLap: undefined, circuitInfo: undefined } })
   }

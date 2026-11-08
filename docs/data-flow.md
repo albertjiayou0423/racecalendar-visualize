@@ -23,6 +23,8 @@ F1 起跑状态由独立 `/api/f1-start` 获取，使用无账号 SignalR Core �
 
 首页挂载后从 localStorage 恢复各系列最近成功的赛历，在网络更新期间继续显示；缓存不意味着处于离线模式。来源栏会用琥珀色标记本机缓存数据，鼠标悬浮可查看上次成功时间和当前请求结果。后台编辑后的最新覆盖在下一次接口读取时生效。浏览器缓存仅在本机保存；服务端数据库快照和此缓存相互独立。
 
+首页遇到仍为英文的赛事名称时，会在赛历加载后异步请求 `/api/event-name-translations`，通过 MyMemory 免费匿名 `en|zh-CN` 翻译。接口一次最多处理 25 个名称，Next.js 对每个上游请求缓存 30 天，浏览器另存到 `event-name-translations-v1`；翻译失败、超额或没有中文结果时继续显示原名称，不会阻塞赛历。它只改首页本次渲染用的名称，不写入官方数据、数据库快照或赛程缓存；搜索仍可匹配原文。MyMemory 公布的匿名额度为[每天 5000 字符](https://mymemory.translated.net/doc/usagelimits.php)，免费服务可能限流或变动，因而原文始终作为回退。
+
 `refreshSeries` 使用共用 `fetchWithSnapshot`：上游抛异常、返回 ok=false 或成功空列表时，读取最近成功快照；没有可用快照时保留失败结果（WRC 可含估计数据）。失败结果不写入快照，也不增加计数。新数据获取成功但数据库保存失败时显式标记 persistenceError，后台不会假报持久化成功。
 
 ## 3. F1
@@ -66,15 +68,15 @@ F1 起跑状态由独立 `/api/f1-start` 获取，使用无账号 SignalR Core �
 
 每场官网行程按以下次序尝试：
 
-0. 先读取赛事官网页面，发现 itinerary URL（无法发现时使用标准路径），读取并解析行程 HTML / 预渲染缓存。成功获得有效场次就直接返回，不调用 feed 回退。页面访问失败或没有可用赛段时间，才进入以下回退链路；feed 为最高优先级。
-
-1. 并行尝试四种 itinerary slug，请求官方 feed 的 `event-details` / `inlineContent`。解析 FAQ 中的日期和赛段时间。
-2. 全部失败时读取 mainSubPage 补充信息用于日志，然后进入旧链路。
-3. 获取赛事首页 HTML：直接请求 → `_escaped_fragment_=` 页面 → PhantomJsCloud 渲染服务。
-4. 提取 HTML 的 `rb3-prerender-data-cache`，从 pageTabs 发现 itinerary slug；发现失败时再尝试常见 slug。
-5. 请求发现的 itinerary Feed API。
-6. 仍失败则请求 itinerary 的 `_escaped_fragment_=` 页面，解析预渲染 JSON 或 HTML。
-7. 仍失败且首页存在预渲染缓存时，尝试 itinerary / results 页面，直接请求或 PhantomJsCloud 渲染，再解析 JSON 或 HTML。
+0. 优先并行尝试多种 itinerary slug（包括爱沙尼亚站使用的 `itinerary-wrc-rally-estonia-YYYY` 别名），请求官方 feed 的 `event-details` / `inlineContent`，解析 FAQ 中按天分组的日期和赛段时间。支持英文月份、末尾带句点的 `DD.MM.` 日期，并用日期文本中的星期校正相差一天的明显官网录入错误。葡萄牙站曾因末尾句点未匹配而把全站行程回退到首日；修正后按官方 `UTC+1` 日期和时间恢复。
+1. Feed 不可用时才读取赛事官网页面，发现 itinerary URL（无法发现时使用标准路径），解析 HTML / 预渲染缓存。若解析到 12 场以上却全部落在同一天，拒绝这份疑似被页面结构压扁的行程，再进入旧链路。
+2. 2026 巴拉圭站官方 organizer 时间表列有 Shakedown（11:00）及 SS3 Yerbateras 1（10:49，当地时间）；WRC FAQ feed 未提供 Shakedown 时间且漏了 SS3。在确认官方 Feed 的 SS2、SS4 均属于 8 月 28 日时补入这两个已核实场次。
+3. Feed 与直接页面均失败时读取 mainSubPage 补充信息用于日志，然后进入旧链路。
+4. 获取赛事首页 HTML：直接请求 → `_escaped_fragment_=` 页面 → PhantomJsCloud 渲染服务。
+5. 提取 HTML 的 `rb3-prerender-data-cache`，从 pageTabs 发现 itinerary slug；发现失败时再尝试常见 slug。
+6. 请求发现的 itinerary Feed API。
+7. 仍失败则请求 itinerary 的 `_escaped_fragment_=` 页面，解析预渲染 JSON 或 HTML。
+8. 仍失败且首页存在预渲染缓存时，尝试 itinerary / results 页面，直接请求或 PhantomJsCloud 渲染，再解析 JSON 或 HTML。
 
 官网明确声明 UTC/GMT 偏移时按声明转换，否则使用赛事 IANA 时区。Power Stage 标为主场次，成功合并同步赛事 tz。
 
@@ -117,7 +119,7 @@ F1 起跑状态由独立 `/api/f1-start` 获取，使用无账号 SignalR Core �
 | F1 积分榜 | `/standings` 页面经 `/api/f1-standings` 服务端请求 Jolpica current/driverStandings 或 constructorStandings；单次上游超时 10 秒，成功缓存一小时，失败可重试，不使用 Neon。 |
 | WRC 积分榜 | `/standings` 经 `/api/wrc-standings` 服务端读取 WRC 官网公开端点。页面源码加载 `p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/seasons.json`，按赛季读取 `season-detail.json?seasonId=…` 获取各分类 `championshipId`，再合并 `championship-detail.json?championshipId=…&seasonId=…` 的参赛者资料与 `championship-overall-results.json?championshipId=…&seasonId=…` 的积分、名次。整条上游请求链共享 9 秒超时，超时返回 502 且不缓存失败结果；成功响应由服务端与 CDN 缓存一小时。页面可切换赛季及车手、领航员、制造商等分类。该端点为官网前端使用的非公开文档 API，格式或访问策略变化时可能需要调整。 |
 | FE 积分榜 | `/api/fe-drivers` 读取 Formula E 官网公开积分榜；默认使用官网当前赛季，也可通过 `season` 参数读取赛事对应的历史/指定赛季。页面 HTML 结构变化或上游不可用时返回 502。 |
-| WRC 赛果 | 暂无完整赛果获取链路；积分榜已接入 WRC 官网公开接口。实时计时链接仍供用户前往官网查看。 |
+| WRC 历史赛果 | `/api/results?series=WRC&season=YYYY` 优先读取 WRC 官网公开赛事索引，再按赛事 ID 请求官网 `results-api/rally-event/{id}/result`；官方赛果不可用时才回退到可选的 Blacktop Data `OCBLACKTOP_API_KEY`。覆盖 2018 年起有官方 ID 的赛事，索引缓存 1 天、单场赛果缓存 30 天，本站 CDN 缓存 1 小时。密钥不会发送到浏览器。未发布/无法解析的单站排名不阻塞其他赛事。WRC 官网旧索引仍保留 2026 沙特站原始条目，但 FIA/WRC Promoter 已确认该站退出 WRC；当地赛事仍作为 MERC 赛事举行，因此从 WRC 2026 列表和快照中剔除。[WRC 2026 官方赛历](https://www.wrc.com/en/calendar/wrc-2026) 与[取消公告](https://www.wrc.com/en/news/fia-and-wrc-promoter-confirm-final-round-of-the-2026-wrc-season)。2026-11-08 的 Vercel 预览验收显示官网赛果主机 `api.wrc.com` 返回 DNS `ENOTFOUND`，且该项目未配置 `OCBLACKTOP_API_KEY`，因此赛事目录可显示但排名为空。此时接口保留目录并返回明确的全局不可用提示，同时写入日志；恢复排名需官网端点恢复或部署备用 key。 |
 | F1 实时计时 | 展开组件请求 `/api/live-timing`，每次请求结束后再计时刷新，避免请求慢时重叠；收起组件会取消浏览器请求。服务端用同一个 8 秒截止时间访问 OpenF1：获取本年度 sessions，找到当前场次后并行请求 drivers、position、laps、intervals、pit、race_control。名次、圈速、圈差和进站次数来自对应上游字段，不再按名次伪造差距或用 `0` 冒充缺失数据；车手退赛状态当前无法从实时源可靠确定，显示未确认。旗帜/安全车状态按最新 race control 消息归纳，源不可用时保持未知。成功数据 CDN 缓存 5 秒并可后台保留旧响应 10 秒；无活动场次的 404 缓存 30 秒并提示客户端 30 秒后重试。[OpenF1 文档说明其实时数据需要付费订阅](https://openf1.org/docs/)，当前部署未配置其认证，因此实时阶段可能只能显示官方页面回退。 |
 | WRC / FE 实时计时 | API 返回空 drivers 的官方来源占位对象。WRC 前端不轮询，直接引导官网；FE 组件仍有 10 秒轮询，但没有真实计时数据接入。 |
 | 天气 | `/api/weather` 优先用经纬度，否则 Open-Meteo 地理编码、再本地城市坐标回退；查询目标日期前后三天 daily forecast，地理编码缓存一天、天气缓存一小时；日期范围限制及重试在该路由实现。 |
@@ -190,6 +192,8 @@ HTML 正文读取中断进入有限重试，403 等非 5xx 失败不重试。统
 ## 13. F1 积分榜请求
 
 积分榜页的 F1 车手和车队数据由 `/api/f1-standings` 服务端适配 Jolpica API。浏览器不再直接连接第三方；接口只接受 `drivers` / `constructors` 两种类别，默认读取当前赛季，设置单次 10 秒上游超时，成功数据缓存一小时并允许 CDN 在缓存失效时提供旧响应一天。上游失败或结构异常返回不缓存的 502，页面提供重试；切换车手/车队标签会取消前一个浏览器请求，避免迟到响应覆盖当前状态。接口成功但积分榜为空时显示“官方暂未提供”提示，而非空白图表。WRC 和 FE 积分榜仍使用各自既有链路。
+
+赛道数据库页面以 `lib/circuits.ts` 的人工整理资料为底，再从 `/api/schedule` 合并当前接口可见的 F1、WRC、FE 赛事地点和赛季覆盖；新增/改名赛事因此可随赛历自动出现。已有可信静态资料优先保留；日历未给出赛道长度、弯道数、首次举办年或难度时显示“暂无数据”，不会用近似值补齐。日历包含坐标时提供 OpenStreetMap 地图链接。这个目录不是完整历史赛事档案，范围取决于当前与下一年赛历快照；历史场馆详细参数仍需后续基于可靠来源逐条补充。
 
 ## 14. 浏览器同站资源适配与境内访问
 

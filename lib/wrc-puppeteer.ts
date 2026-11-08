@@ -200,14 +200,48 @@ const MONTH_MAP: Record<string, number> = {
 
 function parseDateText(dateText: string, fallbackDate: string): [number, number, number] {
   const iso = dateText.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (iso) return [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+  let parsed: [number, number, number] | null = iso
+    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+    : null
+  // WRC sometimes formats dates as `06.05.` (with a final period), so the
+  // trailing punctuation must not prevent the day/month from being parsed.
+  const numeric = dateText.match(/\b(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?\.?(?!\d)/)
+  if (!parsed && numeric) parsed = [Number(numeric[3] || fallbackDate.slice(0, 4)), Number(numeric[2]), Number(numeric[1])]
+
   const match = dateText.match(/(?:[A-Za-z]+,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)(?:\s+(\d{4}))?\b/i)
-  if (match) {
+  if (!parsed && match) {
     const month = Object.entries(MONTH_MAP).find(([name]) => name.toLowerCase() === match[2].toLowerCase())?.[1]
     const year = match[3] ? Number(match[3]) : Number(fallbackDate.split("-")[0])
-    if (month) return [year, month, Number(match[1])]
+    if (month) parsed = [year, month, Number(match[1])]
   }
-  return [NaN, NaN, NaN]
+
+  // A few official FAQ entries put the month before the day. One Croatia
+  // entry currently has the malformed text "April 202611" (year + day).
+  if (!parsed) {
+    const monthFirst = dateText.match(/\b([A-Za-z]+)\s+(\d{1,2})(?:\s+(\d{4}))?\b/i)
+    const malformedYearFirst = dateText.match(/\b([A-Za-z]+)\s+(20\d{2})(\d{1,2})\b/i)
+    const month = Object.entries(MONTH_MAP).find(([name]) => name.toLowerCase() === (monthFirst?.[1] || malformedYearFirst?.[1] || "").toLowerCase())?.[1]
+    if (month && malformedYearFirst) parsed = [Number(malformedYearFirst[2]), month, Number(malformedYearFirst[3])]
+    else if (month && monthFirst) parsed = [Number(monthFirst[3] || fallbackDate.slice(0, 4)), month, Number(monthFirst[2])]
+  }
+
+  if (!parsed) return [NaN, NaN, NaN]
+
+  // The Estonia 2026 official itinerary labels Sunday as "18 July" even
+  // though July 18 is Saturday and the rally officially runs through Sunday
+  // July 19. When an adjacent date matches the stated weekday, trust the
+  // weekday label rather than producing an impossible calendar date.
+  const weekdayText = dateText.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/i)?.[1]
+  if (weekdayText) {
+    const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+      .findIndex(name => name.toLowerCase() === weekdayText.toLowerCase())
+    const actual = new Date(Date.UTC(parsed[0], parsed[1] - 1, parsed[2])).getUTCDay()
+    const delta = (weekday - actual + 7) % 7
+    if (delta === 1) parsed[2] += 1
+    else if (delta === 6) parsed[2] -= 1
+  }
+
+  return parsed
 }
 
 function itineraryDateBelongsToRally(date: [number, number, number], startDate: string): boolean {
@@ -774,6 +808,12 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
     `itinerary-stages-${slugNoYear}`,
     `itinerary-${slugNoYear}`,
     `itinerary-stages-${eventSlug}`,
+    ...(eventSlug.includes("rally-del-paraguay")
+      ? [`itinerary-${eventSlug.replace("wrc-rally-del-paraguay", "wrc-ueno-rally-del-paraguay")}`]
+      : []),
+    ...(eventSlug.includes("delfi-rally-estonia")
+      ? [`itinerary-${eventSlug.replace("wrc-delfi-rally-estonia", "wrc-rally-estonia")}`]
+      : []),
   ]
 
   // 并行尝试所有 slug 模式
@@ -788,7 +828,7 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
   for (const { slug, days } of results) {
     if (days && days.length > 0) {
       console.log(`WRC v2: success with slug "${slug}" (${days.length} days)`)
-      const sessions = convertDaysToSessions(days, tz, eventSlug)
+      const sessions = applyPublishedWrcItineraryCorrections(eventSlug, convertDaysToSessions(days, tz, eventSlug))
       if (sessions.length) return sessions
     }
   }
@@ -807,13 +847,22 @@ async function scrapeWrcItineraryV2(eventSlug: string, tz: string, startDate: st
 
 // ============ 主爬取函数 ============
 
-/** Official HTML first; Feed API is the highest-priority fallback. */
+/** Prefer the structured Feed API, then official HTML and legacy page fallbacks. */
 async function scrapeWrcItinerary(eventSlug: string, tz: string, startDate: string): Promise<RaceSession[] | null> {
-  const primary = await scrapeOfficialItineraryPage(eventSlug, tz, startDate)
-  if (primary?.sessions.length) return primary.sessions
-
+  // Prefer the official structured Feed API: the rendered page can collapse
+  // several itinerary days onto one date when its markup changes.
   const feed = await scrapeWrcItineraryV2(eventSlug, tz, startDate)
   if (feed?.length) return feed
+
+  const primary = await scrapeOfficialItineraryPage(eventSlug, tz, startDate)
+  if (primary?.sessions.length) {
+    const distinctDays = new Set(primary.sessions.map(session => session.utc.slice(0, 10))).size
+    if (primary.sessions.length < 12 || distinctDays > 1) return primary.sessions
+    console.warn(`WRC: rejecting likely collapsed itinerary dates for ${eventSlug}`, {
+      sessionCount: primary.sessions.length,
+      distinctDays,
+    })
+  }
 
   return scrapeWrcItineraryLegacy(eventSlug, tz, startDate, primary?.homeHtml)
 }
@@ -989,6 +1038,38 @@ function convertDaysToSessions(days: ItineraryDay[], tz: string, eventSlug: stri
   return unique
 }
 
+function applyPublishedWrcItineraryCorrections(eventSlug: string, sessions: RaceSession[]): RaceSession[] {
+  // The Paraguay 2026 WRC FAQ omits the shakedown start time and SS3,
+  // although the organizer publishes both in its official spectator schedule.
+  // Apply only when the surrounding confirmed Friday stages are present.
+  if (!/rally-del-paraguay-2026/i.test(eventSlug)) return sessions
+
+  const corrections: RaceSession[] = []
+  if (!sessions.some(session => /shakedown/i.test(session.name))) {
+    corrections.push({
+      name: "Shakedown - Carmen del Paraná",
+      utc: "2026-08-27T14:00:00.000Z",
+      isMain: false,
+      tentative: false,
+    })
+  }
+
+  const ss2 = sessions.find(session => /\bSS\s*2\b/i.test(session.name))
+  const ss4 = sessions.find(session => /\bSSS?\s*4\b/i.test(session.name))
+  if (!sessions.some(session => /\bSSS?\s*3\b/i.test(session.name))
+    && ss2?.utc.startsWith("2026-08-28")
+    && ss4?.utc.startsWith("2026-08-28")) {
+    corrections.push({
+      name: "SS3 Yerbateras 1",
+      utc: "2026-08-28T13:49:00.000Z",
+      isMain: false,
+      tentative: false,
+    })
+  }
+
+  return [...sessions, ...corrections].sort((a, b) => a.utc.localeCompare(b.utc))
+}
+
 // ============ WRC 赛事列表 ============
 
 interface WrcRally {
@@ -1018,7 +1099,6 @@ const WRC_RALLIES: WrcRally[] = [
   { year: 2026, round: 11, name: "巴拉圭拉力赛", hq: "恩卡纳西翁", city: "伊塔普阿", country: "巴拉圭", code: "PY", tz: "America/Asuncion", eventSlug: "wrc-rally-del-paraguay-2026", startDate: "2026-08-27" },
   { year: 2026, round: 12, name: "智利拉力赛", hq: "康塞普西翁", city: "比奥比奥", country: "智利", code: "CL", tz: "America/Santiago", eventSlug: "wrc-rally-chile-bio-bio-2026", startDate: "2026-09-10" },
   { year: 2026, round: 13, name: "意大利撒丁岛拉力赛", hq: "阿尔盖罗（Alghero）", city: "撒丁岛", country: "意大利", code: "IT", tz: "Europe/Rome", eventSlug: "wrc-rally-italia-sardegna-2026", startDate: "2026-10-01" },
-  { year: 2026, round: 14, name: "沙特阿拉伯拉力赛", hq: "吉达（Jeddah）", city: "麦加省", country: "沙特阿拉伯", code: "SA", tz: "Asia/Riyadh", eventSlug: "wrc-rally-saudi-arabia-2026", startDate: "2026-11-11" },
 ]
 
 // 国家到时区映射（用于动态赛历）
@@ -1143,7 +1223,11 @@ async function fetchWrcCalendar(year: number = new Date().getFullYear()): Promis
   const parsed = eventDetails.flatMap(result => result.status === "fulfilled" && result.value ? [result.value] : [])
   const rounds = new Map<number, number>()
   for (const event of parsed) rounds.set(event.round, (rounds.get(event.round) || 0) + 1)
-  const valid = parsed.filter(event => rounds.get(event.round) === 1)
+  // Rally Saudi Arabia remains an event in the regional MERC calendar, but the FIA/WRC
+  // Promoter removed it from the 2026 WRC season. The WRC event-series feed can still
+  // contain the original entry, so keep that cancelled round out of the WRC schedule.
+  const valid = parsed.filter(event => rounds.get(event.round) === 1
+    && !(year === 2026 && /saudi-arabia/.test(event.eventSlug)))
   valid.sort((a, b) => a.round - b.round)
 
   if (valid.length === 0) {

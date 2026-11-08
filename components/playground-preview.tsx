@@ -11,6 +11,7 @@ const loaders: Record<string, () => Promise<Record<string, unknown>>> = {
   Button: () => import("./ui/button"), EventCard: () => import("./event-card"), EventHeader: () => import("./event-header"),
   NextRacePreview: () => import("./next-race-preview"), NextSessionPill: () => import("./next-session-pill"),
   SessionTimeline: () => import("./session-timeline"), ShareCard: () => import("./share-card"),
+  TrackFlightShare: () => import("./track-flight-share"),
   DeepInfo: () => import("./deep-info"), Highlights: () => import("./highlights"), WatchInfo: () => import("./watch-info"),
   AIPrediction: () => import("./ai-prediction"), PredictionVote: () => import("./prediction-vote"),
   WeekView: () => import("./week-view"), MonthView: () => import("./month-view"), StandingsChart: () => import("./standings-chart"),

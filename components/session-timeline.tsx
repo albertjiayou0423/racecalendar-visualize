@@ -5,7 +5,7 @@ import { isTimeUnconfirmed } from "@/lib/session-time"
 import { useRef, useEffect } from "react"
 import { Clock } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
-import { BEIJING_TZ, countdown, formatDateTime, formatDate, formatTime } from "@/lib/format"
+import { BEIJING_TZ, countdown, formatDateTime, formatDate, formatTime, offsetLabel } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { WeatherStrip } from "@/components/weather-strip"
 import { WrcStageCountdown } from "@/components/wrc-stage-countdown"
@@ -143,7 +143,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
             <li key={index} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm">
               <span>{session.name}</span>
               <span className="text-xs text-muted-foreground">
-                {isTimeUnconfirmed(event, session) ? `${formatDate(session.utc, event.tz)} · 时间待确认` : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地）`}
+                {isTimeUnconfirmed(event, session) ? `${formatDate(session.utc, event.tz)} · 时间待确认` : `${formatDateTime(session.utc, BEIJING_TZ)}（北京） · ${formatDateTime(session.utc, event.tz)}（当地 ${offsetLabel(session.utc, event.tz)}）`}
               </span>
               <WrcStageCountdown event={event} session={session} />
             </li>
@@ -400,7 +400,7 @@ export function SessionTimeline({ event, now }: SessionTimelineProps) {
                   {event.tz !== BEIJING_TZ && (
                     <span className="whitespace-nowrap font-mono tabular-nums opacity-70">
                       {formatDateTime(s.utc, event.tz)}
-                      <span className="ml-1 text-[10px]">当地</span>
+                      <span className="ml-1 text-[10px]">当地 · {offsetLabel(s.utc, event.tz)}</span>
                     </span>
                   )}
                 </div>

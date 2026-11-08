@@ -44,6 +44,7 @@ export function ImmersionLabCase({ id, fullscreen = false, basePath = "/playgrou
   const [mounted, setMounted] = useState(false)
   const [tiltX, setTiltX] = useState(0)
   const [tiltY, setTiltY] = useState(0)
+  const [hapticStatus, setHapticStatus] = useState("")
   const countdown = id === 'countdown' || id === 'countdown-entry'
   const sequence = id === 'wrc-sequence'
   const effect = id === 'entrance' || id === 'final-pulse' || id === 'impact'
@@ -84,6 +85,20 @@ export function ImmersionLabCase({ id, fullscreen = false, basePath = "/playgrou
       <Field label="倒计时秒数"><input aria-label="倒计时秒数" className={input} type="number" min="0" max="864000" value={delay} onChange={event => setDelay(Math.max(0, Math.min(864000, Number(event.target.value))))} /></Field>
       <Field label="当地时区"><select aria-label="当地时区" className={input} value={timeZone} onChange={event => setTimeZone(event.target.value)}>{['Europe/Paris', 'Asia/Shanghai', 'Asia/Riyadh', 'America/New_York'].map(value => <option key={value}>{value}</option>)}</select></Field>
     </>}
+    {id === 'countdown-entry' && <div className="grid gap-2">
+      <button className={button} type="button" onClick={() => {
+        if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
+          setHapticStatus('当前浏览器没有提供振动 API。')
+          return
+        }
+        try {
+          setHapticStatus(navigator.vibrate(35) ? '浏览器已接受震动请求；请在手机实体设备上感受。' : '浏览器未执行震动请求。')
+        } catch {
+          setHapticStatus('浏览器拒绝了震动请求。')
+        }
+      }}>测试手机震动</button>
+      {hapticStatus && <p role="status" className="text-xs text-muted-foreground">{hapticStatus}</p>}
+    </div>}
     {lights && <>
       <Field label={`红灯组数：${lit}`}><input aria-label="红灯组数" type="range" min="0" max="5" value={lit} onChange={event => setLit(Number(event.target.value))} /></Field>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={green} onChange={event => setGreen(event.target.checked)} />辅助绿灯</label>

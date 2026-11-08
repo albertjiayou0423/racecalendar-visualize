@@ -88,7 +88,7 @@ export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
     return (
       <div ref={dialog} role="dialog" aria-modal={!preview} aria-label="反馈结果" className={preview ? "relative flex w-full justify-center p-2" : "fixed inset-0 z-50 flex items-center justify-center p-4"}>
         {!preview && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
-        <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-2xl">
+        <div data-modal-panel className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md touch-pan-y overscroll-contain overflow-y-auto rounded-2xl border border-border bg-card p-8 text-center shadow-2xl">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
             <CheckCircle2 className="size-8 text-emerald-500" />
           </div>
@@ -108,7 +108,7 @@ export function FeedbackForm({ onClose, preview = false }: FeedbackFormProps) {
   return (
     <div ref={dialog} role="dialog" aria-modal={!preview} aria-label="提交反馈" className={preview ? "relative flex w-full justify-center p-2" : "fixed inset-0 z-50 flex items-center justify-center p-4"}>
       {!preview && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+      <div data-modal-panel className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md touch-pan-y overscroll-contain overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <MessageSquarePlus className="size-5 text-primary" />

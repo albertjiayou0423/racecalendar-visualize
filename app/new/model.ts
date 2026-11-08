@@ -1,6 +1,6 @@
 import type { RaceEvent, RaceSession, Series } from "@/lib/types"
 
-export type ViewMode = "list" | "week" | "month"
+export type ViewMode = "list" | "week" | "month" | "weekend"
 export type Filters = { series: "ALL" | Series; query: string; time: "upcoming" | "all" | "past"; region: string; circuit: string; favorites: boolean }
 export const DEFAULT_FILTERS: Filters = { series: "ALL", query: "", time: "upcoming", region: "all", circuit: "all", favorites: false }
 export type StartSelection = { event: RaceEvent; session: RaceSession; entrance?: boolean }

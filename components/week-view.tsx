@@ -4,7 +4,7 @@ import { beijingWeek, isoWeek, weekMonday } from "@/lib/iso-week"
 import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight, X, CalendarDays, Clock } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, firstSession, formatTime, formatDateTime } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, firstSession, formatTime, formatDateTime, offsetLabel } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { EventCard } from "./event-card"
 
@@ -199,7 +199,7 @@ export function WeekView({ events, now }: WeekViewProps) {
                       style={{
                         backgroundColor: live ? `${meta.color}33` : `${meta.color}15`,
                       }}
-                      title={`${e.name} · ${s.name} · ${time} 北京时间`}
+                      title={`${e.name} · ${s.name} · ${time} 北京时间 · 当地 ${formatDateTime(s.utc, e.tz)} · ${offsetLabel(s.utc, e.tz)}`}
                     >
                       <span
                         className="size-1.5 sm:size-2 shrink-0 rounded-full"

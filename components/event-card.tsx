@@ -30,6 +30,8 @@ import {
 import { cn } from "@/lib/utils"
 import { isEventFavorite, toggleFavorite } from "@/lib/favorites"
 import { usePlayground } from "./playground-context"
+import { nextConfirmedSession } from "@/lib/together"
+import { TogetherShareButton } from "@/components/together-share-button"
 
 interface DayGroup {
   date: string
@@ -164,6 +166,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
   const main = mainSession(event)
   const nextResult = nextSession(event, now)
   const next = nextResult?.session ?? firstSession(event)
+  const shareSession = nextConfirmedSession(event, now)
   const localOffset = main ? offsetLabel(main.utc, event.tz) : ""
   const dayGroups = groupSessionsByDay(event.sessions, event)
   const hasTentative = event.series === "WRC" && (event.sessions.length
@@ -250,7 +253,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           {/* 名称与地点 */}
           <div className="min-w-0 flex-1" onMouseLeave={() => setShowClientInfo(false)}>
             <h3 className="flex items-center gap-2 text-balance text-base font-semibold leading-tight">
-              <span className="truncate">{event.name}</span>
+              <span className="truncate" title={event.originalName ? `原名：${event.originalName}` : undefined}>{event.name}</span>
               {event.clientData && <button type="button" aria-label="查看客户端补充数据来源" aria-expanded={showClientInfo} onMouseEnter={() => setShowClientInfo(true)} onClick={() => setShowClientInfo(value => !value)} title={`客户端自动补缺，尚未经服务端独立核验。上传时间：${new Date(event.clientData.uploadedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}；场次：${event.clientData.sessions.join("、")}；来源：${event.clientData.sourceUrl}`} className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-[11px] font-serif text-muted-foreground hover:border-primary hover:text-primary">i</button>}
               {isLiveNow && (
                 <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-500">
@@ -305,6 +308,11 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                 <div className="font-mono text-sm font-semibold tabular-nums">
                   {isTimeUnconfirmed(event, next) ? `${formatDate(next.utc, event.tz)} · 时间待确认` : formatDateTime(next.utc, BEIJING_TZ)}
                 </div>
+                {!isTimeUnconfirmed(event, next) && (
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    当地 {formatDateTime(next.utc, event.tz)} · {offsetLabel(next.utc, event.tz)}
+                  </div>
+                )}
               </div>
             ) : (
               <span className="text-sm text-muted-foreground">赛程待定</span>
@@ -320,9 +328,6 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
               <>
                 <Radio className="size-3.5 shrink-0 text-primary" aria-hidden />
                 <span className="truncate font-medium">{event.broadcaster.name}</span>
-                {event.broadcaster.note ? (
-                  <span className="hidden truncate text-muted-foreground sm:inline">{event.broadcaster.note}</span>
-                ) : null}
               </>
             ) : (
               <span className="text-muted-foreground">转播待确认</span>
@@ -345,6 +350,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {!playground && shareSession && <TogetherShareButton event={event} session={shareSession} compact />}
             <Link prefetch={!playground}
               data-guide="card-details"
               href={`/event/${event.id}`}
@@ -424,7 +430,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                             </div>
                             <div className="hidden sm:flex mt-0.5 justify-end">
                               <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                                {isTimeUnconfirmed(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)}`}
+                                {isTimeUnconfirmed(event, s) ? "时间待确认" : `当地 ${formatTime(s.utc, event.tz)} · ${offsetLabel(s.utc, event.tz)}`}
                               </span>
                             </div>
                           </li>
@@ -510,7 +516,8 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
           {/* 模态框内容 */}
           <div
             ref={detailRef}
-            className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
+            data-modal-panel
+            className="relative z-10 max-h-[min(85dvh,48rem)] w-full max-w-lg touch-pan-y overscroll-contain overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -526,7 +533,7 @@ export function EventCard({ event, now }: { event: RaceEvent; now: number }) {
                   {meta.label}
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold leading-tight">{event.name}</h3>
+                  <h3 className="text-sm font-semibold leading-tight" title={event.originalName ? `原名：${event.originalName}` : undefined}>{event.name}</h3>
                   <p className="text-xs text-muted-foreground">
                     {event.circuit} · {event.locality}，{event.country}
                   </p>

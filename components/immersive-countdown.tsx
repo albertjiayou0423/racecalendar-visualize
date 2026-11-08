@@ -40,10 +40,28 @@ export function ImmersiveCountdown({ targetTime, series, onClose, preview = fals
   const vibrated = useRef(false)
   const enteredAt = useRef(Date.now())
   useEffect(() => {
-    if (!entrance || preview || vibrated.current) return
-    vibrated.current = true
-    if (window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      try { navigator.vibrate?.(35) } catch { /* Unsupported or blocked haptics do not interrupt entry. */ }
+    if (!entrance || preview || vibrated.current || !window.matchMedia("(pointer: coarse)").matches) return
+    const tryVibrate = () => {
+      if (vibrated.current || document.hidden || typeof navigator.vibrate !== "function") return false
+      try {
+        vibrated.current = navigator.vibrate(35)
+        return vibrated.current
+      } catch {
+        return false
+      }
+    }
+    if (!navigator.userActivation || navigator.userActivation.hasBeenActive) {
+      tryVibrate()
+      return
+    }
+    // Chrome Android requires sticky user activation. If auto-entry happens
+    // before the visitor touches the page, deliver the haptic on their next tap.
+    const retryOnGesture = () => { tryVibrate() }
+    window.addEventListener("pointerup", retryOnGesture, { once: true, passive: true })
+    window.addEventListener("touchend", retryOnGesture, { once: true, passive: true })
+    return () => {
+      window.removeEventListener("pointerup", retryOnGesture)
+      window.removeEventListener("touchend", retryOnGesture)
     }
   }, [entrance, preview])
   const [clock, setClock] = useState(Date.now)
