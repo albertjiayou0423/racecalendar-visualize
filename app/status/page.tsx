@@ -27,7 +27,7 @@ export default function StatusPage() {
       </header>
 
       <section aria-label="公开网站状态" className="pt-2">
-        <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站状态" heightClassName="h-[560px] w-full sm:h-[620px]" />
+        <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站状态" heightClassName="h-[300px] w-full sm:h-[310px]" />
       </section>
 
       <div className="mt-8">
