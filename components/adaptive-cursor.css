@@ -15,11 +15,9 @@
   height: 24px;
   border-radius: 50%;
   border: 0;
-  background: rgb(225 232 242 / 18%);
+  background: radial-gradient(circle at 34% 30%, rgb(255 255 255 / 36%), rgb(225 232 242 / 20%) 68%);
   color: transparent;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 1px 6px rgb(0 0 0 / 12%);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
   pointer-events: none;
   transition:
     width 160ms cubic-bezier(.2, .8, .2, 1),
@@ -35,8 +33,8 @@
   height: var(--cursor-text-height, 18px);
   border: 0;
   border-radius: 999px;
-  background: rgb(240 246 255 / 62%);
-  box-shadow: 0 0 5px rgb(240 246 255 / 24%);
+  background: rgb(240 246 255 / 68%);
+  box-shadow: 0 0 4px rgb(240 246 255 / 20%);
 }
 
 @media (hover: hover) and (pointer: fine) {

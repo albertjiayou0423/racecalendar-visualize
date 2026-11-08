@@ -27,7 +27,7 @@ export function StatusPageEmbed({ src, title = "赛道时刻服务状态", heigh
       <iframe
         src={src}
         title={title}
-        className={`${heightClassName} border-0 bg-background`}
+        className={`${heightClassName} border-0 bg-transparent`}
         loading="lazy"
         referrerPolicy="strict-origin-when-cross-origin"
       />

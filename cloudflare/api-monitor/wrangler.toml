@@ -1,0 +1,30 @@
+name = "racecalendar-api-monitor"
+main = "worker.mjs"
+compatibility_date = "2026-11-08"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "racecalendar-api-monitor"
+database_id = "dfba139e-8d86-496a-860b-8af3fed5583b"
+
+[triggers]
+crons = ["*/30 * * * *"]
+
+[cache]
+enabled = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+head_sampling_rate = 1
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true

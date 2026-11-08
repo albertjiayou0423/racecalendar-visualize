@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { Activity, AlertTriangle, Check, CircleHelp, Clock3, RefreshCw } from "lucide-react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AlertTriangle, Check, CircleHelp, Clock3, RefreshCw } from "lucide-react"
 
 const STATUS_API_URL = "https://racecalendar-api-monitor.tangjiayou23.workers.dev/api/status"
 
@@ -28,11 +28,29 @@ type ApiMonitor = {
 
 type StatusResponse = {
   ok: boolean
+  message?: string
   overall: CheckStatus
   intervalMinutes: number
   checkedAt: string | null
   monitors: ApiMonitor[]
+  budget?: {
+    statusExecutionsUsed: number
+    statusExecutionLimit: number
+    scheduledRunsUsed: number | null
+    scheduledRunLimit: number
+    resetsAt: string
+  }
 }
+
+const STATUS_REFRESH_MS = 10 * 60_000
+const statusTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  timeZone: "Asia/Shanghai",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+})
 
 const statusLabels: Record<CheckStatus, string> = {
   up: "正常",
@@ -45,14 +63,7 @@ function formatTime(value: string | null) {
   if (!value) return "尚无检查记录"
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return "时间未知"
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(date)
+  return statusTimeFormatter.format(date)
 }
 
 function formatLatency(value: number | null) {
@@ -127,7 +138,7 @@ function StatusIcon({ status }: { status: CheckStatus }) {
   return <CircleHelp className="size-4" aria-hidden="true" />
 }
 
-function ApiMonitorRow({
+const ApiMonitorRow = memo(function ApiMonitorRow({
   monitor,
   intervalMinutes,
   selectedCheckedAt,
@@ -136,10 +147,10 @@ function ApiMonitorRow({
   monitor: ApiMonitor
   intervalMinutes: number
   selectedCheckedAt: string | null
-  onSelect: (checkedAt: string) => void
+  onSelect: (monitorId: string, checkedAt: string) => void
 }) {
-  const slots = historySlots(monitor.history, intervalMinutes)
-  const uptime = uptimeStats(monitor.history, intervalMinutes)
+  const slots = useMemo(() => historySlots(monitor.history, intervalMinutes), [monitor.history, intervalMinutes])
+  const uptime = useMemo(() => uptimeStats(monitor.history, intervalMinutes), [monitor.history, intervalMinutes])
   const activePoint = selectedCheckedAt
     ? monitor.history.find((point) => point.checkedAt === selectedCheckedAt)
     : undefined
@@ -169,7 +180,7 @@ function ApiMonitorRow({
             title={`${formatTime(point.checkedAt)} · ${statusLabels[point.status]} · ${formatLatency(point.latencyMs)}`}
             aria-label={`${monitor.name}，${formatTime(point.checkedAt)}，${statusLabels[point.status]}，${formatLatency(point.latencyMs)}。点击查看检查详情`}
             aria-pressed={selectedCheckedAt === point.checkedAt}
-            onClick={() => onSelect(point.checkedAt)}
+            onClick={() => onSelect(monitor.id, point.checkedAt)}
             className={`min-w-[2px] flex-1 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground ${
               point.status === "up" ? "bg-emerald-500" : point.status === "degraded" ? "bg-amber-400" : "bg-red-500"
             }`}
@@ -201,7 +212,7 @@ function ApiMonitorRow({
       </div>
     </article>
   )
-}
+})
 
 export function ApiMonitorStatus() {
   const [data, setData] = useState<StatusResponse | null>(null)
@@ -209,44 +220,62 @@ export function ApiMonitorStatus() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedCheck, setSelectedCheck] = useState<{ monitorId: string; checkedAt: string } | null>(null)
+  const inFlightRef = useRef(false)
+  const dataFingerprintRef = useRef<string | null>(null)
 
   const refresh = useCallback(async (manual = false) => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     if (manual) setRefreshing(true)
     try {
-      const response = await fetch(STATUS_API_URL, { cache: "no-store" })
+      const response = await fetch(STATUS_API_URL, { cache: "default" })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const next = await response.json() as StatusResponse
-      if (!next.ok || !Array.isArray(next.monitors)) throw new Error("监控数据格式无效")
-      setData(next)
+      if (!next.ok || !Array.isArray(next.monitors)) {
+        throw new Error(typeof next.message === "string"
+          ? next.message
+          : "监控数据格式无效")
+      }
+      const fingerprint = JSON.stringify(next)
+      if (fingerprint !== dataFingerprintRef.current) {
+        dataFingerprintRef.current = fingerprint
+        setData(next)
+      }
       setError(null)
-    } catch {
-      setError("暂时无法连接云端监控，稍后会自动重试。")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "暂时无法连接云端监控，稍后会自动重试。")
     } finally {
+      inFlightRef.current = false
       setLoading(false)
       setRefreshing(false)
     }
   }, [])
 
   useEffect(() => {
-    void refresh()
-    const timer = window.setInterval(() => void refresh(), 60_000)
-    return () => window.clearInterval(timer)
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refresh()
+    }
+    refreshWhenVisible()
+    const timer = window.setInterval(refreshWhenVisible, STATUS_REFRESH_MS)
+    document.addEventListener("visibilitychange", refreshWhenVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener("visibilitychange", refreshWhenVisible)
+    }
   }, [refresh])
+
+  const selectCheck = useCallback((monitorId: string, checkedAt: string) => {
+    setSelectedCheck((current) => current?.monitorId === monitorId && current.checkedAt === checkedAt
+      ? null
+      : { monitorId, checkedAt })
+  }, [])
 
   const overall = data?.overall ?? "unknown"
 
   return (
     <section aria-labelledby="api-monitor-title" className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Activity className="size-4" aria-hidden="true" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Cloudflare / API</span>
-          </div>
-          <h2 id="api-monitor-title" className="mt-1 text-lg font-semibold tracking-tight">接口状态</h2>
-          <p className="mt-1 text-xs text-muted-foreground">每 30 分钟检查一次真实响应内容、数据结构与关键字段。</p>
-        </div>
-
+      <h2 id="api-monitor-title" className="sr-only">接口状态</h2>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={() => void refresh(true)}
@@ -278,13 +307,11 @@ export function ApiMonitorStatus() {
             monitor={monitor}
             intervalMinutes={data?.intervalMinutes ?? 30}
             selectedCheckedAt={selectedCheck?.monitorId === monitor.id ? selectedCheck.checkedAt : null}
-            onSelect={(checkedAt) => setSelectedCheck((current) => current?.monitorId === monitor.id && current.checkedAt === checkedAt
-              ? null
-              : { monitorId: monitor.id, checkedAt })}
+            onSelect={selectCheck}
           />
         ))}
 
-        {loading && !data && Array.from({ length: 9 }, (_, index) => (
+        {loading && !data && Array.from({ length: 13 }, (_, index) => (
           <div key={index} className="py-4 first:pt-1" aria-hidden="true">
             <div className="flex justify-between gap-4">
               <div className="h-4 w-36 animate-pulse bg-muted/70" />
@@ -297,7 +324,7 @@ export function ApiMonitorStatus() {
 
       {!loading && !data && (
         <p role="status" className="border-t border-border/70 py-4 text-sm text-muted-foreground">
-          云端检查结果暂不可用；页面会在一分钟后自动重试。
+          云端检查结果暂不可用；页面会在 10 分钟后自动重试。
         </p>
       )}
 
@@ -306,6 +333,12 @@ export function ApiMonitorStatus() {
         <span>检查间隔 {data?.intervalMinutes ?? 30} 分钟</span>
         <span aria-hidden="true">·</span>
         <span>历史保留 30 天</span>
+        {data?.budget && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>未缓存状态查询 {data.budget.statusExecutionsUsed.toLocaleString()}/{data.budget.statusExecutionLimit.toLocaleString()} 次</span>
+          </>
+        )}
       </div>
     </section>
   )

@@ -3,6 +3,9 @@ const STALE_AFTER_MS = 75 * 60 * 1000
 const HISTORY_LIMIT = 48
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 const NTFY_RETRY_LIMIT = 3
+const DAILY_STATUS_EXECUTION_LIMIT = 3_000
+const DAILY_SCHEDULED_RUN_LIMIT = 50
+const STATUS_EDGE_CACHE_SECONDS = 10 * 60
 const APP_ORIGIN = "https://race.huosai.ccwu.cc"
 const CALENDAR_SAMPLE_START = "2027-01-01T12:00:00Z"
 
@@ -204,7 +207,58 @@ function validateWrcResults(payload, now = new Date()) {
   return result("up", `${available.length}/${payload.rallies.length} 场已有赛果，共 ${rowCount} 条名次记录`)
 }
 
-function buildTargets(year) {
+function validateHomePage(contentType, body) {
+  if (!contentType.includes("text/html")) return result("down", "首页没有返回 HTML 文档")
+  if (!/<title>[^<]*赛道时刻[^<]*<\/title>/i.test(body) || !/<html\b/i.test(body)) {
+    return result("down", "首页 HTML 缺少站点标题或文档结构")
+  }
+  return result("up", "首页文档结构和站点标题正常")
+}
+
+function validateManifest(contentType, body) {
+  if (!contentType.includes("json")) return result("down", "PWA 清单没有返回 JSON")
+  let payload
+  try {
+    payload = JSON.parse(body)
+  } catch {
+    return result("down", "PWA 清单不是有效 JSON")
+  }
+  if (!isRecord(payload) || !hasText(payload.name) || !payload.name.includes("赛道时刻")
+    || payload.start_url !== "/" || payload.display !== "standalone"
+    || !Array.isArray(payload.icons) || payload.icons.length < 3) {
+    return result("down", "PWA 清单缺少应用名称、启动页、显示模式或图标")
+  }
+  return result("up", `${payload.icons.length} 个应用图标和启动配置有效`)
+}
+
+function validateServiceWorker(contentType, body) {
+  if (!/javascript|ecmascript/i.test(contentType)) return result("down", "离线脚本没有返回 JavaScript")
+  if (!/addEventListener\(["']install["']/.test(body)
+    || !/addEventListener\(["']fetch["']/.test(body)
+    || !body.includes("CACHE_NAME")) {
+    return result("down", "离线脚本缺少安装、请求拦截或缓存版本逻辑")
+  }
+  return result("up", "离线安装、缓存与请求处理逻辑存在")
+}
+
+function validateWeather(payload) {
+  if (!isRecord(payload) || !hasText(payload.timezone) || !hasText(payload.source)
+    || !Array.isArray(payload.daily) || payload.daily.length < 5) {
+    return result("down", "天气接口缺少时区、来源或逐日预报")
+  }
+  const validDays = payload.daily.every((day) => isRecord(day)
+    && isDate(day.date)
+    && isNumber(day.tempMax)
+    && isNumber(day.tempMin)
+    && isNumber(day.precipitationProbability)
+    && isNumber(day.weatherCode)
+    && hasText(day.sunrise)
+    && hasText(day.sunset))
+  if (!validDays) return result("down", "天气预报存在缺失日期、温度、降水或日出日落数据的条目")
+  return result("up", `${payload.daily.length} 天预报字段完整，来源为 ${payload.source}`)
+}
+
+function buildTargets(year, now = new Date()) {
   const calendarUrl = new URL(`${APP_ORIGIN}/api/calendar`)
   for (const [key, value] of Object.entries({
     id: "monitor-check-f1",
@@ -217,7 +271,33 @@ function buildTargets(year) {
     utc: CALENDAR_SAMPLE_START,
   })) calendarUrl.searchParams.set(key, value)
 
+  const weatherUrl = new URL(`${APP_ORIGIN}/api/weather`)
+  weatherUrl.searchParams.set("lat", "-23.7036")
+  weatherUrl.searchParams.set("lon", "-46.6997")
+  weatherUrl.searchParams.set("date", now.toISOString().slice(0, 10))
+
   return [
+    {
+      id: "home-shell",
+      name: "首页页面",
+      responseType: "text",
+      url: `${APP_ORIGIN}/`,
+      validateText: validateHomePage,
+    },
+    {
+      id: "pwa-manifest",
+      name: "PWA 安装清单",
+      responseType: "text",
+      url: `${APP_ORIGIN}/manifest.webmanifest`,
+      validateText: validateManifest,
+    },
+    {
+      id: "service-worker",
+      name: "离线缓存脚本",
+      responseType: "text",
+      url: `${APP_ORIGIN}/sw.js`,
+      validateText: validateServiceWorker,
+    },
     {
       id: "f1-standings",
       name: "F1 车手积分榜",
@@ -268,6 +348,12 @@ function buildTargets(year) {
       validate: (payload, now) => validateWrcResults(payload, now),
     },
     {
+      id: "weather-forecast",
+      name: "赛事天气预报",
+      url: weatherUrl.toString(),
+      validate: validateWeather,
+    },
+    {
       id: "calendar-export",
       name: "赛事日历导出",
       responseType: "calendar",
@@ -285,8 +371,8 @@ const corsHeaders = {
   "X-Content-Type-Options": "nosniff",
 }
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders })
+function json(body, status = 200, headers = {}) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, ...headers } })
 }
 
 async function responseNote(response) {
@@ -304,7 +390,13 @@ async function checkTarget(target, now) {
   try {
     const response = await fetch(target.url, {
       method: "GET",
-      headers: { Accept: target.responseType === "calendar" ? "text/calendar" : "application/json" },
+      headers: {
+        Accept: target.responseType === "calendar"
+          ? "text/calendar"
+          : target.responseType === "text"
+            ? "text/html,application/json,application/manifest+json,application/javascript,*/*;q=0.8"
+            : "application/json",
+      },
       signal: AbortSignal.timeout(target.timeoutMs ?? CHECK_TIMEOUT_MS),
     })
     const latencyMs = Date.now() - startedAt
@@ -318,6 +410,22 @@ async function checkTarget(target, now) {
         latencyMs,
         httpStatus: response.status,
         message: cleanMessage(`接口返回 HTTP ${response.status}${note ? `：${note}` : ""}`),
+      }
+    }
+
+    if (target.responseType === "text") {
+      const contentType = response.headers.get("content-type") ?? ""
+      const body = await response.text()
+      const validation = target.validateText ? target.validateText(contentType, body) : result("up", "响应有效")
+      return {
+        targetId: target.id,
+        status: latencyMs >= 8_000 && validation.status === "up" ? "degraded" : validation.status,
+        checkedAtMs: Date.now(),
+        latencyMs,
+        httpStatus: response.status,
+        message: latencyMs >= 8_000 && validation.status === "up"
+          ? `${validation.message}；接口响应较慢`
+          : cleanMessage(validation.message),
       }
     }
 
@@ -389,20 +497,50 @@ async function checkTarget(target, now) {
   }
 }
 
-async function sendTransitionNotifications(env, checks) {
+async function reserveDailyUsage(env, field, limit, at = new Date()) {
+  if (field !== "status_executions" && field !== "scheduled_runs") throw new Error("Invalid daily usage counter")
+  const timestamp = at.getTime()
+  const day = at.toISOString().slice(0, 10)
+  const initialStatusExecutions = field === "status_executions" ? 1 : 0
+  const initialScheduledRuns = field === "scheduled_runs" ? 1 : 0
+  const row = await env.DB.prepare(`
+    INSERT INTO api_monitor_daily_usage (utc_day, status_executions, scheduled_runs, updated_at_ms)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(utc_day) DO UPDATE SET
+      ${field} = ${field} + 1,
+      updated_at_ms = excluded.updated_at_ms
+    WHERE ${field} < ?
+    RETURNING status_executions, scheduled_runs
+  `).bind(day, initialStatusExecutions, initialScheduledRuns, timestamp, limit).first()
+
+  return row
+    ? { statusExecutionsUsed: row.status_executions, scheduledRunsUsed: row.scheduled_runs, day }
+    : null
+}
+
+function secondsUntilUtcReset(now = new Date()) {
+  const tomorrowUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  return Math.max(1, Math.ceil((tomorrowUtc - now.getTime()) / 1000))
+}
+
+async function sendTransitionNotifications(env, checks, targets) {
   if (!env.NTFY_TOPIC_URL) return
 
-  const stateRows = await Promise.all(checks.map((check) =>
-    env.DB.prepare("SELECT last_notified_status FROM api_monitor_notification_state WHERE target_id = ?")
-      .bind(check.targetId)
-      .first()
-  ))
+  const targetIds = checks.map((check) => check.targetId)
+  const placeholders = targetIds.map(() => "?").join(", ")
+  const stateResult = await env.DB.prepare(`
+    SELECT target_id, last_notified_status
+    FROM api_monitor_notification_state
+    WHERE target_id IN (${placeholders})
+  `).bind(...targetIds).all()
+  const stateByTarget = new Map((stateResult.results ?? []).map((row) => [row.target_id, row.last_notified_status]))
+  const targetsById = new Map(targets.map((target) => [target.id, target]))
 
   const nextStates = []
   const messages = []
 
-  checks.forEach((check, index) => {
-    const lastNotifiedStatus = stateRows[index]?.last_notified_status ?? null
+  checks.forEach((check) => {
+    const lastNotifiedStatus = stateByTarget.get(check.targetId) ?? null
     const currentStatus = check.status === "up" ? "up" : "down"
 
     if (lastNotifiedStatus === null && currentStatus === "up") {
@@ -412,7 +550,7 @@ async function sendTransitionNotifications(env, checks) {
 
     if (lastNotifiedStatus === currentStatus) return
 
-    const target = buildTargets(new Date(check.checkedAtMs).getUTCFullYear()).find((item) => item.id === check.targetId)
+    const target = targetsById.get(check.targetId)
     const message = currentStatus === "down"
       ? `${target?.name ?? check.targetId} 检查异常：${check.message}`
       : `${target?.name ?? check.targetId} 已恢复正常：${check.message}`
@@ -420,9 +558,7 @@ async function sendTransitionNotifications(env, checks) {
     nextStates.push({ targetId: check.targetId, status: currentStatus })
   })
 
-  const transitionStates = nextStates.filter((next) =>
-    stateRows[checks.findIndex((check) => check.targetId === next.targetId)]?.last_notified_status !== next.status
-  )
+  const transitionStates = nextStates.filter((next) => stateByTarget.get(next.targetId) !== next.status)
 
   if (messages.length) {
     const hasFailure = checks.some((check) =>
@@ -444,7 +580,7 @@ async function sendTransitionNotifications(env, checks) {
             "Priority": hasFailure ? "4" : "3",
             "Tags": hasFailure ? "warning" : "white_check_mark",
           },
-          body: messages.join("\n"),
+          body: `${messages.join("\n")}\n\n查看状态：https://race.huosai.ccwu.cc/status`,
           signal: AbortSignal.timeout(25_000),
         })
 
@@ -485,8 +621,10 @@ async function sendTransitionNotifications(env, checks) {
 
 async function runChecks(env) {
   const now = new Date()
-  const checks = await Promise.all(buildTargets(now.getUTCFullYear()).map((target) => checkTarget(target, now)))
+  const targets = buildTargets(now.getUTCFullYear(), now)
+  const checks = await Promise.all(targets.map((target) => checkTarget(target, now)))
   const cutoff = Date.now() - RETENTION_MS
+  const cutoffDay = new Date(cutoff).toISOString().slice(0, 10)
 
   try {
     const statements = checks.map((check) => env.DB.prepare(`
@@ -496,6 +634,7 @@ async function runChecks(env) {
     `).bind(check.targetId, check.checkedAtMs, check.status, check.latencyMs, check.httpStatus, check.message))
 
     statements.push(env.DB.prepare("DELETE FROM api_monitor_checks WHERE checked_at_ms < ?").bind(cutoff))
+    statements.push(env.DB.prepare("DELETE FROM api_monitor_daily_usage WHERE utc_day < ?").bind(cutoffDay))
     await env.DB.batch(statements)
   } catch (error) {
     console.error(JSON.stringify({ event: "monitor.check_storage_failed", error: error instanceof Error ? error.name : "unknown" }))
@@ -503,7 +642,7 @@ async function runChecks(env) {
   }
 
   try {
-    await sendTransitionNotifications(env, checks)
+    await sendTransitionNotifications(env, checks, targets)
   } catch (error) {
     console.warn(JSON.stringify({ event: "monitor.notification_state_failed", error: error instanceof Error ? error.name : "unknown" }))
   }
@@ -514,23 +653,35 @@ async function runChecks(env) {
   }))
 }
 
-async function getStatus(env) {
+function statusBudget(usage, now = new Date()) {
+  const resetsAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+  return {
+    statusExecutionsUsed: Number(usage.statusExecutionsUsed),
+    statusExecutionLimit: DAILY_STATUS_EXECUTION_LIMIT,
+    scheduledRunsUsed: usage.scheduledRunsUsed === null ? null : Number(usage.scheduledRunsUsed),
+    scheduledRunLimit: DAILY_SCHEDULED_RUN_LIMIT,
+    resetsAt: resetsAt.toISOString(),
+  }
+}
+
+async function getStatus(env, usage) {
   try {
-    const targets = buildTargets(new Date().getUTCFullYear())
-    const histories = await Promise.all(targets.map((target) =>
+    const now = new Date()
+    const targets = buildTargets(now.getUTCFullYear(), now)
+    const histories = await env.DB.batch(targets.map((target) =>
       env.DB.prepare(`
         SELECT checked_at_ms, status, latency_ms, http_status, message
         FROM api_monitor_checks
         WHERE target_id = ?
         ORDER BY checked_at_ms DESC
         LIMIT ?
-      `).bind(target.id, HISTORY_LIMIT).all()
+      `).bind(target.id, HISTORY_LIMIT)
     ))
 
     const monitors = targets.map((target, index) => {
       const rows = histories[index].results ?? []
       const latest = rows[0]
-      const stale = latest && Date.now() - latest.checked_at_ms > STALE_AFTER_MS
+      const stale = latest && now.getTime() - latest.checked_at_ms > STALE_AFTER_MS
       return {
         id: target.id,
         name: target.name,
@@ -564,8 +715,11 @@ async function getStatus(env) {
       intervalMinutes: 30,
       historyHours: 24,
       retentionDays: 30,
+      budget: statusBudget(usage, now),
       checkedAt: monitors.map((monitor) => monitor.checkedAt).filter(Boolean).sort().at(-1) ?? null,
       monitors,
+    }, 200, {
+      "Cache-Control": `public, max-age=60, s-maxage=${STATUS_EDGE_CACHE_SECONDS}, stale-while-revalidate=60`,
     })
   } catch (error) {
     console.error(JSON.stringify({ event: "monitor.status_read_failed", error: error instanceof Error ? error.name : "unknown" }))
@@ -582,10 +736,42 @@ export default {
       return json({ ok: false, message: "Not found" }, 404)
     }
 
-    return getStatus(env)
+    let usage
+    try {
+      usage = await reserveDailyUsage(env, "status_executions", DAILY_STATUS_EXECUTION_LIMIT)
+    } catch (error) {
+      console.error(JSON.stringify({ event: "monitor.request_budget_failed", error: error instanceof Error ? error.name : "unknown" }))
+      return json({ ok: false, message: "监控请求预算暂时无法读取" }, 503)
+    }
+
+    if (!usage) {
+      const now = new Date()
+      const resetsInSeconds = secondsUntilUtcReset(now)
+      console.warn(JSON.stringify({ event: "monitor.request_budget_exhausted", limit: DAILY_STATUS_EXECUTION_LIMIT }))
+      return json({
+        ok: false,
+        message: "今日未缓存状态查询已到安全上限，UTC 午夜重置。",
+        budget: statusBudget({ statusExecutionsUsed: DAILY_STATUS_EXECUTION_LIMIT, scheduledRunsUsed: null }, now),
+      }, 200, {
+        "Cache-Control": `public, max-age=0, s-maxage=${resetsInSeconds}`,
+      })
+    }
+
+    return getStatus(env, usage)
   },
 
   async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(runChecks(env))
+    ctx.waitUntil((async () => {
+      try {
+        const usage = await reserveDailyUsage(env, "scheduled_runs", DAILY_SCHEDULED_RUN_LIMIT)
+        if (!usage) {
+          console.warn(JSON.stringify({ event: "monitor.scheduled_budget_exhausted", limit: DAILY_SCHEDULED_RUN_LIMIT }))
+          return
+        }
+        await runChecks(env)
+      } catch (error) {
+        console.error(JSON.stringify({ event: "monitor.scheduled_run_failed", error: error instanceof Error ? error.name : "unknown" }))
+      }
+    })())
   },
 }

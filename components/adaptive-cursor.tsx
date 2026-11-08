@@ -1,17 +1,12 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { motion, useMotionTemplate, useMotionValue } from "motion/react"
 
 const TEXT_SELECTOR = 'input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input[type="password"], input[type="number"], textarea, [contenteditable="true"]'
 
 export function AdaptiveCursor() {
-  const x = useMotionValue(-100)
-  const y = useMotionValue(-100)
-  const opacity = useMotionValue(0)
   const cursorRef = useRef<HTMLDivElement>(null)
-  const currentElementRef = useRef<Element | null>(null)
-  const transform = useMotionTemplate`translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
+  const currentTextEntryRef = useRef<Element | null>(null)
 
   useEffect(() => {
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)")
@@ -49,30 +44,42 @@ export function AdaptiveCursor() {
     observeDialogs()
     document.addEventListener("fullscreenchange", syncTopLayer)
 
+    let pointerFrame = 0
+    let pointerPosition: { x: number; y: number } | null = null
+    const applyPointerPosition = () => {
+      pointerFrame = 0
+      const cursor = cursorRef.current
+      if (!cursor || !pointerPosition) return
+      cursor.style.transform = `translate3d(${pointerPosition.x}px, ${pointerPosition.y}px, 0) translate(-50%, -50%)`
+      cursor.style.opacity = "1"
+    }
+
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === "touch") return
-      x.set(event.clientX)
-      y.set(event.clientY)
-      const element = event.target instanceof Element ? event.target : null
-      if (element === currentElementRef.current) return
-      currentElementRef.current = element
-      const textEntry = element?.closest(TEXT_SELECTOR)
+      pointerPosition = { x: event.clientX, y: event.clientY }
+      if (!pointerFrame) pointerFrame = window.requestAnimationFrame(applyPointerPosition)
 
-      if (cursorRef.current) {
-        const type = textEntry ? "text" : "dot"
-        if (cursorRef.current.dataset.type !== type) cursorRef.current.dataset.type = type
-        if (textEntry && element) {
-          const fontSize = Number.parseFloat(window.getComputedStyle(element).fontSize)
-          const textHeight = Math.max(14, Math.min(28, Number.isFinite(fontSize) ? fontSize * 1.12 : 18))
-          cursorRef.current.style.setProperty("--cursor-text-height", `${textHeight}px`)
-        }
+      const element = event.target instanceof Element ? event.target : null
+      const textEntry = element?.closest(TEXT_SELECTOR) ?? null
+      if (textEntry === currentTextEntryRef.current) return
+      currentTextEntryRef.current = textEntry
+
+      const cursor = cursorRef.current
+      if (!cursor) return
+      cursor.dataset.type = textEntry ? "text" : "dot"
+      if (textEntry) {
+        const fontSize = Number.parseFloat(window.getComputedStyle(textEntry).fontSize)
+        const textHeight = Math.max(14, Math.min(28, Number.isFinite(fontSize) ? fontSize * 1.12 : 18))
+        cursor.style.setProperty("--cursor-text-height", `${textHeight}px`)
       }
-      if (opacity.get() !== 1) opacity.set(1)
     }
 
     const onPointerLeave = () => {
-      currentElementRef.current = null
-      opacity.set(0)
+      currentTextEntryRef.current = null
+      pointerPosition = null
+      if (pointerFrame) window.cancelAnimationFrame(pointerFrame)
+      pointerFrame = 0
+      if (cursorRef.current) cursorRef.current.style.opacity = "0"
     }
 
     window.addEventListener("pointermove", onPointerMove, { passive: true })
@@ -86,6 +93,7 @@ export function AdaptiveCursor() {
       document.removeEventListener("fullscreenchange", syncTopLayer)
       bodyObserver.disconnect()
       dialogObserver.disconnect()
+      if (pointerFrame) window.cancelAnimationFrame(pointerFrame)
       try {
         if (cursorRef.current?.matches(":popover-open")) cursorRef.current.hidePopover()
       } catch {
@@ -93,7 +101,7 @@ export function AdaptiveCursor() {
       }
       root.classList.remove("has-fixed-cursor")
     }
-  }, [opacity, x, y])
+  }, [])
 
-  return <motion.div ref={cursorRef} popover="manual" className="adaptive-cursor" data-type="dot" style={{ transform, opacity }} aria-hidden="true" />
+  return <div ref={cursorRef} popover="manual" className="adaptive-cursor" data-type="dot" style={{ opacity: 0 }} aria-hidden="true" />
 }

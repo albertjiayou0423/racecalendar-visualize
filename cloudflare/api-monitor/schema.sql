@@ -16,3 +16,10 @@ CREATE TABLE IF NOT EXISTS api_monitor_notification_state (
   last_notified_status TEXT NOT NULL CHECK (last_notified_status IN ('up', 'down')),
   updated_at_ms INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS api_monitor_daily_usage (
+  utc_day TEXT PRIMARY KEY,
+  status_executions INTEGER NOT NULL DEFAULT 0 CHECK (status_executions >= 0),
+  scheduled_runs INTEGER NOT NULL DEFAULT 0 CHECK (scheduled_runs >= 0),
+  updated_at_ms INTEGER NOT NULL
+);
