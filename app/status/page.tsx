@@ -28,16 +28,16 @@ export default function StatusPage() {
         <h1 className="sr-only">服务状态</h1>
       </header>
 
-      <div className="pt-2">
-        <ApiMonitorStatus />
-      </div>
-
-      <section aria-label="公开网站状态" className="mt-8">
+      <section aria-label="公开网站状态" className="pt-2">
         <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站状态" heightClassName="h-[250px] w-full sm:h-[290px]" />
       </section>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <StatusEventHistory src={EVENT_HISTORY_EMBED_URL} externalUrl={`${STATUS_PAGE_URL}events`} />
+      </div>
+
+      <div className="mt-8">
+        <ApiMonitorStatus />
       </div>
     </main>
   )

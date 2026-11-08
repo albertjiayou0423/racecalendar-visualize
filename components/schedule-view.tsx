@@ -186,23 +186,6 @@ function BeijingClock({ now }: { now: number }) {
   )
 }
 
-function SourceBar({ data }: { data: ScheduleResponse }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-      <span className="font-medium text-foreground">数据来源：</span>
-      {data.sources.map((s) => (
-        <span key={s.series} className="flex items-center gap-1.5" title={s.note || s.label} aria-label={`${SERIES_META[s.series].label}：${s.note || s.label}`}>
-          <span
-            className={cn("size-1.5 rounded-full", s.cached ? "bg-amber-400" : s.ok ? "bg-emerald-400" : "bg-destructive")}
-            aria-hidden
-          />
-          {SERIES_META[s.series].label} · {s.label}{s.cached ? " · 本机缓存" : ""}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
   const playground = usePlayground()
   const { preferences } = useAppPreferences()
@@ -471,7 +454,6 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
             <BeijingClock now={now} />
           </div>
         </div>
-        {data ? <SourceBar data={data} /> : null}
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
