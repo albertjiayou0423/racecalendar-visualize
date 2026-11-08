@@ -175,7 +175,7 @@ function BeijingClock({ now }: { now: number }) {
       onClick={toggleClock}
       aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
       title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
-      className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
+      className="flex w-full max-w-[15.75rem] shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
     >
       <Clock className="size-4 text-primary" aria-hidden />
       <div key={mode} className="clock-flip min-w-0 leading-tight">
@@ -460,14 +460,16 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
       <header className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_15.75rem]">
+          <div className="min-w-0">
             <h1 className="text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
             </p>
           </div>
-          <BeijingClock now={now} />
+          <div className="justify-self-end sm:w-full">
+            <BeijingClock now={now} />
+          </div>
         </div>
         {data ? <SourceBar data={data} /> : null}
         {isOffline ? (
