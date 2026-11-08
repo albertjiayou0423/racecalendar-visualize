@@ -18,7 +18,7 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           DEPLOYMENT_STATE: ${{ github.event.deployment_status.state }}
           DEPLOYMENT_ENVIRONMENT: ${{ github.event.deployment.environment }}
-          DEPLOYMENT_REF: ${{ github.event.deployment.ref }}
+          DEPLOYMENT_REF: ${{ github.ref_name || github.event.deployment.ref }}
           DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
           DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           PROJECT_NAME: ${{ github.event.repository.name }}
