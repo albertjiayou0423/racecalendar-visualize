@@ -14,7 +14,6 @@ import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromCli
 import {
     BEIJING_TZ,
     SERIES_META,
-    formatDateTime,
     formatTime,
     isPast,
     mainSession,
@@ -111,6 +110,55 @@ type ViewMode = "list" | "week" | "month" | "weekend"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
+function formatHomeClock(now: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(now))
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]))
+  return `${values.day}/${values.month} ${values.hour}:${values.minute}`
+}
+
+function formatUtcOffset(now: number, timeZone: string) {
+  let offset: string | undefined
+  try {
+    offset = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "shortOffset" })
+      .formatToParts(new Date(now))
+      .find(({ type }) => type === "timeZoneName")?.value
+  } catch {
+    // Older Safari versions may not support shortOffset.
+  }
+  if (offset && /^(?:GMT|GMT[+-]\d{1,2}(?::\d{2})?)$/.test(offset)) {
+    if (offset === "GMT" || offset === "GMT+0" || offset === "GMT+00:00") return "UTC"
+    const normalized = offset.replace(/^GMT/, "").replace(/:00$/, "").replace(/^([+-])0(\d)$/, "$1$2")
+    return `UTC${normalized}`
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(now))
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, Number(value)]))
+  const localAsUtc = Date.UTC(values.year, values.month - 1, values.day, values.hour % 24, values.minute, values.second)
+  const offsetMinutes = Math.round((localAsUtc - Math.floor(now / 1000) * 1000) / 60_000)
+  if (offsetMinutes === 0) return "UTC"
+  const sign = offsetMinutes < 0 ? "-" : "+"
+  const absoluteMinutes = Math.abs(offsetMinutes)
+  const hours = Math.floor(absoluteMinutes / 60)
+  const minutes = absoluteMinutes % 60
+  return `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""}`
+}
+
 const SERIES_TABS: { key: SeriesFilter; label: string }[] = [
   { key: "ALL", label: "全部" },
   { key: "F1", label: "F1" },
@@ -167,21 +215,21 @@ function BeijingClock({ now }: { now: number }) {
   const mode: HomeClockMode = preferences.homeClockMode
   const userTimeZone = hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone || BEIJING_TZ : BEIJING_TZ
   const timeZone = mode === "utc" ? "UTC" : userTimeZone
-  const label = !hydrated ? "北京时间" : mode === "utc" ? "UTC 世界标准时间 · UTC+00:00" : "用户当地时间"
+  const zoneLabel = mode === "utc" ? "UTC" : formatUtcOffset(now, timeZone)
+  const label = mode === "utc" ? "UTC 时间" : `用户当地时间（${zoneLabel}）`
   const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "utc" ? "user" : "utc" })
-  const iso = new Date(now).toISOString()
   return (
     <button
       type="button"
       onClick={toggleClock}
       aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
       title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
-      className="flex w-full max-w-[15.75rem] shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
+      className="flex w-fit max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/70 bg-transparent px-2.5 py-1.5 text-left transition-colors hover:border-border hover:bg-muted/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
-      <Clock className="size-4 text-primary" aria-hidden />
+      <Clock className="size-3.5 text-muted-foreground" aria-hidden />
       <div key={mode} className="clock-flip min-w-0 leading-tight">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}{mode === "utc" ? " UTC" : ""}</div>
+        <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">{zoneLabel}</span>
+        <span className="block whitespace-nowrap font-mono text-[13px] font-semibold tabular-nums">{formatHomeClock(now, timeZone)}</span>
       </div>
     </button>
   )
@@ -443,19 +491,17 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:py-10">
       {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
-      <header className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_15.75rem]">
-          <div className="min-w-0">
-            <h1 className="text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              WRC · F1 · Formula E 未来赛程 — 当地时间与北京时间双时区，含中国大陆直播提示
-            </p>
-          </div>
-          <div className="justify-self-end sm:w-full">
+      <header className="flex flex-col gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 max-[359px]:gap-x-2">
+          <h1 className="min-w-0 whitespace-nowrap text-[28px] font-bold leading-[1.1] tracking-tight sm:text-[30px]">赛道时刻</h1>
+          <div className="justify-self-end">
             <BeijingClock now={now} />
           </div>
+          <div className="col-span-full flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:col-span-1 sm:col-start-1">
+            <p className="whitespace-nowrap text-xs leading-5 text-muted-foreground">F1 · WRC · Formula E 赛程</p>
+            <OpenStatusBadge />
+          </div>
         </div>
-        <OpenStatusBadge />
         {isOffline ? (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
             <WifiOff className="size-4" aria-hidden />
@@ -469,7 +515,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       <div
         data-filter-bar
         className={cn(
-          "sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
+          "sticky top-0 z-10 -mt-3 -mb-6 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
           filterStuck && isMobile && "py-2 gap-1"
         )}
       >
@@ -576,8 +622,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           </div>
         </div>
         {/* 移动端吸顶时保留时间范围，其他筛选仍可回到顶部访问 */}
-        <div className={cn("flex flex-col gap-2 transition-all")}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 transition-all">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {view === "list" ? (
               <div className="flex flex-wrap gap-2" role="tablist" aria-label="时间范围">
                 {TIME_TABS.map((t) => (
@@ -599,29 +645,51 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
                 ))}
               </div>
             ) : null}
-            <div className={cn("flex flex-wrap items-center gap-1", filterStuck && isMobile && "hidden")} role="tablist" aria-label="赛季范围">
-              {([
-                { key: "current-next" as const, label: "今明两年" },
-                { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
-                { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
-                { key: "all" as const, label: "全部年份" },
-              ]).map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={season === tab.key}
-                  onClick={() => setSeason(tab.key)}
-                  className={cn(
-                    "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                    season === tab.key
-                      ? "bg-secondary text-secondary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className={cn("ml-auto flex flex-wrap items-center gap-1", filterStuck && isMobile && "hidden")}>
+              <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="赛季范围">
+                {([
+                  { key: "current-next" as const, label: "今明两年" },
+                  { key: currentYear, label: `${currentYear} 年 · ${yearCounts.get(currentYear) ?? 0}` },
+                  { key: currentYear + 1, label: `${currentYear + 1} 年 · ${yearCounts.get(currentYear + 1) ?? 0}` },
+                  { key: "all" as const, label: "全部年份" },
+                ]).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={season === tab.key}
+                    onClick={() => setSeason(tab.key)}
+                    className={cn(
+                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      season === tab.key
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                data-guide="advanced-filters"
+                onClick={() => setShowAdvancedFilters((value) => !value)}
+                aria-expanded={showAdvancedFilters}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  showAdvancedFilters || circuitType !== "all" || region !== "all"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Filter className="size-3.5" />
+                高级筛选
+                {(circuitType !== "all" || region !== "all") ? (
+                  <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                    {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
+                  </span>
+                ) : null}
+              </button>
             </div>
           </div>
           {season === "current-next" && (yearCounts.get(currentYear + 1) ?? 0) === 0 ? (
@@ -631,72 +699,52 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
           ) : null}
 
           {/* 高级筛选 */}
-          <div className={cn("flex flex-wrap items-center gap-2", filterStuck && isMobile && "hidden")}>
-            <button
-              type="button"
-              data-guide="advanced-filters" onClick={() => setShowAdvancedFilters((v) => !v)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                showAdvancedFilters || circuitType !== "all" || region !== "all"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Filter className="size-3.5" />
-              高级筛选
-              {(circuitType !== "all" || region !== "all") ? (
-                <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                  {[circuitType !== "all" ? 1 : 0, region !== "all" ? 1 : 0].reduce((a, b) => a + b, 0)}
-                </span>
+          {showAdvancedFilters && !(filterStuck && isMobile) ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <Building2 className="size-3 text-muted-foreground" />
+                <select
+                  value={circuitType}
+                  onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
+                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="all">全部赛道</option>
+                  <option value="street">街道赛道</option>
+                  <option value="permanent">专用赛道</option>
+                  <option value="hybrid">混合赛道</option>
+                  <option value="rally">拉力赛</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Globe className="size-3 text-muted-foreground" />
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value as RegionFilter)}
+                  className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="all">全部地区</option>
+                  <option value="europe">欧洲</option>
+                  <option value="asia">亚洲</option>
+                  <option value="americas">美洲</option>
+                  <option value="middle-east">中东</option>
+                  <option value="africa">非洲</option>
+                  <option value="oceania">大洋洲</option>
+                </select>
+              </div>
+              {circuitType !== "all" || region !== "all" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCircuitType("all")
+                    setRegion("all")
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  清除筛选
+                </button>
               ) : null}
-            </button>
-            {showAdvancedFilters ? (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <Building2 className="size-3 text-muted-foreground" />
-                  <select
-                    value={circuitType}
-                    onChange={(e) => setCircuitType(e.target.value as CircuitTypeFilter)}
-                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
-                  >
-                    <option value="all">全部赛道</option>
-                    <option value="street">街道赛道</option>
-                    <option value="permanent">专用赛道</option>
-                    <option value="hybrid">混合赛道</option>
-                    <option value="rally">拉力赛</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Globe className="size-3 text-muted-foreground" />
-                  <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value as RegionFilter)}
-                    className="rounded-md border border-border bg-card px-2 py-1 text-xs outline-none focus:border-primary"
-                  >
-                    <option value="all">全部地区</option>
-                    <option value="europe">欧洲</option>
-                    <option value="asia">亚洲</option>
-                    <option value="americas">美洲</option>
-                    <option value="middle-east">中东</option>
-                    <option value="africa">非洲</option>
-                    <option value="oceania">大洋洲</option>
-                  </select>
-                </div>
-                {circuitType !== "all" || region !== "all" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCircuitType("all")
-                      setRegion("all")
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    清除筛选
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

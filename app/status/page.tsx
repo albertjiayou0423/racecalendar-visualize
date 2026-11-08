@@ -3,7 +3,6 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { ApiMonitorStatus } from "@/components/api-monitor-status"
 import { StatusPageEmbed } from "@/components/status-page-embed"
-import { StatusEventHistory } from "@/components/status-event-history"
 
 export const metadata: Metadata = {
   title: "服务状态 · 赛道时刻",
@@ -12,7 +11,6 @@ export const metadata: Metadata = {
 
 const STATUS_PAGE_URL = "https://racecalendar-huosai.openstatus.dev/"
 const EMBED_URL = `${STATUS_PAGE_URL}?embed=banner,components&theme=dark`
-const EVENT_HISTORY_EMBED_URL = `${STATUS_PAGE_URL}events?embed&theme=dark`
 
 export default function StatusPage() {
   return (
@@ -29,13 +27,8 @@ export default function StatusPage() {
       </header>
 
       <section aria-label="公开网站状态" className="pt-2">
-        <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站状态" heightClassName="h-[250px] w-full sm:h-[290px]" />
+        <StatusPageEmbed src={EMBED_URL} title="赛道时刻网站状态" heightClassName="h-[300px] w-full sm:h-[310px]" />
       </section>
-
-      <div className="mt-4">
-        <StatusEventHistory src={EVENT_HISTORY_EMBED_URL} externalUrl={`${STATUS_PAGE_URL}events`} />
-      </div>
-
       <div className="mt-8">
         <ApiMonitorStatus />
       </div>
