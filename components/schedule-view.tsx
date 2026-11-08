@@ -467,7 +467,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       <div
         data-filter-bar
         className={cn(
-          "sticky top-0 z-10 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
+          "sticky top-0 z-10 -mt-3 -mx-4 px-4 py-3 flex flex-col gap-3 bg-background/80 backdrop-blur-md border-b border-border/50 transition-all",
           filterStuck && isMobile && "py-2 gap-1"
         )}
       >
