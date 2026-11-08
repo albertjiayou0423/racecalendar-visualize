@@ -224,11 +224,11 @@ function BeijingClock({ now }: { now: number }) {
       onClick={toggleClock}
       aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
       title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
-      className="flex w-fit max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/70 bg-transparent px-2.5 py-1.5 text-left transition-colors hover:border-border hover:bg-muted/40"
+      className="flex w-fit max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/70 bg-transparent px-2.5 py-1.5 text-left transition-colors hover:border-border hover:bg-muted/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <Clock className="size-3.5 text-muted-foreground" aria-hidden />
       <div key={mode} className="clock-flip min-w-0 leading-tight">
-        <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">{zoneLabel}</span>
+        <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">{zoneLabel}</span>
         <span className="block whitespace-nowrap font-mono text-[13px] font-semibold tabular-nums">{formatHomeClock(now, timeZone)}</span>
       </div>
     </button>
@@ -493,7 +493,7 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {/* 页头 */}
       <header className="flex flex-col gap-3">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 max-[359px]:gap-x-2">
-          <h1 className="min-w-0 whitespace-nowrap text-[28px] font-bold leading-[1.1] tracking-[-0.035em] sm:text-[30px]">赛道时刻</h1>
+          <h1 className="min-w-0 whitespace-nowrap text-[28px] font-bold leading-[1.1] tracking-tight sm:text-[30px]">赛道时刻</h1>
           <div className="justify-self-end">
             <BeijingClock now={now} />
           </div>
