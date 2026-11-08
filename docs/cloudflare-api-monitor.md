@@ -41,7 +41,7 @@ The monitor intentionally does not call `/api/schedule`: that route can crawl up
 - Observability logs: enabled
 - Secret binding: `NTFY_TOPIC_URL` is configured as a Worker secret.
 
-The Worker sends ntfy messages only when a monitor changes between healthy and issue states. The first healthy check initializes state without a message. A failed ntfy delivery does not advance notification state, allowing a later scheduled run to retry. Delivery retries up to three times for network errors and temporary HTTP failures such as 5xx, with short backoff; permanent 4xx responses are not retried. Logs contain the HTTP status or error class, never the secret URL.
+The Worker sends ntfy messages only when a monitor changes between healthy and issue states. The first healthy check initializes state without a message. A failed ntfy delivery does not advance notification state, allowing a later scheduled run to retry. Delivery retries up to three times for network errors and temporary HTTP failures such as 5xx or 429, honoring `Retry-After` up to 60 seconds and otherwise using exponential backoff; permanent 4xx responses are not retried. Logs contain the HTTP status or error class, never the secret URL.
 
 The first live notification attempt on 2026-11-08 received HTTP 522. The ntfy project has documented Cloudflare Worker egress timeouts to `ntfy.sh`; retries may succeed when a different shared egress path is used. If retries continue to fail, use a notification provider reachable from Workers or route through a separate service.
 

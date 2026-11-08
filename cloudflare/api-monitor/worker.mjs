@@ -26,6 +26,21 @@ function cleanMessage(value) {
   return typeof value === "string" ? value.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim().slice(0, 180) : ""
 }
 
+function ntfyRetryDelayMs(response, attempt) {
+  const retryAfter = response?.headers.get("Retry-After")
+  if (retryAfter) {
+    const seconds = Number(retryAfter)
+    const retryAt = Date.parse(retryAfter)
+    const delay = Number.isFinite(seconds) && seconds >= 0
+      ? seconds * 1000
+      : Number.isFinite(retryAt)
+        ? retryAt - Date.now()
+        : Number.NaN
+    if (Number.isFinite(delay)) return Math.max(0, Math.min(delay, 60_000))
+  }
+  return Math.min(15_000, 2_000 * (2 ** (attempt - 1)))
+}
+
 function result(status, message) {
   return { status, message }
 }
@@ -416,6 +431,7 @@ async function sendTransitionNotifications(env, checks) {
     let delivered = false
     let lastFailure = "unknown"
     let attempts = 0
+    let retryDelayMs = 0
 
     for (let attempt = 1; attempt <= NTFY_RETRY_LIMIT; attempt += 1) {
       attempts = attempt
@@ -441,11 +457,13 @@ async function sendTransitionNotifications(env, checks) {
         lastFailure = `HTTP ${response.status}`
         const retryable = response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500
         if (!retryable) break
+        retryDelayMs = ntfyRetryDelayMs(response, attempt)
       } catch (error) {
         lastFailure = error instanceof Error ? error.name : "unknown"
+        retryDelayMs = ntfyRetryDelayMs(null, attempt)
       }
 
-      if (attempt < NTFY_RETRY_LIMIT) await new Promise((resolve) => setTimeout(resolve, 300 * attempt))
+      if (attempt < NTFY_RETRY_LIMIT) await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
     }
 
     if (!delivered) {
