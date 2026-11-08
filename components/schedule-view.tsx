@@ -14,7 +14,6 @@ import { mergeScheduleWithClientCache, parseClientScheduleCache, scheduleFromCli
 import {
     BEIJING_TZ,
     SERIES_META,
-    formatDateTime,
     formatTime,
     isPast,
     mainSession,
@@ -111,6 +110,55 @@ type ViewMode = "list" | "week" | "month" | "weekend"
 type CircuitTypeFilter = "all" | "street" | "permanent" | "hybrid" | "rally"
 type RegionFilter = "all" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania"
 
+function formatHomeClock(now: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(now))
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]))
+  return `${values.day}/${values.month} ${values.hour}:${values.minute}`
+}
+
+function formatUtcOffset(now: number, timeZone: string) {
+  let offset: string | undefined
+  try {
+    offset = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "shortOffset" })
+      .formatToParts(new Date(now))
+      .find(({ type }) => type === "timeZoneName")?.value
+  } catch {
+    // Older Safari versions may not support shortOffset.
+  }
+  if (offset && /^(?:GMT|GMT[+-]\d{1,2}(?::\d{2})?)$/.test(offset)) {
+    if (offset === "GMT" || offset === "GMT+0" || offset === "GMT+00:00") return "UTC"
+    const normalized = offset.replace(/^GMT/, "").replace(/:00$/, "").replace(/^([+-])0(\d)$/, "$1$2")
+    return `UTC${normalized}`
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(now))
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, Number(value)]))
+  const localAsUtc = Date.UTC(values.year, values.month - 1, values.day, values.hour % 24, values.minute, values.second)
+  const offsetMinutes = Math.round((localAsUtc - Math.floor(now / 1000) * 1000) / 60_000)
+  if (offsetMinutes === 0) return "UTC"
+  const sign = offsetMinutes < 0 ? "-" : "+"
+  const absoluteMinutes = Math.abs(offsetMinutes)
+  const hours = Math.floor(absoluteMinutes / 60)
+  const minutes = absoluteMinutes % 60
+  return `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""}`
+}
+
 const SERIES_TABS: { key: SeriesFilter; label: string }[] = [
   { key: "ALL", label: "全部" },
   { key: "F1", label: "F1" },
@@ -167,21 +215,21 @@ function BeijingClock({ now }: { now: number }) {
   const mode: HomeClockMode = preferences.homeClockMode
   const userTimeZone = hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone || BEIJING_TZ : BEIJING_TZ
   const timeZone = mode === "utc" ? "UTC" : userTimeZone
-  const label = !hydrated ? "北京时间" : mode === "utc" ? "UTC 世界标准时间 · UTC+00:00" : "用户当地时间"
+  const zoneLabel = mode === "utc" ? "UTC" : formatUtcOffset(now, timeZone)
+  const label = mode === "utc" ? "UTC 时间" : `用户当地时间（${zoneLabel}）`
   const toggleClock = () => updateAppPreferences({ homeClockMode: mode === "utc" ? "user" : "utc" })
-  const iso = new Date(now).toISOString()
   return (
     <button
       type="button"
       onClick={toggleClock}
       aria-label={`当前显示${label}，点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
       title={`点击切换到${mode === "utc" ? "用户当地时间" : "UTC 时间"}`}
-      className="flex w-full max-w-[15.75rem] shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
+      className="flex w-fit max-w-full shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50 max-[359px]:gap-1 max-[359px]:px-2 sm:w-full"
     >
-      <Clock className="size-4 text-primary" aria-hidden />
+      <Clock className="size-4 text-primary max-[359px]:size-3.5" aria-hidden />
       <div key={mode} className="clock-flip min-w-0 leading-tight">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="font-mono text-sm font-semibold tabular-nums">{formatDateTime(iso, timeZone)}{mode === "utc" ? " UTC" : ""}</div>
+        <span className="block text-[10px] uppercase tracking-wide text-muted-foreground max-[359px]:text-[9px]">{zoneLabel}</span>
+        <span className="block whitespace-nowrap font-mono text-sm font-semibold tabular-nums max-[359px]:text-xs">{formatHomeClock(now, timeZone)}</span>
       </div>
     </button>
   )
@@ -444,8 +492,8 @@ export function ScheduleView({ serverTime = 0 }: { serverTime?: number }) {
       {!playground && !isLoading && !error && <CountdownAutoEntry events={allEvents} now={now} />}
       {/* 页头 */}
       <header className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 items-center gap-x-3 gap-y-1 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,13.5rem)] sm:grid-cols-[minmax(0,1fr)_15.75rem]">
-          <h1 className="min-w-0 text-pretty text-2xl font-bold tracking-tight sm:text-3xl">赛道时刻</h1>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 max-[359px]:gap-x-1 sm:grid-cols-[minmax(0,1fr)_15.75rem]">
+          <h1 className="min-w-0 whitespace-nowrap text-3xl font-bold tracking-tight min-[360px]:text-4xl">赛道时刻</h1>
           <div className="justify-self-end">
             <BeijingClock now={now} />
           </div>
