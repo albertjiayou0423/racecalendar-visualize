@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Clock3, MapPin, Trophy } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Clock3, Copy, MapPin, RotateCcw, Trophy } from "lucide-react"
 import type { RaceEvent, RaceSession } from "@/lib/types"
-import { BEIJING_TZ, SERIES_META, formatTime, offsetLabel } from "@/lib/format"
+import { BEIJING_TZ, SERIES_META, countdown, formatDateTime, formatTime, offsetLabel } from "@/lib/format"
 import { isTimeUnconfirmed } from "@/lib/session-time"
 import { cn } from "@/lib/utils"
 import "./weekend-view.css"
@@ -20,8 +20,12 @@ function formatDay(key: string) {
   return new Intl.DateTimeFormat("zh-CN", { timeZone: BEIJING_TZ, month: "long", day: "numeric", weekday: "long" }).format(new Date(Date.UTC(year, month - 1, day, 12)))
 }
 
-function localTime(utc: string, zone: string) {
-  try { return formatTime(utc, zone) } catch { return null }
+function timeUntil(utc: string, now: number) {
+  const left = countdown(utc, now)
+  if (left.days > 0) return `${left.days}天 ${left.hours}小时`
+  if (left.hours > 0) return `${left.hours}小时 ${left.minutes}分`
+  if (left.minutes > 0) return `${left.minutes}分 ${left.seconds}秒`
+  return `${left.seconds}秒`
 }
 
 function buildWeekends(events: RaceEvent[]): Weekend[] {
@@ -45,13 +49,23 @@ function nearestIndex(weekends: Weekend[], now: number) {
 export function WeekendView({ events, now, variant = "default" }: { events: RaceEvent[]; now: number; variant?: "default" | "simple" }) {
   const weekends = useMemo(() => buildWeekends(events), [events])
   const nearest = nearestIndex(weekends, now)
-  const [selectedId, setSelectedId] = useState(() => weekends[nearest]?.event.id ?? "")
+  // Null means "follow the nearest weekend"; manual browsing stays put until reset.
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [copyNotice, setCopyNotice] = useState("")
+  const selectedExists = selectedId !== null && weekends.some(item => item.event.id === selectedId)
+  const activeId = selectedExists ? selectedId : weekends[nearest]?.event.id ?? ""
 
   useEffect(() => {
-    if (!weekends.some(item => item.event.id === selectedId)) setSelectedId(weekends[nearest]?.event.id ?? "")
-  }, [weekends, nearest, selectedId])
+    if (selectedId !== null && !weekends.some(item => item.event.id === selectedId)) setSelectedId(null)
+  }, [weekends, selectedId])
 
-  const index = weekends.findIndex(item => item.event.id === selectedId)
+  useEffect(() => {
+    if (!copyNotice) return
+    const timeout = window.setTimeout(() => setCopyNotice(""), 2200)
+    return () => window.clearTimeout(timeout)
+  }, [copyNotice])
+
+  const index = weekends.findIndex(item => item.event.id === activeId)
   const weekend = weekends[index]
   const dayGroups = useMemo(() => {
     const grouped = new Map<string, RaceSession[]>()
@@ -75,6 +89,46 @@ export function WeekendView({ events, now, variant = "default" }: { events: Race
   const firstDate = dayGroups[0]?.[0]
   const lastDate = dayGroups[dayGroups.length - 1]?.[0]
   const dateRange = firstDate === lastDate ? formatDay(firstDate) : formatDay(firstDate) + " – " + formatDay(lastDate)
+  const today = dateKey(new Date(now).toISOString())
+  const liveSession = weekend.event.series === "WRC"
+    ? undefined
+    : [...weekend.sessions].reverse().find(session => {
+      if (isTimeUnconfirmed(weekend.event, session)) return false
+      const start = Date.parse(session.utc)
+      return start <= now && now <= start + 2 * 60 * 60 * 1000
+    })
+  const nextSession = weekend.sessions.find(session => {
+    if (isTimeUnconfirmed(weekend.event, session)) return dateKey(session.utc) >= today
+    return Date.parse(session.utc) > now
+  })
+  const focusSession = liveSession ?? nextSession
+  const focusPending = focusSession ? isTimeUnconfirmed(weekend.event, focusSession) : false
+
+  async function copySchedule() {
+    const lines = [
+      `${weekend.event.name} · 比赛周末`,
+      [weekend.event.locality, weekend.event.country].filter(Boolean).join("，"),
+      "",
+    ]
+    for (const [day, sessions] of dayGroups) {
+      lines.push(`【${formatDay(day)}】`)
+      for (const session of sessions) {
+        const pending = isTimeUnconfirmed(weekend.event, session)
+        const main = session.isMain ? "（主赛）" : ""
+        const time = pending
+          ? `时间待确认${session.clientUploadedAt ? " · 客户端补充" : " · 估计"}`
+          : `北京时间 ${formatTime(session.utc, BEIJING_TZ)}${weekend.event.tz ? ` · 当地 ${formatDateTime(session.utc, weekend.event.tz)} ${offsetLabel(session.utc, weekend.event.tz)}` : ""}`
+        lines.push(`• ${time} · ${session.name}${main}`)
+      }
+      lines.push("")
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join("\n").trim())
+      setCopyNotice("赛程已复制")
+    } catch {
+      setCopyNotice("复制失败，请检查剪贴板权限")
+    }
+  }
 
   return <section className={"weekend-view" + (variant === "simple" ? " simple-weekend" : "")} aria-label="比赛周末视图">
     <header className="weekend-header">
@@ -90,37 +144,61 @@ export function WeekendView({ events, now, variant = "default" }: { events: Race
         <span>{index + 1} / {weekends.length}</span>
         <button type="button" onClick={() => move(-1)} disabled={index <= 0} aria-label="上一站"><ChevronLeft size={17} /></button>
         <button type="button" onClick={() => move(1)} disabled={index >= weekends.length - 1} aria-label="下一站"><ChevronRight size={17} /></button>
+        {index !== nearest && <button type="button" onClick={() => setSelectedId(null)} aria-label="回到最近比赛周末" title="回到最近比赛周末"><RotateCcw size={14} /></button>}
       </nav>
     </header>
 
+    <div className={"weekend-focus" + (liveSession ? " is-live" : "")} style={{ "--weekend-accent": meta.color } as React.CSSProperties}>
+      <span className="weekend-focus-icon" aria-hidden><Clock3 size={16} /></span>
+      <div className="weekend-focus-copy">
+        <span className="weekend-focus-label">{liveSession ? "正在进行" : nextSession ? "下一场" : "本站赛程"}</span>
+        <strong>{focusSession?.name ?? "暂无后续场次"}</strong>
+        {focusSession && <span className="weekend-focus-time">
+          {focusPending
+            ? `时间待确认 · ${focusSession.clientUploadedAt ? "客户端补充待核验" : "估计安排"}`
+            : `${formatDateTime(focusSession.utc, BEIJING_TZ)} · 北京时间${liveSession ? "" : ` · 还有 ${timeUntil(focusSession.utc, now)}`}`}
+        </span>}
+      </div>
+      {focusSession?.isMain && <span className="weekend-focus-main"><Trophy size={12} />主赛</span>}
+    </div>
+
     <div className="weekend-days">
       {dayGroups.map(([day, sessions]) => <section className="weekend-day" key={day} aria-label={formatDay(day)}>
-        <h3><span>{formatDay(day)}</span><span>{sessions.length} 场</span></h3>
+        <h3><span className="weekend-day-title">{formatDay(day)}{day === today && <em>今天</em>}</span><span>{sessions.length} 场</span></h3>
         <ol>
           {sessions.map((session, sessionIndex) => {
             const pending = isTimeUnconfirmed(weekend.event, session)
-            const started = !pending && Date.parse(session.utc) <= now && now <= Date.parse(session.utc) + 2 * 60 * 60 * 1000
-            const local = !pending ? localTime(session.utc, weekend.event.tz) : null
+            const started = liveSession === session
+            const next = nextSession === session
             const beijing = !pending ? formatTime(session.utc, BEIJING_TZ) : null
-            return <li key={session.utc + "-" + session.name + "-" + sessionIndex} className={"weekend-session" + (session.isMain ? " is-main" : "") + (started ? " is-live" : "")} style={{ "--weekend-accent": meta.color } as React.CSSProperties}>
+            const beijingDateTime = !pending ? formatDateTime(session.utc, BEIJING_TZ) : null
+            const localDateTime = !pending ? formatDateTime(session.utc, weekend.event.tz) : null
+            return <li key={session.utc + "-" + session.name + "-" + sessionIndex} className={"weekend-session" + (session.isMain ? " is-main" : "") + (started ? " is-live" : "") + (next ? " is-next" : "")} style={{ "--weekend-accent": meta.color } as React.CSSProperties}>
               <div className="weekend-session-time">
                 <strong>{pending ? "待确认" : beijing}</strong>
-                {!pending && <small>{local && local !== beijing ? `当地 ${local} · ${offsetLabel(session.utc, weekend.event.tz)}` : `北京时间 · 当地 ${offsetLabel(session.utc, weekend.event.tz)}`}</small>}
+                {!pending && <small>{localDateTime !== beijingDateTime ? `当地 ${localDateTime} · ${offsetLabel(session.utc, weekend.event.tz)}` : `北京时间 · 当地 ${offsetLabel(session.utc, weekend.event.tz)}`}</small>}
               </div>
               <div className="weekend-session-name">
                 <span>{session.name}</span>
                 {session.isMain && <Trophy size={13} aria-label="主场次" />}
               </div>
-              {started && <span className="weekend-live">进行中</span>}
-              {pending && <span className="weekend-estimate">估计</span>}
+              <div className="weekend-session-badges">
+                {started && <span className="weekend-live">进行中</span>}
+                {!started && next && !pending && <span className="weekend-next-label">下一场</span>}
+                {pending && <span className="weekend-estimate">估计</span>}
+              </div>
             </li>
           })}
         </ol>
       </section>)}
     </div>
     <footer className="weekend-footer">
-      <span><Clock3 size={13} aria-hidden /> 北京时间为主，已确认场次同时显示当地时间</span>
-      <Link href={(variant === "simple" ? "/new/event/" : "/event/") + weekend.event.id}>赛事详情 <ChevronRight size={14} aria-hidden /></Link>
+      <span>北京时间为主 · 已确认场次附当地日期和时区</span>
+      <div className="weekend-actions">
+        {copyNotice && <span className="weekend-copy-notice" role="status">{copyNotice}</span>}
+        <button type="button" onClick={copySchedule} className="weekend-copy">{copyNotice === "赛程已复制" ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}{copyNotice === "赛程已复制" ? "已复制" : "复制赛程"}</button>
+        <Link href={(variant === "simple" ? "/new/event/" : "/event/") + weekend.event.id}>赛事详情 <ChevronRight size={14} aria-hidden /></Link>
+      </div>
     </footer>
   </section>
 }
