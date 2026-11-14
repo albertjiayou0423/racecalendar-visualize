@@ -42,7 +42,7 @@ export function UsageGuide() {
   }, [])
 
   useEffect(() => {
-    if (pathname.startsWith("/new") || pathname.startsWith("/admin") || pathname.startsWith("/api") || (pathname.startsWith("/playground/preview") && !playground)) { setOpen(false); return }
+    if (pathname.startsWith("/new") || pathname.startsWith("/admin") || pathname.startsWith("/api") || pathname.startsWith("/data") || (pathname.startsWith("/playground/preview") && !playground)) { setOpen(false); return }
     let seen = !!playground || shownThisSession
     try { if (!playground) seen = seen || localStorage.getItem(SEEN_KEY) === "1" } catch { /* Storage can be disabled. */ }
     const timer = seen || pathname.startsWith("/playground") ? undefined : window.setTimeout(show, 600)
@@ -154,7 +154,7 @@ export function UsageGuide() {
   }, [open, selected, navigating, step, pathname, !!rect])
 
   const position = guidePanelPosition(selected ? rect : null, viewport, panelHeight, !selected ? 640 : 360)
-  if (pathname.startsWith("/new") || (pathname.startsWith("/playground") && !playground)) return null
+  if (pathname.startsWith("/new") || pathname.startsWith("/data") || (pathname.startsWith("/playground") && !playground)) return null
   return <>
     {pathname !== "/" && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && <div className="fixed bottom-4 right-4 z-40 rounded-full bg-background shadow-lg"><UsageGuideButton /></div>}
     <dialog ref={dialog} aria-labelledby="usage-guide-title" aria-describedby="usage-guide-description" onCancel={() => setOpen(false)} className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overscroll-contain overflow-y-auto border-0 bg-transparent p-0 text-foreground backdrop:bg-transparent">

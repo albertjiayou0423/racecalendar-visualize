@@ -214,7 +214,7 @@ function refreshInBackground(series: Series): Promise<void> {
   if (active) return active
   const pending = (async () => {
     const allowed = await canCrawlToday(series)
-    if (series === "WRC" || allowed) await refreshSeries(series, allowed)
+    if (series === "WRC" || allowed) await refreshSeries(series, allowed, "schedule-background")
   })().catch(error => logServerError("api.schedule.background_refresh_failed", { series }, error))
     .finally(() => activeRefreshes.delete(series))
   activeRefreshes.set(series, pending)

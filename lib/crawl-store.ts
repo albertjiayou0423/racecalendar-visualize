@@ -41,6 +41,25 @@ export async function initCrawlTables(): Promise<void> {
         updated_by TEXT DEFAULT 'admin'
       )
     `
+
+    // One latest-only row per series keeps the public data-flow view observable
+    // without creating an unbounded log table or storing raw upstream payloads.
+    await sql`
+      CREATE TABLE IF NOT EXISTS data_flow_runs (
+        series TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        stage TEXT NOT NULL,
+        triggered_by TEXT NOT NULL,
+        started_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        finished_at TIMESTAMPTZ,
+        event_count INTEGER NOT NULL DEFAULT 0,
+        sample_event JSONB,
+        diagnostics JSONB,
+        note TEXT NOT NULL DEFAULT ''
+      )
+    `
   } catch (err) {
     console.error("初始化爬虫表失败:", err)
   }
