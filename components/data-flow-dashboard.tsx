@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Activity, ArrowDown, ArrowLeft, ArrowRight, Check, CircleHelp, Clock3,
-  Database, ExternalLink, GitBranch, Globe2, LoaderCircle, Radio, RefreshCw,
+  Database, ExternalLink, GitBranch, Globe2, Radio, RefreshCw,
   ShieldCheck, Sparkles, TriangleAlert, Wifi,
 } from "lucide-react"
 import type { RaceEvent, ScheduleResponse, Series } from "@/lib/types"
@@ -112,7 +112,7 @@ function flowStageIndex(run: Run | undefined) {
 }
 
 function StatusMark({ run, fresh }: { run?: Run; fresh: boolean }) {
-  if (fresh) return <LoaderCircle className="size-4 animate-spin text-primary" aria-label="正在处理" />
+  if (fresh) return <Activity className="size-4 text-primary" aria-label="正在处理" />
   if (run?.status === "active") return <TriangleAlert className="size-4 text-amber-400" aria-label="运行记录已停更" />
   if (run?.status === "complete") return <Check className="size-4 text-emerald-400" aria-label="完成" />
   if (run?.status === "fallback") return <RefreshCw className="size-4 text-amber-400" aria-label="使用快照回退" />
@@ -121,9 +121,9 @@ function StatusMark({ run, fresh }: { run?: Run; fresh: boolean }) {
 }
 
 function FlowNode({
-  index, title, caption, icon: Icon, active, complete, warning, reducedMotion,
+  index, title, caption, icon: Icon, active, complete, warning,
 }: {
-  index: number; title: string; caption: string; icon: typeof Globe2; active: boolean; complete: boolean; warning?: boolean; reducedMotion: boolean
+  index: number; title: string; caption: string; icon: typeof Globe2; active: boolean; complete: boolean; warning?: boolean
 }) {
   return (
     <motion.div
@@ -132,8 +132,6 @@ function FlowNode({
       className={`relative flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3.5 transition-colors sm:px-4 ${
         active ? "border-primary/55 bg-primary/[0.07]" : complete ? "border-emerald-400/20 bg-emerald-400/[0.035]" : "border-border/70 bg-card/35"
       }`}
-      animate={active && !reducedMotion ? { y: [0, -2, 0] } : { y: 0 }}
-      transition={active && !reducedMotion ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.25 }}
     >
       <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${active ? "bg-primary/15 text-primary" : complete ? "bg-emerald-400/10 text-emerald-300" : warning ? "bg-amber-400/10 text-amber-300" : "bg-secondary text-muted-foreground"}`}>
         <Icon className="size-[18px]" />
@@ -145,7 +143,7 @@ function FlowNode({
         </div>
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{caption}</p>
       </div>
-      {active && <motion.span className="absolute right-3 top-3 size-1.5 rounded-full bg-primary" animate={reducedMotion ? { opacity: 1 } : { opacity: [0.35, 1, 0.35] }} transition={{ duration: 1.4, repeat: reducedMotion ? 0 : Infinity }} />}
+      {active && <span className="absolute right-3 top-3 size-1.5 rounded-full bg-primary" aria-label="当前阶段" />}
     </motion.div>
   )
 }
@@ -155,7 +153,6 @@ function SectionTitle({ eyebrow, title, detail }: { eyebrow: string; title: stri
 }
 
 export function DataFlowDashboard() {
-  const reducedMotion = useReducedMotion() ?? false
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null)
   const [scheduleError, setScheduleError] = useState(false)
   const [selectedId, setSelectedId] = useState("")
@@ -280,7 +277,7 @@ export function DataFlowDashboard() {
             const quota = flow?.quotas.find(item => item.series === series)
             const source = schedule?.sources.find(item => item.series === series)
             return (
-              <motion.article key={series} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.07, duration: 0.35 }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/35 p-4 sm:p-5">
+              <motion.article key={series} initial={{ opacity: 0.96 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/35 p-4 sm:p-5">
                 <div className={`absolute inset-x-0 top-0 h-px ${series === "F1" ? "bg-f1/70" : series === "FE" ? "bg-fe/70" : "bg-wrc/70"}`} />
                 <div className="flex items-center justify-between gap-3">
                   <div><p className={`font-mono text-[10px] tracking-[0.18em] ${SERIES_META[series].tint}`}>{SERIES_META[series].label}</p><h3 className="mt-1.5 text-sm font-semibold">{SERIES_META[series].endpoint}</h3></div>
@@ -315,12 +312,12 @@ export function DataFlowDashboard() {
             const active = trackedSeries ? currentRunActive && (index === activeIndex || (currentRun?.stage === "fallback" && index === 2)) : false
             const complete = trackedSeries ? Boolean(currentRun && !currentRunActive && (currentRun.status === "complete" || currentRun.status === "fallback") && (index <= 2 || Boolean(schedule))) : false
             const warning = trackedSeries ? currentRun?.status === "fallback" && index === 2 : false
-            return <FlowNode key={node.title} index={index} title={node.title} caption={node.caption} icon={node.icon} active={active} complete={complete} warning={warning} reducedMotion={reducedMotion} />
+            return <FlowNode key={node.title} index={index} title={node.title} caption={node.caption} icon={node.icon} active={active} complete={complete} warning={warning} />
           })}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/25 px-4 py-3 text-xs">
           <div className="flex items-center gap-2">
-            {currentRunActive ? <LoaderCircle className="size-4 animate-spin text-primary" /> : currentRun?.status === "failed" ? <TriangleAlert className="size-4 text-amber-400" /> : <Check className="size-4 text-emerald-400" />}
+            {currentRunActive ? <Activity className="size-4 text-primary" /> : currentRun?.status === "failed" ? <TriangleAlert className="size-4 text-amber-400" /> : <Check className="size-4 text-emerald-400" />}
             <span className="font-medium">{trackedSeries ? (currentRunActive ? `${SERIES_META[trackedSeries].label} · ${STAGE_LABEL[currentRun?.stage ?? ""] ?? "正在处理"}` : currentRun?.status === "active" ? "运行记录超过 5 分钟未更新，暂按中断处理" : currentRun?.note ?? (currentSnapshot ? "当前请求使用已有成功快照" : "等待真实刷新记录")) : "等待赛历数据"}</span>
           </div>
           <span className="text-muted-foreground">{currentRun ? `触发方式：${currentRun.triggeredBy === "admin-manual" ? "后台人工刷新" : currentRun.triggeredBy === "schedule-background" ? "过期快照后台更新" : "赛历请求"} · 开始 ${dateTime(currentRun.startedAt)}` : "没有活跃任务"}</span>
@@ -339,7 +336,7 @@ export function DataFlowDashboard() {
           </label>
         </div>
         <AnimatePresence mode="wait">
-          {picked ? <motion.div key={picked.id} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.2 }}>
+          {picked ? <motion.div key={picked.id} initial={{ opacity: 0.6 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}>
             <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 pb-3 text-xs">
               <span className={`font-mono font-semibold ${SERIES_META[picked.series].tint}`}>{picked.series} / R{String(picked.round).padStart(2, "0")}</span>
               <span className="font-semibold">{picked.name}</span>
@@ -375,7 +372,7 @@ export function DataFlowDashboard() {
             ["06", "补齐与覆盖", "组装时补已公布的未来赛历日期、规范 F1 元数据，再按稳定 event ID 应用管理员浅覆盖。"],
             ["07", "浏览器展示", "SWR 内存数据、localStorage 分系列最近成功值、Service Worker 离线缓存各自独立。"],
             ["08", "访客补缺", "页面加载后低频借用访客网络抓公开 F1/WRC 原始内容，服务端校验后仅补缺，并在事务锁下保存。"],
-          ].map(([number, title, detail], index) => <motion.article key={number} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ delay: (index % 4) * 0.04, duration: 0.3 }} className="rounded-2xl border border-border/60 bg-card/25 p-4">
+          ].map(([number, title, detail]) => <motion.article key={number} initial={{ opacity: 0.94 }} whileInView={{ opacity: 1 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.18 }} className="rounded-2xl border border-border/60 bg-card/25 p-4">
             <p className="font-mono text-[10px] tracking-[0.16em] text-primary">{number}</p><h3 className="mt-2 text-sm font-semibold">{title}</h3><p className="mt-2 text-xs leading-6 text-muted-foreground">{detail}</p>
           </motion.article>)}
         </div>
