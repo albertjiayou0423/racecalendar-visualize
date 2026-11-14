@@ -14,6 +14,16 @@ function parseJson(value: unknown): any {
   try { return JSON.parse(value) } catch { return null }
 }
 
+/** crawl_snapshots.fetched_at is TIMESTAMP without time zone and is stored in UTC. */
+function snapshotTimeUtc(value: unknown): string | null {
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString() : null
+  if (typeof value !== "string" || !value.trim()) return null
+  const normalized = value.trim().replace(" ", "T")
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)
+  const parsed = new Date(hasZone ? normalized : `${normalized}Z`)
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null
+}
+
 function toSample(event: any): DataFlowSample | null {
   if (!event || typeof event.id !== "string" || !SERIES.includes(event.series)) return null
   const sessions = Array.isArray(event.sessions) ? event.sessions : []
@@ -75,7 +85,7 @@ export async function GET(request: Request) {
       const tentativeCount = events.filter((event: any) => event?.tentative || event?.sessions?.some((session: any) => session?.tentative)).length
       return {
         series: row.series,
-        fetchedAt: row.fetched_at,
+        fetchedAt: snapshotTimeUtc(row.fetched_at),
         source: typeof row.source === "string" ? row.source.slice(0, 60) : null,
         eventCount: events.length,
         tentativeCount,

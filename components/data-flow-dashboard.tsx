@@ -28,7 +28,7 @@ type Run = {
 
 type FlowSnapshot = {
   series: Series
-  fetchedAt: string
+  fetchedAt: string | null
   source: string | null
   eventCount: number
   tentativeCount: number
